@@ -14,12 +14,14 @@ The architecture documents in the project root are the source of truth:
 
 ## Current Status
 
-Phase 1 is complete. The repository now includes the package layout, validated
+Phase 2 is complete. The repository now includes the package layout, validated
 domain models and enums, core configuration loading, clocks, common exceptions,
-logging setup, configuration templates, and unit tests.
+logging setup, local market data providers, deterministic replay, reusable batch
+indicators, feature schemas, feature pipelines, configuration templates, and
+unit tests.
 
-Trading business logic has not been implemented yet. The next milestone is
-Phase 2: market data loading and reusable feature/indicator pipelines.
+Trading decision logic has not been implemented yet. The next milestone is
+Phase 3: strategy and risk layers.
 
 ## Layout
 
@@ -27,7 +29,10 @@ Phase 2: market data loading and reusable feature/indicator pipelines.
 configs/          Runtime configuration templates
 src/qts/domain/   Stable domain models and enums
 src/qts/core/     Config loading, clocks, exceptions, and logging setup
-tests/            Smoke and Phase 1 unit tests
+src/qts/market_data/
+                  Local historical data loading, normalization, replay, portal
+src/qts/features/ Reusable batch indicators and feature pipelines
+tests/            Smoke, Phase 1, and Phase 2 unit tests
 data/             Local data placeholder, ignored by git
 artifacts/        Runtime output placeholder, ignored by git
 ```
@@ -46,6 +51,13 @@ available:
 
 ```bash
 .venv/bin/python -m pip install -e ".[dev]"
+```
+
+For Parquet-backed historical data, install the optional data extra when package
+indexes are available:
+
+```bash
+.venv/bin/python -m pip install -e ".[data]"
 ```
 
 ## Run Tests
@@ -79,4 +91,16 @@ Validate a runtime config through the CLI:
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m qts.cli --config configs/backtest.yaml
+```
+
+The Phase 2 CSV fixture provider can be exercised from Python:
+
+```bash
+PYTHONPATH=src .venv/bin/python - <<'PY'
+from qts.market_data import CSVBarProvider
+
+provider = CSVBarProvider("tests/fixtures/market_data/bars.csv")
+bars = provider.get_history(["SPY"], "2024-01-02T14:30:00Z", "2024-01-02T14:35:00Z", "MINUTE")
+print(len(bars), bars[-1].symbol, bars[-1].close)
+PY
 ```

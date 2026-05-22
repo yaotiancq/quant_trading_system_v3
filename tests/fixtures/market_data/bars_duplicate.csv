@@ -1,0 +1,3 @@
+symbol,timestamp,timeframe,open,high,low,close,volume
+SPY,2024-01-02T14:30:00Z,MINUTE,99.5,101,99,100,1000
+SPY,2024-01-02T14:30:00Z,MINUTE,99.5,101,99,100,1000

@@ -5,22 +5,26 @@
 ## 1. Current Status
 
 The project has completed the initial documentation package, repository scaffold,
-and Phase 1 core foundation.
+Phase 1 core foundation, and Phase 2 market data/feature layer.
 
 The Python package now includes stable domain enums and data models, core config
-loading and validation, clocks, common exceptions, logging setup, configuration
-templates, a small CLI config validation path, and focused unit tests.
+loading and validation, clocks, common exceptions, logging setup, local
+historical bar providers, data normalization, deterministic replay, a default
+data portal, reusable batch indicators, feature schemas, feature pipelines,
+configuration templates, a small CLI config validation path, and focused unit
+tests.
 
-No market data loading, indicators, strategies, risk engine, execution layer,
-brokerage implementation, portfolio accounting, backtest engine, reporting, ML,
-or live/paper trading runtime has been implemented.
+No strategies, risk engine, execution layer, brokerage implementation, portfolio
+accounting, backtest engine, reporting, ML workflow, or live/paper trading
+runtime has been implemented.
 
-- **Current phase:** Phase 2 pending
+- **Current phase:** Phase 3 pending
 - **Completed phases:**
   - Phase 0 - Documentation and repository scaffold initialization
   - Phase 1 - Project Skeleton and Core Domain Models
+  - Phase 2 - Market Data and Feature Layer
 - **In-progress phase:** None
-- **Next recommended task:** Start Phase 2: Market Data and Feature Layer
+- **Next recommended task:** Start Phase 3: Strategy and Risk Layer
 
 ## 2. Completed Phases
 
@@ -28,12 +32,12 @@ or live/paper trading runtime has been implemented.
 |---|---|---|
 | Phase 0 | Complete | Documentation package created. Repository scaffold initialized with package layout, configuration templates, dependency metadata, README, and smoke tests. |
 | Phase 1 | Complete | Implemented stable domain models/enums, core config loading, clocks, exceptions, logging setup, CLI config validation, and unit tests. |
+| Phase 2 | Complete | Implemented local market data interfaces/providers, CSV fixtures, optional Parquet provider, replay, default data portal, batch indicators, feature schema/pipeline, and tests. |
 
 ## 3. Pending Phases
 
 | Phase | Status |
 |---|---|
-| Phase 2: Market Data and Feature Layer | Pending |
 | Phase 3: Strategy and Risk Layer | Pending |
 | Phase 4: Execution Layer and BacktestBrokerage | Pending |
 | Phase 5: Backtest Engine and Reporting | Pending |
@@ -83,19 +87,31 @@ Core infrastructure implemented:
 - `src/qts/core/__init__.py`
 - `src/qts/cli.py`
 
-Phase 1 tests implemented:
+Market data layer implemented:
 
-- `tests/unit/domain/test_enums.py`
-- `tests/unit/domain/test_models.py`
-- `tests/unit/core/test_config.py`
-- `tests/unit/core/test_clocks.py`
-- `tests/unit/core/test_logging.py`
-- existing scaffold smoke tests in `tests/test_scaffold.py`
+- `src/qts/market_data/interfaces.py`
+- `src/qts/market_data/normalization.py`
+- `src/qts/market_data/providers.py`
+- `src/qts/market_data/portal.py`
+- `src/qts/market_data/__init__.py`
+
+Feature layer implemented:
+
+- `src/qts/features/indicators.py`
+- `src/qts/features/pipeline.py`
+- `src/qts/features/__init__.py`
+
+Tests and fixtures implemented:
+
+- `tests/test_scaffold.py`
+- `tests/unit/domain/`
+- `tests/unit/core/`
+- `tests/unit/market_data/`
+- `tests/unit/features/`
+- `tests/fixtures/market_data/`
 
 Placeholder package modules still exist for later phases:
 
-- `src/qts/market_data/`
-- `src/qts/features/`
 - `src/qts/strategies/`
 - `src/qts/ml/`
 - `src/qts/risk/`
@@ -114,27 +130,25 @@ Placeholder package modules still exist for later phases:
 - `src/qts/research/`
 - `src/qts/utils/`
 
-These placeholder modules intentionally contain no market data, feature,
-strategy, risk, execution, broker, portfolio, engine, reporting, monitoring,
-research, or ML business logic yet.
+These placeholder modules intentionally contain no strategy, risk, execution,
+broker, portfolio, engine, reporting, monitoring, research, or ML business logic yet.
 
 ## 5. Missing Modules and Functional Work
 
-Phase 2 needs to implement:
+Phase 3 needs to implement:
 
-- `MarketDataProvider` and `DataPortal` interfaces,
-- local Parquet provider,
-- CSV fixture provider for tests and debugging,
-- historical data normalization,
-- batch indicators and feature pipeline,
-- feature schema validation,
-- deterministic replay provider,
-- tests and fixtures for market data and features.
+- base `Strategy` interface,
+- example SMA crossover strategy,
+- example RSI mean reversion strategy,
+- normalized signal/trade-intent generation,
+- risk rule and risk engine interfaces,
+- position sizing,
+- basic risk rules,
+- risk decision reasons,
+- focused tests and configs for strategy and risk behavior.
 
 All later application functionality remains missing:
 
-- strategies,
-- risk engine and position sizing,
 - execution layer,
 - brokerage implementations,
 - portfolio accounting,
@@ -147,13 +161,15 @@ All later application functionality remains missing:
 
 ## 6. Known Issues
 
-- The current foundation has no trading runtime behavior by design.
+- The current foundation has no trading decision or order execution behavior by design.
 - `pytest` is listed as an optional test dependency but is not installed in the
-  current local virtual environment. The Phase 1 test suite currently runs with
+  current local virtual environment. The test suite currently runs with
   standard-library `unittest`.
 - Config loading supports PyYAML if installed and otherwise uses an internal
   parser for the repository's simple YAML templates. This parser is intentionally
   limited.
+- Parquet loading is implemented through optional pandas or pyarrow dependencies.
+  CSV fixtures remain the guaranteed no-dependency test path.
 - Live trading is intentionally deferred and must remain guarded.
 - First implementation target is minute-level bars.
 - Second-level data support should be preserved architecturally but not overbuilt early.
@@ -163,7 +179,7 @@ All later application functionality remains missing:
 
 ## 7. Next Recommended Task
 
-Start **Phase 2: Market Data and Feature Layer**.
+Start **Phase 3: Strategy and Risk Layer**.
 
 The next AI coding agent should:
 
@@ -174,10 +190,10 @@ The next AI coding agent should:
    - `INTERFACES.md`
    - `DATA_MODELS.md`
    - `CHANGELOG.md`
-2. Reuse the existing Phase 1 domain and core infrastructure.
-3. Implement local market data interfaces/providers and reusable feature logic
-   according to Phase 2 only.
-4. Add focused tests and fixtures for market data and feature behavior.
+2. Reuse the existing Phase 1 domain/core infrastructure and Phase 2
+   market-data/feature layer.
+3. Implement strategy and risk behavior according to Phase 3 only.
+4. Add focused tests for strategies, risk rules, and position sizing.
 5. Run tests.
 6. Update this file and `CHANGELOG.md`.
 

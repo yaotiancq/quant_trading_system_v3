@@ -14,12 +14,18 @@ authors = [
 dependencies = []
 
 [project.optional-dependencies]
+data = [
+  "pandas>=2.2",
+  "pyarrow>=15.0"
+]
 test = [
   "pytest>=8.0"
 ]
 dev = [
   "mypy>=1.13",
+  "pandas>=2.2",
   "pytest>=8.0",
+  "pyarrow>=15.0",
   "ruff>=0.8"
 ]
 

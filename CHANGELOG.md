@@ -8,6 +8,73 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Phase 2] - 2026-05-22
+
+### Added
+
+- Implemented market data protocols for `MarketDataProvider` and `DataPortal`.
+- Implemented historical bar normalization helpers:
+  - required bar column validation,
+  - UTC timestamp normalization,
+  - symbol normalization,
+  - duplicate symbol/timestamp/timeframe detection,
+  - date/symbol/timeframe filtering.
+- Implemented local market data providers:
+  - `CSVBarProvider`,
+  - `LocalParquetProvider` using optional pandas or pyarrow,
+  - `ReplayMarketDataProvider`.
+- Implemented `DefaultDataPortal` for historical bar access, current market event
+  state, quote passthrough, and feature-frame access.
+- Implemented reusable batch indicators:
+  - SMA,
+  - EMA,
+  - RSI,
+  - MACD,
+  - Bollinger Bands,
+  - ATR,
+  - VWAP,
+  - returns,
+  - volatility,
+  - volume mean,
+  - volume ratio.
+- Implemented `FeatureSpec`, `FeatureSchema`, and `FeaturePipeline`.
+- Added CSV market data fixtures for normal, duplicate, and missing-column cases.
+- Added Phase 2 unit tests for:
+  - CSV loading and normalization,
+  - missing-column errors,
+  - duplicate timestamp errors,
+  - deterministic replay order,
+  - data portal access,
+  - known-value indicators,
+  - feature pipeline output and schema validation.
+
+### Changed
+
+- Updated `README.md` to reflect Phase 2 status, optional Parquet dependencies,
+  and CSV provider usage.
+- Added optional `data` dependency extra for pandas/pyarrow-backed Parquet loading.
+- Updated `PROJECT_STATE.md` to mark Phase 2 complete and Phase 3 pending.
+- Added ADR-014 documenting row-oriented feature frames and optional Parquet
+  dependencies.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+### Notes
+
+- Phase 2 does not implement strategies, risk rules, execution logic, brokers,
+  portfolio accounting, engines, reporting, ML workflows, or live/paper trading
+  runtime behavior.
+- CSV fixtures and tests run without third-party dependencies. Parquet loading
+  requires installing optional `data` dependencies.
+
+---
+
 ## [Phase 1] - 2026-05-22
 
 ### Added

@@ -1,5 +1,56 @@
-"""Reusable feature and indicator package placeholder."""
+"""Reusable indicators and feature pipelines."""
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from .indicators import (
+    BatchIndicator,
+    Indicator,
+    atr,
+    bollinger_bands,
+    closes,
+    compute_indicator,
+    ema,
+    highs,
+    lookback_for,
+    lows,
+    macd,
+    output_names_for,
+    required_inputs_for,
+    returns,
+    rsi,
+    sma,
+    true_ranges,
+    volatility,
+    volume_ratio,
+    volumes,
+    vwap,
+)
+from .pipeline import FeaturePipeline, FeatureSchema, FeatureSpec, default_feature_specs
+
+__all__ = [
+    "BatchIndicator",
+    "FeaturePipeline",
+    "FeatureSchema",
+    "FeatureSpec",
+    "Indicator",
+    "atr",
+    "bollinger_bands",
+    "closes",
+    "compute_indicator",
+    "default_feature_specs",
+    "ema",
+    "highs",
+    "lookback_for",
+    "lows",
+    "macd",
+    "output_names_for",
+    "required_inputs_for",
+    "returns",
+    "rsi",
+    "sma",
+    "true_ranges",
+    "volatility",
+    "volume_ratio",
+    "volumes",
+    "vwap",
+]

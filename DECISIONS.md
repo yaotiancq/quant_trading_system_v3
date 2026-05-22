@@ -357,3 +357,39 @@ avoids making basic imports depend on network-installed packages.
 - Require Pydantic for domain models immediately.
 - Require PyYAML for all config loading immediately.
 - Delay model/config implementation until third-party dependencies are installed.
+
+---
+
+## ADR-014: Keep Phase 2 Features Row-Oriented and Parquet Dependencies Optional
+
+### Context
+
+Phase 2 needs local historical data loading, deterministic replay, and reusable
+batch features. The current local environment can run standard-library tests but
+does not include data-science packages by default.
+
+### Decision
+
+Represent Phase 2 feature output as row-oriented `list[dict]` data inside the
+existing `FeatureFrame.features` field. Keep CSV support fully standard-library.
+Implement the local Parquet provider using pandas or pyarrow when one is
+installed, and expose those packages as optional `data` dependencies.
+
+### Rationale
+
+This preserves the documented `FeatureFrame` contract without forcing pandas
+objects into public interfaces. It keeps local fixtures and tests runnable in a
+minimal environment while leaving a direct path to efficient Parquet data.
+
+### Consequences
+
+- CSV fixtures are the guaranteed Phase 2 test path.
+- Parquet loading is implemented but requires installing optional dependencies.
+- Later phases can add dataframe-native adapters without changing the public
+  domain model.
+
+### Alternatives Considered
+
+- Require pandas and pyarrow as hard runtime dependencies immediately.
+- Store `FeatureFrame.features` as a pandas DataFrame.
+- Delay Parquet provider implementation until a dependency install step exists.
