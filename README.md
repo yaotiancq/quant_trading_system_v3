@@ -1,6 +1,6 @@
 # Quant Trading System V3
 
-Lightweight modular quantitative trading system scaffold.
+Lightweight modular quantitative trading system foundation.
 
 The architecture documents in the project root are the source of truth:
 
@@ -14,19 +14,20 @@ The architecture documents in the project root are the source of truth:
 
 ## Current Status
 
-Phase 0 repository scaffolding is initialized. The package layout, configuration
-templates, dependency metadata, and smoke tests exist, but trading business logic
-has not been implemented yet.
+Phase 1 is complete. The repository now includes the package layout, validated
+domain models and enums, core configuration loading, clocks, common exceptions,
+logging setup, configuration templates, and unit tests.
 
-The next implementation milestone remains Phase 1: stable domain models, core
-configuration loading, clocks, exceptions, and logging setup.
+Trading business logic has not been implemented yet. The next milestone is
+Phase 2: market data loading and reusable feature/indicator pipelines.
 
 ## Layout
 
 ```text
 configs/          Runtime configuration templates
-src/qts/          Python package skeleton
-tests/            Smoke tests for the scaffold
+src/qts/domain/   Stable domain models and enums
+src/qts/core/     Config loading, clocks, exceptions, and logging setup
+tests/            Smoke and Phase 1 unit tests
 data/             Local data placeholder, ignored by git
 artifacts/        Runtime output placeholder, ignored by git
 ```
@@ -47,16 +48,16 @@ available:
 .venv/bin/python -m pip install -e ".[dev]"
 ```
 
-## Run Smoke Tests
+## Run Tests
 
-The Phase 0 smoke tests use the Python standard library and do not require
+The current test suite uses the Python standard library and does not require
 pytest:
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m unittest discover -s tests
 ```
 
-If the development extra is installed, pytest can also discover the tests:
+If the development extra is installed, pytest can also discover the same tests:
 
 ```bash
 .venv/bin/python -m pytest
@@ -73,3 +74,9 @@ Configuration templates live under `configs/`:
 
 Secrets must not be stored in YAML files. Copy `.env.example` to `.env` for
 local secret placeholders when future broker integrations are implemented.
+
+Validate a runtime config through the CLI:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m qts.cli --config configs/backtest.yaml
+```

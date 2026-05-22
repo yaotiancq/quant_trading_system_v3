@@ -21,7 +21,14 @@ broker:
 portfolio:
   currency: USD
 
-strategies: []
+strategies:
+  - strategy_id: sma_cross_v1
+    strategy_type: sma_crossover
+    symbols: [SPY]
+    enabled: true
+    parameters:
+      fast_window: 20
+      slow_window: 50
 
 risk:
   sizing_method: fixed_notional

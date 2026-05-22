@@ -320,3 +320,40 @@ Centralized sizing ensures consistent risk controls across strategies and runtim
 
 - Let each strategy own all sizing.
 - Let execution layer determine sizing.
+
+---
+
+## ADR-013: Use Standard-Library Dataclasses for Phase 1 Domain Models
+
+### Context
+
+Phase 1 needs stable domain models, config loading, clocks, exceptions, and tests.
+The local development environment does not currently include third-party runtime
+dependencies such as Pydantic, PyYAML, or pytest.
+
+### Decision
+
+Implement the Phase 1 domain model layer with standard-library dataclasses and
+explicit validation. Implement config loading with optional PyYAML support when
+available and a small internal YAML subset parser for the repository's own
+configuration templates.
+
+### Rationale
+
+This keeps the initial foundation runnable and testable in a minimal local
+environment while preserving the documented public domain contracts. It also
+avoids making basic imports depend on network-installed packages.
+
+### Consequences
+
+- Domain validation is explicit in model `__post_init__` methods.
+- Tests can run with `unittest` without installing pytest.
+- The config parser is intentionally limited and should not grow into a general
+  YAML implementation; if config complexity grows, PyYAML should become a real
+  runtime dependency.
+
+### Alternatives Considered
+
+- Require Pydantic for domain models immediately.
+- Require PyYAML for all config loading immediately.
+- Delay model/config implementation until third-party dependencies are installed.

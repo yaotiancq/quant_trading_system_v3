@@ -4,8 +4,8 @@ runtime:
   mode: BACKTEST
 
 date_range:
-  start: null
-  end: null
+  start: 2024-01-01
+  end: 2024-12-31
 
 market_data:
   provider: local_parquet
@@ -26,7 +26,14 @@ portfolio:
   starting_cash: 100000
   currency: USD
 
-strategies: []
+strategies:
+  - strategy_id: sma_cross_v1
+    strategy_type: sma_crossover
+    symbols: [SPY]
+    enabled: true
+    parameters:
+      fast_window: 20
+      slow_window: 50
 
 risk:
   sizing_method: fixed_notional

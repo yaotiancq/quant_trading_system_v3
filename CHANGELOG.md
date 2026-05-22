@@ -8,6 +8,62 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Phase 1] - 2026-05-22
+
+### Added
+
+- Implemented stable domain enums from `DATA_MODELS.md`.
+- Implemented validated dataclass domain models for:
+  - market data objects,
+  - signals and trade intents,
+  - risk decisions,
+  - orders and fills,
+  - positions, accounts, and portfolio snapshots,
+  - ledger entries,
+  - backtest results,
+  - feature and prediction records,
+  - strategy, risk, broker, and runtime config models.
+- Added domain serialization helpers that normalize enums and UTC timestamps.
+- Implemented core configuration loading and validation:
+  - layered YAML config loading with `extends`,
+  - deep merge behavior,
+  - `.env` key-value loading,
+  - validated `RuntimeConfig` construction,
+  - optional PyYAML support with a small internal parser for repository templates.
+- Implemented `RealClock` and `ReplayClock`.
+- Implemented common exception categories.
+- Implemented basic logging setup with plain text or JSON formatting.
+- Added CLI config validation with `qts --config configs/backtest.yaml`.
+- Added Phase 1 unit tests for domain validation, enum values, config loading,
+  clocks, and logging.
+
+### Changed
+
+- Updated config templates with valid default symbols, date range, and strategy
+  config shape so Phase 1 config loading can validate them.
+- Updated `README.md` with Phase 1 status, test commands, and config validation
+  instructions.
+- Updated `PROJECT_STATE.md` to mark Phase 1 complete and Phase 2 pending.
+- Added ADR-013 documenting the standard-library dataclass/config-parser choice.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+### Notes
+
+- Phase 1 does not implement market data providers, indicators, strategies,
+  risk rules, execution logic, brokers, portfolio accounting, engines, reporting,
+  ML, or live/paper trading runtime behavior.
+- Tests run locally with `unittest`; `pytest` remains an optional dependency and
+  was not installed in the current virtual environment.
+
+---
+
 ## [Phase 0] - 2026-05-22
 
 ### Added

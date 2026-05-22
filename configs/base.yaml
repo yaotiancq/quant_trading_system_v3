@@ -5,7 +5,7 @@ runtime:
   mode: BACKTEST
   timezone: UTC
 
-symbols: []
+symbols: [SPY]
 timeframe: MINUTE
 
 paths:
