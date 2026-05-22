@@ -12,6 +12,7 @@ from qts.domain import (
     Bar,
     BrokerConfig,
     Fill,
+    OPEN_ORDER_STATUSES,
     Order,
     OrderRequest,
     OrderSide,
@@ -24,7 +25,6 @@ from qts.domain import (
     normalize_symbol,
     normalize_timestamp,
 )
-from qts.execution import OPEN_ORDER_STATUSES
 
 
 VALID_FILL_POLICIES = {

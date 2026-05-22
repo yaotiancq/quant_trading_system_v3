@@ -950,7 +950,7 @@ Configuration for a strategy instance.
 | `strategy_type` | string | yes | registered strategy type |
 | `symbols` | list[string] | yes | non-empty |
 | `parameters` | dict | yes | strategy-specific |
-| `feature_config` | dict | no | optional |
+| `feature_config` | dict | no | optional feature specs and schema version for runtime feature construction |
 | `enabled` | bool | yes | default true |
 
 ### Example
@@ -964,9 +964,17 @@ Configuration for a strategy instance.
     "fast_window": 20,
     "slow_window": 50
   },
+  "feature_config": {
+    "schema_version": "features_v1",
+    "required_features": ["sma_20", "sma_50"]
+  },
   "enabled": true
 }
 ```
+
+Runtime engines may also consume `feature_config.specs` entries with
+`name` and `parameters` fields when a strategy, such as an ML runtime strategy,
+requires an explicit training-serving feature schema.
 
 ### Producers
 

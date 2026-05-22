@@ -36,6 +36,10 @@ focused tests.
 Real live broker order submission remains disabled by default. Phase 8 provides
 guarded dry-run initialization and safety validation only.
 
+Post-Phase 8 design review fixes have been applied for replay-bounded backtest
+data portal reads, broker/execution dependency direction, and explicit ML
+runtime feature schema wiring.
+
 - **Current phase:** All documented phases complete
 - **Completed phases:**
   - Phase 0 - Documentation and repository scaffold initialization

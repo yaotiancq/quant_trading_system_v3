@@ -4,7 +4,9 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 
+from qts.core import StrategyError
 from qts.domain import Bar, BarTimeframe, FeatureRecord, SignalDirection, StrategyConfig
+from qts.features import FeaturePipeline, FeatureSpec
 from qts.ml import DirectionalModel, FileModelRegistry
 from qts.strategies import MLSignalStrategy, create_strategy
 
@@ -75,6 +77,28 @@ class MLSignalStrategyTests(unittest.TestCase):
         self.assertEqual(sell[0].direction, SignalDirection.SELL)
         self.assertEqual(buy[0].reason, "ml_directional_prediction")
         self.assertIn("prediction", buy[0].metadata)
+
+    def test_initialize_rejects_runtime_feature_schema_mismatch(self) -> None:
+        class Portal:
+            feature_pipeline = FeaturePipeline(
+                [FeatureSpec("sma", {"window": 3})],
+                schema_version="features_v1",
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            FileModelRegistry(tmp).save_model(make_model())
+            strategy = MLSignalStrategy()
+
+            with self.assertRaises(StrategyError):
+                strategy.initialize(
+                    StrategyConfig(
+                        strategy_id="ml_test",
+                        strategy_type="ml_directional",
+                        symbols=["SPY"],
+                        parameters={"model_id": "strategy-model", "registry_dir": tmp},
+                    ),
+                    data_portal=Portal(),
+                )
 
     def test_strategy_factory_supports_ml_directional_strategy(self) -> None:
         strategy = create_strategy(

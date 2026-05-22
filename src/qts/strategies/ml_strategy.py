@@ -38,6 +38,7 @@ class MLSignalStrategy(BaseStrategy):
             str(model_uri),
             registry=FileModelRegistry(str(registry_dir)),
         )
+        self._validate_runtime_feature_schema(data_portal)
 
     def on_data(
         self,
@@ -93,6 +94,25 @@ class MLSignalStrategy(BaseStrategy):
         if self.inference is None:
             raise StrategyError("ML strategy must be initialized before use")
         return self.inference
+
+    def _validate_runtime_feature_schema(self, data_portal: Any) -> None:
+        inference = self._require_inference()
+        feature_pipeline = getattr(data_portal, "feature_pipeline", None)
+        if feature_pipeline is None or not hasattr(feature_pipeline, "get_schema"):
+            return
+        expected = inference.get_expected_schema()
+        actual = feature_pipeline.get_schema()
+        if actual.schema_version != expected.schema_version:
+            raise StrategyError(
+                "ML strategy feature schema mismatch: "
+                f"model expects {expected.schema_version}, got {actual.schema_version}"
+            )
+        missing = [name for name in expected.feature_names if name not in actual.feature_names]
+        if missing:
+            raise StrategyError(
+                "ML strategy feature schema is missing expected features: "
+                f"{', '.join(sorted(missing))}"
+            )
 
 
 def _select_prediction(

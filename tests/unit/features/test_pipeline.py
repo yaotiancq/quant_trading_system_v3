@@ -53,6 +53,14 @@ class FeaturePipelineTests(unittest.TestCase):
         self.assertEqual(latest.symbol, "SPY")
         self.assertEqual(latest.values["sma_3"], 108)
 
+    def test_explicit_empty_specs_do_not_fall_back_to_defaults(self) -> None:
+        pipeline = FeaturePipeline([])
+
+        frame = pipeline.transform_batch(self.bars)
+
+        self.assertEqual(pipeline.get_schema().feature_names, [])
+        self.assertEqual(set(frame.features[-1]), {"symbol", "timestamp"})
+
     def test_schema_validation_fails_for_missing_feature(self) -> None:
         pipeline = FeaturePipeline(
             [FeatureSpec("sma", {"window": 3}), FeatureSpec("ema", {"window": 3})]

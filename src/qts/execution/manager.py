@@ -6,15 +6,14 @@ from dataclasses import replace
 from datetime import datetime
 
 from qts.core import ExecutionError
-from qts.domain import Fill, Order, OrderStatus, normalize_symbol, normalize_timestamp
-
-
-OPEN_ORDER_STATUSES = {
-    OrderStatus.NEW,
-    OrderStatus.ACCEPTED,
-    OrderStatus.SUBMITTED,
-    OrderStatus.PARTIALLY_FILLED,
-}
+from qts.domain import (
+    Fill,
+    OPEN_ORDER_STATUSES,
+    Order,
+    OrderStatus,
+    normalize_symbol,
+    normalize_timestamp,
+)
 
 
 class OrderManager:

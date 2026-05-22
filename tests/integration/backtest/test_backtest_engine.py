@@ -49,6 +49,27 @@ class BacktestEngineIntegrationTests(unittest.TestCase):
             self.assertEqual(result.trade_ledger, [])
             self.assertEqual(result.metrics["total_return"], 0.0)
 
+    def test_backtest_data_portal_is_replay_bounded(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            engine = BacktestEngine(load_config(tmp))
+            engine.initialize()
+            assert engine.data_portal is not None
+            assert engine.provider is not None
+
+            self.assertEqual(engine.data_portal.get_bars("SPY"), [])
+            first_bar = next(
+                engine.provider.iter_replay(
+                    ["SPY"],
+                    engine.config.start,
+                    engine.config.end,
+                    engine.config.timeframe,
+                )
+            )
+
+            engine.step(first_bar)
+
+            self.assertEqual(engine.data_portal.get_bars("SPY"), [first_bar])
+
     def test_backtest_engine_is_reproducible_for_fixed_fixture(self) -> None:
         with tempfile.TemporaryDirectory() as left, tempfile.TemporaryDirectory() as right:
             first = BacktestEngine(load_config(left)).run()

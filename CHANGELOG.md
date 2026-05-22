@@ -8,6 +8,32 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Post-Phase 8 Design Review Fixes] - 2026-05-22
+
+### Changed
+
+- Moved the shared open-order status set into the domain layer so
+  `BacktestBrokerage` no longer depends on the execution package.
+- Added shared engine feature-pipeline settings resolution from
+  `StrategyConfig.feature_config`.
+- Updated the ML strategy fixture config with explicit feature specs and schema
+  version for runtime training-serving consistency.
+
+### Fixed
+
+- Backtest `DefaultDataPortal` instances now enforce replay bounds so strategies
+  cannot read future bars from the injected data portal during replay.
+- `FeaturePipeline([])` now preserves an explicit empty feature set instead of
+  falling back to default features.
+- `MLSignalStrategy` now validates the runtime feature pipeline schema against
+  the loaded model during initialization when a pipeline is available.
+
+### Removed
+
+- None.
+
+---
+
 ## [Phase 8] - 2026-05-22
 
 ### Added

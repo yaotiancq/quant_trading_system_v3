@@ -59,6 +59,16 @@ class OrderStatus(StrEnum):
     FAILED = "FAILED"
 
 
+OPEN_ORDER_STATUSES = frozenset(
+    {
+        OrderStatus.NEW,
+        OrderStatus.ACCEPTED,
+        OrderStatus.SUBMITTED,
+        OrderStatus.PARTIALLY_FILLED,
+    }
+)
+
+
 class TimeInForce(StrEnum):
     DAY = "DAY"
     GTC = "GTC"
@@ -86,6 +96,7 @@ __all__ = [
     "OrderSide",
     "OrderStatus",
     "OrderType",
+    "OPEN_ORDER_STATUSES",
     "RiskDecisionStatus",
     "RuntimeMode",
     "SignalDirection",

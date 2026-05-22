@@ -24,6 +24,7 @@ class DefaultDataPortal:
         end: datetime | str,
         timeframe: BarTimeframe | str = BarTimeframe.MINUTE,
         feature_pipeline: FeaturePipeline | None = None,
+        enforce_replay_bounds: bool = False,
     ) -> None:
         self.provider = provider
         self.symbols = [normalize_symbol(symbol) for symbol in symbols]
@@ -31,9 +32,11 @@ class DefaultDataPortal:
         self.end = normalize_timestamp(end, end_of_day=True, assume_utc_for_naive=True)
         self.timeframe = timeframe
         self.feature_pipeline = feature_pipeline
+        self.enforce_replay_bounds = bool(enforce_replay_bounds)
         self._history = provider.get_history(self.symbols, self.start, self.end, timeframe)
         self._current_bars: dict[str, Bar] = {}
         self._current_quotes: dict[str, Quote] = {}
+        self._visible_until: datetime | None = None
 
     def get_bars(
         self,
@@ -42,7 +45,9 @@ class DefaultDataPortal:
         end: datetime | str | None = None,
     ) -> list[Bar]:
         wanted_symbol = normalize_symbol(symbol)
-        end_ts = normalize_timestamp(end, assume_utc_for_naive=True) if end is not None else None
+        end_ts = self._bounded_end(end)
+        if self.enforce_replay_bounds and end_ts is None:
+            return []
         bars = [bar for bar in self._history if bar.symbol == wanted_symbol]
         if end_ts is not None:
             bars = [bar for bar in bars if bar.timestamp <= end_ts]
@@ -94,10 +99,28 @@ class DefaultDataPortal:
     def advance(self, market_event: Bar | Quote) -> None:
         if isinstance(market_event, Bar):
             self._current_bars[market_event.symbol] = market_event
+            self._visible_until = _latest_timestamp(self._visible_until, market_event.timestamp)
         elif isinstance(market_event, Quote):
             self._current_quotes[market_event.symbol] = market_event
+            self._visible_until = _latest_timestamp(self._visible_until, market_event.timestamp)
         else:
             raise DataError(f"unsupported market event: {type(market_event).__name__}")
+
+    def _bounded_end(self, end: datetime | str | None) -> datetime | None:
+        requested_end = (
+            normalize_timestamp(end, assume_utc_for_naive=True) if end is not None else None
+        )
+        if not self.enforce_replay_bounds:
+            return requested_end
+        if self._visible_until is None:
+            return None
+        if requested_end is None or requested_end > self._visible_until:
+            return self._visible_until
+        return requested_end
+
+
+def _latest_timestamp(left: datetime | None, right: datetime) -> datetime:
+    return right if left is None or right > left else left
 
 
 __all__ = ["DefaultDataPortal"]

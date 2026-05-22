@@ -17,15 +17,16 @@ from qts.domain import (
     RiskDecisionStatus,
     RuntimeConfig,
     RuntimeMode,
-    StrategyConfig,
     normalize_symbol,
     normalize_timestamp,
 )
 from qts.execution import ExecutionEngine, OrderRouter
-from qts.features import FeaturePipeline, FeatureSpec
+from qts.features import FeaturePipeline
 from qts.portfolio import DefaultPortfolio
 from qts.risk import RiskEngine
 from qts.strategies import BaseStrategy, create_strategy
+
+from .features import feature_pipeline_settings_from_strategies
 
 
 class PaperTradingEngine:
@@ -60,9 +61,14 @@ class PaperTradingEngine:
             self.config = runtime_config
         if self.config.runtime_mode != RuntimeMode.PAPER:
             raise ConfigurationError("PaperTradingEngine requires PAPER runtime mode")
-        self.feature_pipeline = self.feature_pipeline or FeaturePipeline(
-            _feature_specs_from_strategies(self.config.strategies)
-        )
+        if self.feature_pipeline is None:
+            feature_specs, schema_version = feature_pipeline_settings_from_strategies(
+                self.config.strategies
+            )
+            self.feature_pipeline = FeaturePipeline(
+                feature_specs,
+                schema_version=schema_version,
+            )
         self.data_portal.feature_pipeline = self.feature_pipeline
         self.brokerage = self.brokerage or AlpacaBrokerage(self.config.broker)
         self.brokerage.connect(self.config.broker)
@@ -272,31 +278,6 @@ def _event_price(market_event: Bar | Quote) -> float:
     if isinstance(market_event, Quote):
         return (market_event.bid_price + market_event.ask_price) / 2.0
     return market_event.close
-
-
-def _feature_specs_from_strategies(strategy_configs: Sequence[StrategyConfig]) -> list[FeatureSpec]:
-    specs: list[FeatureSpec] = []
-    seen: set[tuple[str, tuple[tuple[str, int | float], ...]]] = set()
-    for config in strategy_configs:
-        if not config.enabled:
-            continue
-        strategy_type = config.strategy_type.lower()
-        parameters = dict(config.parameters)
-        if strategy_type in {"sma_crossover", "sma_cross"}:
-            candidates = [
-                FeatureSpec("sma", {"window": int(parameters.get("fast_window", 20))}),
-                FeatureSpec("sma", {"window": int(parameters.get("slow_window", 50))}),
-            ]
-        elif strategy_type in {"rsi_mean_reversion", "rsi_reversion"}:
-            candidates = [FeatureSpec("rsi", {"window": int(parameters.get("window", 14))})]
-        else:
-            candidates = []
-        for spec in candidates:
-            key = (spec.name, tuple(sorted(spec.parameters.items())))
-            if key not in seen:
-                specs.append(spec)
-                seen.add(key)
-    return specs
 
 
 __all__ = ["PaperTradingEngine"]

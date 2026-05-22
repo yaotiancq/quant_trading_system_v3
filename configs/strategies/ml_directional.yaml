@@ -7,3 +7,12 @@ parameters:
   registry_dir: artifacts/models
   buy_probability_threshold: 0.55
   sell_probability_threshold: 0.45
+feature_config:
+  schema_version: ml_features_v1
+  specs:
+    - name: returns
+      parameters:
+        window: 1
+    - name: sma
+      parameters:
+        window: 3

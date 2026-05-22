@@ -58,7 +58,8 @@ class FeaturePipeline:
         schema_version: str = "features_v1",
         source: str = "feature_pipeline",
     ) -> None:
-        self.specs = [_coerce_spec(spec) for spec in (specs or default_feature_specs())]
+        configured_specs = default_feature_specs() if specs is None else specs
+        self.specs = [_coerce_spec(spec) for spec in configured_specs]
         self.schema_version = schema_version
         self.source = source
         self._online_bars: list[Bar] = []

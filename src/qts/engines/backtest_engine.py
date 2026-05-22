@@ -17,16 +17,17 @@ from qts.domain import (
     Order,
     RiskDecisionStatus,
     RuntimeConfig,
-    StrategyConfig,
 )
 from qts.execution import ExecutionEngine, OrderRouter
-from qts.features import FeaturePipeline, FeatureSpec
+from qts.features import FeaturePipeline
 from qts.market_data import CSVBarProvider, LocalParquetProvider, MarketDataProvider
 from qts.market_data.portal import DefaultDataPortal
 from qts.portfolio import DefaultPortfolio
 from qts.reporting import BacktestReporter
 from qts.risk import RiskEngine
 from qts.strategies import BaseStrategy, create_strategy
+
+from .features import feature_pipeline_settings_from_strategies
 
 
 class BacktestEngine:
@@ -60,9 +61,14 @@ class BacktestEngine:
         if runtime_config is not None:
             self.config = runtime_config
         self.provider = self.provider or _provider_from_config(self.config)
-        self.feature_pipeline = self.feature_pipeline or FeaturePipeline(
-            _feature_specs_from_strategies(self.config.strategies)
-        )
+        if self.feature_pipeline is None:
+            feature_specs, schema_version = feature_pipeline_settings_from_strategies(
+                self.config.strategies
+            )
+            self.feature_pipeline = FeaturePipeline(
+                feature_specs,
+                schema_version=schema_version,
+            )
         self.data_portal = DefaultDataPortal(
             self.provider,
             symbols=self.config.symbols,
@@ -70,6 +76,7 @@ class BacktestEngine:
             end=self.config.end,
             timeframe=self.config.timeframe,
             feature_pipeline=self.feature_pipeline,
+            enforce_replay_bounds=True,
         )
         self.portfolio = DefaultPortfolio(
             float(self.config.portfolio.get("starting_cash", 100000.0)),
@@ -219,33 +226,6 @@ def _provider_from_config(config: RuntimeConfig) -> MarketDataProvider:
     if provider_name in {"parquet", "local_parquet"}:
         return LocalParquetProvider(Path(path))
     raise ConfigurationError(f"unsupported Phase 5 market data provider: {provider_name}")
-
-
-def _feature_specs_from_strategies(strategy_configs: Sequence[StrategyConfig]) -> list[FeatureSpec]:
-    specs: list[FeatureSpec] = []
-    seen: set[tuple[str, tuple[tuple[str, int | float], ...]]] = set()
-    for config in strategy_configs:
-        if not config.enabled:
-            continue
-        for spec in _feature_specs_for_strategy(config):
-            key = (spec.name, tuple(sorted(spec.parameters.items())))
-            if key not in seen:
-                specs.append(spec)
-                seen.add(key)
-    return specs
-
-
-def _feature_specs_for_strategy(config: StrategyConfig) -> list[FeatureSpec]:
-    strategy_type = config.strategy_type.lower()
-    params = dict(config.parameters)
-    if strategy_type in {"sma_crossover", "sma_cross"}:
-        return [
-            FeatureSpec("sma", {"window": int(params.get("fast_window", 20))}),
-            FeatureSpec("sma", {"window": int(params.get("slow_window", 50))}),
-        ]
-    if strategy_type in {"rsi_mean_reversion", "rsi_reversion"}:
-        return [FeatureSpec("rsi", {"window": int(params.get("window", 14))})]
-    return []
 
 
 __all__ = ["BacktestEngine"]

@@ -74,7 +74,7 @@ Provide a unified read interface to market data and features for strategies and 
 
 | Method | Inputs | Output | Notes |
 |---|---|---|---|
-| `get_bars` | symbol, lookback/window, end timestamp | sequence/table of `Bar` | Used by strategies and feature pipelines. |
+| `get_bars` | symbol, lookback/window, end timestamp | sequence/table of `Bar` | Used by strategies and feature pipelines; replay-bounded portals must not expose bars after the current replay/live timestamp. |
 | `get_current_bar` | symbol | optional `Bar` | Current replay/live bar. |
 | `get_quote` | symbol | optional `Quote` | Latest quote if available. |
 | `get_feature_frame` | symbols, feature names, lookback | `FeatureFrame` | Batch feature access. |
@@ -127,6 +127,8 @@ Compose indicators and transformations into reusable feature outputs.
 ### Stability Notes
 
 The pipeline must produce consistent feature names and types between training and serving.
+Explicit empty feature specs mean no computed feature columns. Omitted feature
+specs may use the project defaults.
 
 ## 7. Strategy
 

@@ -86,6 +86,32 @@ class DataPortalTests(unittest.TestCase):
         self.assertEqual(frame.features[-1]["sma_3"], 108)
         self.assertNotIn("ret_1", frame.features[-1])
 
+    def test_replay_bounded_portal_does_not_expose_future_bars(self) -> None:
+        provider = CSVBarProvider(FIXTURES / "bars.csv")
+        portal = DefaultDataPortal(
+            provider,
+            symbols=["SPY"],
+            start="2024-01-02T14:30:00Z",
+            end="2024-01-02T14:35:00Z",
+            timeframe="MINUTE",
+            enforce_replay_bounds=True,
+        )
+        bars = provider.get_history(
+            ["SPY"],
+            "2024-01-02T14:30:00Z",
+            "2024-01-02T14:35:00Z",
+            "MINUTE",
+        )
+
+        self.assertEqual(portal.get_bars("SPY"), [])
+
+        portal.advance(bars[0])
+        self.assertEqual(portal.get_bars("SPY"), [bars[0]])
+        self.assertEqual(portal.get_bars("SPY", end="2024-01-02T14:35:00Z"), [bars[0]])
+
+        portal.advance(bars[1])
+        self.assertEqual(portal.get_bars("SPY", lookback=2), bars[:2])
+
 
 if __name__ == "__main__":
     unittest.main()
