@@ -1,0 +1,35 @@
+extends: base.yaml
+
+runtime:
+  mode: LIVE
+
+market_data:
+  provider: alpaca
+
+broker:
+  broker_type: alpaca_live
+  paper: false
+  base_url_env: ALPACA_LIVE_BASE_URL
+  credential_env_keys:
+    api_key_id: ALPACA_API_KEY_ID
+    secret_key: ALPACA_SECRET_KEY
+  safety:
+    live_enabled: false
+    require_account_allowlist: true
+    require_symbol_allowlist: true
+
+portfolio:
+  currency: USD
+
+strategies: []
+
+risk:
+  sizing_method: fixed_notional
+  sizing_parameters:
+    notional_per_trade: 0
+
+execution:
+  allow_fractional: false
+
+monitoring:
+  enabled: true

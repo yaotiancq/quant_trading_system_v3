@@ -1,0 +1,18 @@
+project:
+  name: quant_trading_system_v3
+
+runtime:
+  mode: BACKTEST
+  timezone: UTC
+
+symbols: []
+timeframe: MINUTE
+
+paths:
+  data: data
+  artifacts: artifacts
+  logs: artifacts/logs
+
+logging:
+  level: INFO
+  structured: true

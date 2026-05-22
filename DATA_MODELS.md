@@ -1,0 +1,1124 @@
+# DATA_MODELS.md
+
+# Core Data Models
+
+## 1. Global Conventions
+
+- Timestamps must be timezone-aware.
+- Internal timestamps should be normalized to UTC.
+- Symbols should be uppercase US equity symbols unless future symbol mapping states otherwise.
+- Monetary values should use fixed-precision decimal or carefully controlled float representation.
+- Vendor-specific API objects must be converted into these internal models at adapter boundaries.
+- Model fields may be implemented using dataclasses, Pydantic models, or another validated Python model system.
+
+## 2. Common Enums
+
+| Enum | Values |
+|---|---|
+| `RuntimeMode` | `BACKTEST`, `PAPER`, `LIVE` |
+| `AssetClass` | `EQUITY`, `ETF`, `CRYPTO`, `OPTION`, `FUTURE` |
+| `BarTimeframe` | `SECOND`, `MINUTE`, `HOUR`, `DAY` |
+| `SignalDirection` | `BUY`, `SELL`, `SHORT`, `COVER`, `HOLD`, `EXIT` |
+| `OrderSide` | `BUY`, `SELL` |
+| `OrderType` | `MARKET`, `LIMIT`, `STOP`, `STOP_LIMIT` |
+| `OrderStatus` | `NEW`, `ACCEPTED`, `REJECTED`, `SUBMITTED`, `PARTIALLY_FILLED`, `FILLED`, `CANCELED`, `EXPIRED`, `FAILED` |
+| `TimeInForce` | `DAY`, `GTC`, `IOC`, `FOK` |
+| `RiskDecisionStatus` | `APPROVED`, `REJECTED`, `MODIFIED` |
+| `DataAdjustment` | `RAW`, `SPLIT_ADJUSTED`, `DIVIDEND_ADJUSTED`, `TOTAL_RETURN` |
+
+---
+
+## 3. Bar
+
+### Purpose
+
+Represents one OHLCV market bar.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `symbol` | string | yes | uppercase, non-empty |
+| `timestamp` | datetime | yes | timezone-aware UTC |
+| `timeframe` | enum/string | yes | supported timeframe |
+| `open` | decimal/float | yes | non-negative |
+| `high` | decimal/float | yes | `high >= max(open, close, low)` |
+| `low` | decimal/float | yes | `low <= min(open, close, high)` |
+| `close` | decimal/float | yes | non-negative |
+| `volume` | int/float | yes | non-negative |
+| `vwap` | decimal/float | no | non-negative if present |
+| `trade_count` | int | no | non-negative |
+| `source` | string | no | provider name |
+
+### Example
+
+```json
+{
+  "symbol": "SPY",
+  "timestamp": "2026-01-05T14:31:00Z",
+  "timeframe": "MINUTE",
+  "open": 500.10,
+  "high": 500.35,
+  "low": 499.95,
+  "close": 500.20,
+  "volume": 125000,
+  "vwap": 500.18,
+  "source": "local_parquet"
+}
+```
+
+### Producers
+
+- market data providers,
+- replay provider,
+- vendor adapters.
+
+### Consumers
+
+- feature pipeline,
+- strategies,
+- backtest brokerage,
+- portfolio mark-to-market,
+- reporting.
+
+---
+
+## 4. Quote
+
+### Purpose
+
+Represents bid/ask market quote.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `symbol` | string | yes | uppercase |
+| `timestamp` | datetime | yes | timezone-aware UTC |
+| `bid_price` | decimal/float | yes | non-negative |
+| `bid_size` | int/float | no | non-negative |
+| `ask_price` | decimal/float | yes | non-negative, ask >= bid under normal conditions |
+| `ask_size` | int/float | no | non-negative |
+| `source` | string | no | provider name |
+
+### Example
+
+```json
+{
+  "symbol": "AAPL",
+  "timestamp": "2026-01-05T14:31:02Z",
+  "bid_price": 190.12,
+  "bid_size": 200,
+  "ask_price": 190.14,
+  "ask_size": 300,
+  "source": "alpaca"
+}
+```
+
+### Producers
+
+- live market data providers,
+- historical quote providers.
+
+### Consumers
+
+- quote-aware fill models,
+- strategies,
+- execution checks,
+- monitoring.
+
+---
+
+## 5. Trade
+
+### Purpose
+
+Represents an executed market trade print.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `symbol` | string | yes | uppercase |
+| `timestamp` | datetime | yes | timezone-aware UTC |
+| `price` | decimal/float | yes | positive |
+| `size` | int/float | yes | positive |
+| `exchange` | string | no | optional |
+| `conditions` | list[string] | no | optional |
+| `source` | string | no | provider name |
+
+### Example
+
+```json
+{
+  "symbol": "MSFT",
+  "timestamp": "2026-01-05T14:31:02Z",
+  "price": 430.25,
+  "size": 100,
+  "exchange": "NASDAQ"
+}
+```
+
+### Producers
+
+- trade data providers.
+
+### Consumers
+
+- advanced features,
+- future tick/second-level engines,
+- reporting.
+
+---
+
+## 6. Signal
+
+### Purpose
+
+Strategy-level directional view before sizing and risk approval.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `signal_id` | string | yes | unique within run |
+| `strategy_id` | string | yes | non-empty |
+| `symbol` | string | yes | uppercase |
+| `timestamp` | datetime | yes | timezone-aware UTC |
+| `direction` | `SignalDirection` | yes | valid enum |
+| `strength` | float | no | recommended range `[-1.0, 1.0]` |
+| `confidence` | float | no | range `[0.0, 1.0]` |
+| `reason` | string | no | human-readable reason |
+| `metadata` | dict | no | serializable |
+
+### Example
+
+```json
+{
+  "signal_id": "sig-001",
+  "strategy_id": "sma_cross_v1",
+  "symbol": "SPY",
+  "timestamp": "2026-01-05T15:00:00Z",
+  "direction": "BUY",
+  "strength": 0.8,
+  "confidence": 0.7,
+  "reason": "fast_sma_crossed_above_slow_sma"
+}
+```
+
+### Producers
+
+- strategies.
+
+### Consumers
+
+- risk engine,
+- reporting,
+- research.
+
+---
+
+## 7. TargetPosition
+
+### Purpose
+
+Represents desired final exposure for a symbol.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `target_id` | string | yes | unique within run |
+| `strategy_id` | string | yes | non-empty |
+| `symbol` | string | yes | uppercase |
+| `timestamp` | datetime | yes | timezone-aware UTC |
+| `target_quantity` | decimal/float | no | may be positive, zero, or negative if shorts later supported |
+| `target_weight` | float | no | typically `[-1.0, 1.0]` |
+| `target_notional` | decimal/float | no | non-negative absolute target |
+| `reason` | string | no | optional |
+| `metadata` | dict | no | serializable |
+
+### Validation Rules
+
+At least one of `target_quantity`, `target_weight`, or `target_notional` must be provided.
+
+### Example
+
+```json
+{
+  "target_id": "tp-001",
+  "strategy_id": "portfolio_rotation_v1",
+  "symbol": "QQQ",
+  "timestamp": "2026-01-05T15:00:00Z",
+  "target_weight": 0.25,
+  "reason": "ranked_top_bucket"
+}
+```
+
+### Producers
+
+- strategies,
+- portfolio construction modules.
+
+### Consumers
+
+- risk engine,
+- position sizer.
+
+---
+
+## 8. TradeIntent
+
+### Purpose
+
+Represents a strategy's requested trade before final risk approval and order conversion.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `intent_id` | string | yes | unique within run |
+| `strategy_id` | string | yes | non-empty |
+| `symbol` | string | yes | uppercase |
+| `timestamp` | datetime | yes | timezone-aware UTC |
+| `side` | `OrderSide` | yes | valid enum |
+| `quantity` | decimal/float | no | positive if provided |
+| `notional` | decimal/float | no | positive if provided |
+| `order_type` | `OrderType` | yes | default may be `MARKET` |
+| `limit_price` | decimal/float | no | required for limit orders |
+| `stop_price` | decimal/float | no | required for stop orders |
+| `time_in_force` | `TimeInForce` | yes | default `DAY` |
+| `source_signal_id` | string | no | link to signal |
+| `reason` | string | no | optional |
+| `metadata` | dict | no | serializable |
+
+### Validation Rules
+
+- Either `quantity` or `notional` should be present before order submission.
+- `limit_price` is required for `LIMIT` and `STOP_LIMIT`.
+- `stop_price` is required for `STOP` and `STOP_LIMIT`.
+
+### Example
+
+```json
+{
+  "intent_id": "intent-001",
+  "strategy_id": "sma_cross_v1",
+  "symbol": "SPY",
+  "timestamp": "2026-01-05T15:00:00Z",
+  "side": "BUY",
+  "quantity": 10,
+  "order_type": "MARKET",
+  "time_in_force": "DAY",
+  "source_signal_id": "sig-001"
+}
+```
+
+### Producers
+
+- strategies,
+- risk position sizer when converting signals.
+
+### Consumers
+
+- risk engine,
+- execution engine.
+
+---
+
+## 9. RiskDecision
+
+### Purpose
+
+Result of risk evaluation.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `decision_id` | string | yes | unique |
+| `timestamp` | datetime | yes | timezone-aware UTC |
+| `status` | `RiskDecisionStatus` | yes | valid enum |
+| `original_intent` | `TradeIntent` | yes | original request |
+| `approved_intent` | `TradeIntent` | no | required if approved/modified |
+| `reasons` | list[string] | yes | non-empty for rejection/modification |
+| `rule_results` | list[dict] | no | per-rule details |
+| `sizing_details` | dict | no | sizing metadata |
+
+### Example
+
+```json
+{
+  "decision_id": "risk-001",
+  "timestamp": "2026-01-05T15:00:01Z",
+  "status": "APPROVED",
+  "original_intent": "intent-001",
+  "approved_intent": "intent-001-sized",
+  "reasons": ["within_position_limit", "buying_power_ok"]
+}
+```
+
+### Producers
+
+- risk engine.
+
+### Consumers
+
+- execution engine,
+- reporting,
+- monitoring.
+
+---
+
+## 10. OrderRequest
+
+### Purpose
+
+Normalized order request ready for brokerage submission.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `client_order_id` | string | yes | unique idempotency key |
+| `strategy_id` | string | no | optional attribution |
+| `symbol` | string | yes | uppercase |
+| `timestamp` | datetime | yes | timezone-aware UTC |
+| `side` | `OrderSide` | yes | valid enum |
+| `quantity` | decimal/float | no | positive |
+| `notional` | decimal/float | no | positive |
+| `order_type` | `OrderType` | yes | valid enum |
+| `limit_price` | decimal/float | no | required for limit orders |
+| `stop_price` | decimal/float | no | required for stop orders |
+| `time_in_force` | `TimeInForce` | yes | valid enum |
+| `metadata` | dict | no | serializable |
+
+### Validation Rules
+
+Same as `TradeIntent`, but all broker-required fields must be complete.
+
+### Example
+
+```json
+{
+  "client_order_id": "coid-20260105-0001",
+  "strategy_id": "sma_cross_v1",
+  "symbol": "SPY",
+  "timestamp": "2026-01-05T15:00:01Z",
+  "side": "BUY",
+  "quantity": 10,
+  "order_type": "MARKET",
+  "time_in_force": "DAY"
+}
+```
+
+### Producers
+
+- execution engine.
+
+### Consumers
+
+- brokerage adapters.
+
+---
+
+## 11. Order
+
+### Purpose
+
+Normalized broker order state.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `order_id` | string | yes | broker/internal order ID |
+| `client_order_id` | string | yes | idempotency key |
+| `symbol` | string | yes | uppercase |
+| `created_at` | datetime | yes | timezone-aware UTC |
+| `updated_at` | datetime | no | timezone-aware UTC |
+| `side` | `OrderSide` | yes | valid enum |
+| `quantity` | decimal/float | no | positive |
+| `filled_quantity` | decimal/float | yes | non-negative |
+| `remaining_quantity` | decimal/float | no | non-negative |
+| `order_type` | `OrderType` | yes | valid enum |
+| `status` | `OrderStatus` | yes | valid enum |
+| `limit_price` | decimal/float | no | optional |
+| `stop_price` | decimal/float | no | optional |
+| `average_fill_price` | decimal/float | no | non-negative |
+| `rejection_reason` | string | no | required if rejected |
+| `metadata` | dict | no | serializable |
+
+### Example
+
+```json
+{
+  "order_id": "bt-order-001",
+  "client_order_id": "coid-20260105-0001",
+  "symbol": "SPY",
+  "created_at": "2026-01-05T15:00:01Z",
+  "side": "BUY",
+  "quantity": 10,
+  "filled_quantity": 10,
+  "remaining_quantity": 0,
+  "order_type": "MARKET",
+  "status": "FILLED",
+  "average_fill_price": 500.25
+}
+```
+
+### Producers
+
+- brokerage adapters,
+- order manager.
+
+### Consumers
+
+- execution engine,
+- portfolio,
+- reporting.
+
+---
+
+## 12. Fill
+
+### Purpose
+
+Represents full or partial execution of an order.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `fill_id` | string | yes | unique |
+| `order_id` | string | yes | existing order |
+| `client_order_id` | string | no | optional link |
+| `symbol` | string | yes | uppercase |
+| `timestamp` | datetime | yes | timezone-aware UTC |
+| `side` | `OrderSide` | yes | valid enum |
+| `quantity` | decimal/float | yes | positive |
+| `price` | decimal/float | yes | positive |
+| `commission` | decimal/float | yes | non-negative |
+| `slippage` | decimal/float | no | optional |
+| `liquidity_flag` | string | no | optional |
+| `source` | string | yes | `backtest`, `alpaca_paper`, etc. |
+
+### Example
+
+```json
+{
+  "fill_id": "fill-001",
+  "order_id": "bt-order-001",
+  "symbol": "SPY",
+  "timestamp": "2026-01-05T15:01:00Z",
+  "side": "BUY",
+  "quantity": 10,
+  "price": 500.25,
+  "commission": 0.00,
+  "source": "backtest"
+}
+```
+
+### Producers
+
+- brokerage adapters.
+
+### Consumers
+
+- execution engine,
+- portfolio,
+- strategies,
+- reporting,
+- monitoring.
+
+---
+
+## 13. Position
+
+### Purpose
+
+Represents current holding for one symbol.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `symbol` | string | yes | uppercase |
+| `quantity` | decimal/float | yes | may be zero |
+| `average_cost` | decimal/float | yes | non-negative |
+| `market_price` | decimal/float | no | non-negative |
+| `market_value` | decimal/float | no | computed |
+| `unrealized_pnl` | decimal/float | no | computed |
+| `realized_pnl` | decimal/float | no | computed |
+| `updated_at` | datetime | yes | timezone-aware UTC |
+
+### Example
+
+```json
+{
+  "symbol": "SPY",
+  "quantity": 10,
+  "average_cost": 500.25,
+  "market_price": 501.00,
+  "market_value": 5010.00,
+  "unrealized_pnl": 7.50,
+  "realized_pnl": 0.00,
+  "updated_at": "2026-01-05T16:00:00Z"
+}
+```
+
+### Producers
+
+- portfolio,
+- brokerage adapters for broker-side state.
+
+### Consumers
+
+- risk engine,
+- strategies,
+- reporting,
+- reconciliation.
+
+---
+
+## 14. Account
+
+### Purpose
+
+Represents account-level state.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `account_id` | string | no | broker/internal account ID |
+| `timestamp` | datetime | yes | timezone-aware UTC |
+| `currency` | string | yes | default `USD` |
+| `cash` | decimal/float | yes | may be constrained non-negative |
+| `equity` | decimal/float | yes | cash + market value |
+| `buying_power` | decimal/float | yes | non-negative |
+| `gross_exposure` | decimal/float | no | non-negative |
+| `net_exposure` | decimal/float | no | may be negative |
+| `realized_pnl` | decimal/float | no | optional |
+| `unrealized_pnl` | decimal/float | no | optional |
+| `metadata` | dict | no | serializable |
+
+### Example
+
+```json
+{
+  "account_id": "backtest",
+  "timestamp": "2026-01-05T16:00:00Z",
+  "currency": "USD",
+  "cash": 94997.50,
+  "equity": 100007.50,
+  "buying_power": 94997.50,
+  "gross_exposure": 5010.00,
+  "net_exposure": 5010.00
+}
+```
+
+### Producers
+
+- portfolio,
+- brokerage adapters.
+
+### Consumers
+
+- risk engine,
+- reporting,
+- reconciliation.
+
+---
+
+## 15. PortfolioSnapshot
+
+### Purpose
+
+Point-in-time internal portfolio snapshot.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `timestamp` | datetime | yes | timezone-aware UTC |
+| `cash` | decimal/float | yes | account currency |
+| `equity` | decimal/float | yes | cash + positions |
+| `positions_value` | decimal/float | yes | non-negative absolute market value |
+| `realized_pnl` | decimal/float | yes | cumulative |
+| `unrealized_pnl` | decimal/float | yes | current |
+| `gross_exposure` | decimal/float | yes | non-negative |
+| `net_exposure` | decimal/float | yes | signed |
+| `positions` | list[`Position`] | yes | current positions |
+| `metadata` | dict | no | serializable |
+
+### Example
+
+```json
+{
+  "timestamp": "2026-01-05T16:00:00Z",
+  "cash": 94997.50,
+  "equity": 100007.50,
+  "positions_value": 5010.00,
+  "realized_pnl": 0.00,
+  "unrealized_pnl": 7.50,
+  "gross_exposure": 5010.00,
+  "net_exposure": 5010.00,
+  "positions": ["SPY"]
+}
+```
+
+### Producers
+
+- portfolio.
+
+### Consumers
+
+- risk engine,
+- strategies,
+- reporting,
+- engines.
+
+---
+
+## 16. TradeLedgerEntry
+
+### Purpose
+
+Auditable record of executed trade impact.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `entry_id` | string | yes | unique |
+| `fill_id` | string | yes | source fill |
+| `order_id` | string | yes | source order |
+| `strategy_id` | string | no | attribution |
+| `symbol` | string | yes | uppercase |
+| `timestamp` | datetime | yes | timezone-aware UTC |
+| `side` | `OrderSide` | yes | valid enum |
+| `quantity` | decimal/float | yes | positive |
+| `price` | decimal/float | yes | positive |
+| `commission` | decimal/float | yes | non-negative |
+| `realized_pnl_delta` | decimal/float | no | computed |
+| `position_quantity_after` | decimal/float | yes | computed |
+| `average_cost_after` | decimal/float | yes | computed |
+
+### Example
+
+```json
+{
+  "entry_id": "tle-001",
+  "fill_id": "fill-001",
+  "order_id": "bt-order-001",
+  "strategy_id": "sma_cross_v1",
+  "symbol": "SPY",
+  "timestamp": "2026-01-05T15:01:00Z",
+  "side": "BUY",
+  "quantity": 10,
+  "price": 500.25,
+  "commission": 0.00,
+  "position_quantity_after": 10,
+  "average_cost_after": 500.25
+}
+```
+
+### Producers
+
+- portfolio.
+
+### Consumers
+
+- reporting,
+- reconciliation,
+- audit.
+
+---
+
+## 17. CashLedgerEntry
+
+### Purpose
+
+Auditable record of cash changes.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `entry_id` | string | yes | unique |
+| `timestamp` | datetime | yes | timezone-aware UTC |
+| `event_type` | string | yes | trade, commission, deposit, withdrawal, dividend |
+| `amount` | decimal/float | yes | signed |
+| `currency` | string | yes | default `USD` |
+| `cash_after` | decimal/float | yes | resulting cash |
+| `related_fill_id` | string | no | optional |
+| `related_order_id` | string | no | optional |
+| `description` | string | no | optional |
+
+### Example
+
+```json
+{
+  "entry_id": "cle-001",
+  "timestamp": "2026-01-05T15:01:00Z",
+  "event_type": "trade",
+  "amount": -5002.50,
+  "currency": "USD",
+  "cash_after": 94997.50,
+  "related_fill_id": "fill-001"
+}
+```
+
+### Producers
+
+- portfolio.
+
+### Consumers
+
+- reporting,
+- audit,
+- reconciliation.
+
+---
+
+## 18. BacktestResult
+
+### Purpose
+
+Final result of a backtest run.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `run_id` | string | yes | unique |
+| `config` | `RuntimeConfig` | yes | backtest config |
+| `start_time` | datetime | yes | run start |
+| `end_time` | datetime | yes | run end |
+| `symbols` | list[string] | yes | non-empty |
+| `portfolio_snapshots` | list[`PortfolioSnapshot`] | yes | ordered by timestamp |
+| `orders` | list[`Order`] | yes | all orders |
+| `fills` | list[`Fill`] | yes | all fills |
+| `trade_ledger` | list[`TradeLedgerEntry`] | yes | all ledger entries |
+| `cash_ledger` | list[`CashLedgerEntry`] | yes | all cash entries |
+| `metrics` | dict | yes | performance metrics |
+| `artifacts` | dict | no | paths to reports/plots |
+| `warnings` | list[string] | no | non-fatal issues |
+
+### Example
+
+```json
+{
+  "run_id": "bt-20260105-001",
+  "symbols": ["SPY"],
+  "start_time": "2026-01-05T14:30:00Z",
+  "end_time": "2026-01-05T21:00:00Z",
+  "metrics": {
+    "total_return": 0.0012,
+    "max_drawdown": -0.0008,
+    "trade_count": 2
+  }
+}
+```
+
+### Producers
+
+- backtest engine.
+
+### Consumers
+
+- reporter,
+- research,
+- scripts.
+
+---
+
+## 19. ModelPrediction
+
+### Purpose
+
+Runtime output from an ML model before strategy interpretation.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `prediction_id` | string | yes | unique |
+| `model_id` | string | yes | registered model ID |
+| `symbol` | string | yes | uppercase |
+| `timestamp` | datetime | yes | feature timestamp |
+| `prediction_value` | float | yes | model-specific |
+| `prediction_label` | string/int | no | optional class label |
+| `probability` | float | no | range `[0.0, 1.0]` |
+| `horizon` | string | no | prediction horizon |
+| `feature_schema_version` | string | yes | must match model metadata |
+| `metadata` | dict | no | serializable |
+
+### Example
+
+```json
+{
+  "prediction_id": "pred-001",
+  "model_id": "xgb_direction_v1",
+  "symbol": "SPY",
+  "timestamp": "2026-01-05T15:00:00Z",
+  "prediction_value": 0.63,
+  "prediction_label": "UP",
+  "probability": 0.63,
+  "horizon": "next_5_bars",
+  "feature_schema_version": "features_v1"
+}
+```
+
+### Producers
+
+- ML inference pipeline.
+
+### Consumers
+
+- ML strategy adapter,
+- reporting.
+
+---
+
+## 20. FeatureFrame / FeatureRecord
+
+### Purpose
+
+Stores computed features for batch or online use.
+
+### FeatureFrame Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `symbols` | list[string] | yes | non-empty |
+| `timestamps` | list[datetime] | yes | ordered |
+| `features` | table/frame | yes | schema-valid |
+| `schema_version` | string | yes | non-empty |
+| `generated_at` | datetime | yes | timezone-aware UTC |
+| `source` | string | no | pipeline name |
+
+### FeatureRecord Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `symbol` | string | yes | uppercase |
+| `timestamp` | datetime | yes | timezone-aware UTC |
+| `values` | dict[string, number] | yes | schema-valid |
+| `schema_version` | string | yes | non-empty |
+
+### Example
+
+```json
+{
+  "symbol": "SPY",
+  "timestamp": "2026-01-05T15:00:00Z",
+  "values": {
+    "sma_20": 499.80,
+    "rsi_14": 58.4,
+    "ret_1": 0.0008
+  },
+  "schema_version": "features_v1"
+}
+```
+
+### Producers
+
+- feature pipeline.
+
+### Consumers
+
+- strategies,
+- ML dataset builder,
+- ML inference,
+- reporting.
+
+---
+
+## 21. StrategyConfig
+
+### Purpose
+
+Configuration for a strategy instance.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `strategy_id` | string | yes | unique |
+| `strategy_type` | string | yes | registered strategy type |
+| `symbols` | list[string] | yes | non-empty |
+| `parameters` | dict | yes | strategy-specific |
+| `feature_config` | dict | no | optional |
+| `enabled` | bool | yes | default true |
+
+### Example
+
+```json
+{
+  "strategy_id": "sma_cross_v1",
+  "strategy_type": "sma_crossover",
+  "symbols": ["SPY"],
+  "parameters": {
+    "fast_window": 20,
+    "slow_window": 50
+  },
+  "enabled": true
+}
+```
+
+### Producers
+
+- config loader.
+
+### Consumers
+
+- strategy factory,
+- engines.
+
+---
+
+## 22. RiskConfig
+
+### Purpose
+
+Configuration for risk rules and sizing.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `max_position_notional` | decimal/float | no | positive |
+| `max_gross_exposure` | decimal/float | no | positive |
+| `max_symbol_weight` | float | no | `[0, 1]` |
+| `daily_loss_limit` | decimal/float | no | positive |
+| `allowed_symbols` | list[string] | no | uppercase |
+| `blocked_symbols` | list[string] | no | uppercase |
+| `sizing_method` | string | yes | registered method |
+| `sizing_parameters` | dict | yes | method-specific |
+| `cooldown_seconds` | int | no | non-negative |
+| `session_rules` | dict | no | market/session config |
+
+### Example
+
+```json
+{
+  "max_position_notional": 10000,
+  "max_gross_exposure": 50000,
+  "max_symbol_weight": 0.2,
+  "sizing_method": "fixed_notional",
+  "sizing_parameters": {
+    "notional_per_trade": 5000
+  },
+  "allowed_symbols": ["SPY", "QQQ"]
+}
+```
+
+### Producers
+
+- config loader.
+
+### Consumers
+
+- risk engine,
+- position sizer,
+- engines.
+
+---
+
+## 23. BrokerConfig
+
+### Purpose
+
+Configuration for broker implementation.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `broker_type` | string | yes | `backtest`, `alpaca_paper`, `alpaca_live` |
+| `account_id` | string | no | optional |
+| `paper` | bool | no | true for paper mode |
+| `base_url` | string | no | vendor-specific |
+| `credential_env_keys` | dict | no | environment variable names |
+| `commission_model` | dict | no | backtest cost config |
+| `slippage_model` | dict | no | backtest slippage config |
+| `fill_policy` | string | no | backtest fill policy |
+| `safety` | dict | no | live safety settings |
+
+### Example
+
+```json
+{
+  "broker_type": "backtest",
+  "commission_model": {"type": "per_share", "value": 0.0},
+  "slippage_model": {"type": "bps", "value": 1.0},
+  "fill_policy": "next_bar_open"
+}
+```
+
+### Producers
+
+- config loader.
+
+### Consumers
+
+- broker factory,
+- execution engine,
+- engines.
+
+---
+
+## 24. RuntimeConfig
+
+### Purpose
+
+Top-level configuration for a run.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `run_id` | string | yes | unique or generated |
+| `runtime_mode` | `RuntimeMode` | yes | valid enum |
+| `symbols` | list[string] | yes | non-empty |
+| `start` | datetime/date | mode-dependent | required for backtest |
+| `end` | datetime/date | mode-dependent | required for backtest |
+| `timeframe` | `BarTimeframe` | yes | supported |
+| `market_data` | dict | yes | provider config |
+| `broker` | `BrokerConfig` | yes | broker config |
+| `strategies` | list[`StrategyConfig`] | yes | at least one enabled |
+| `risk` | `RiskConfig` | yes | risk config |
+| `portfolio` | dict | yes | starting cash, currency |
+| `execution` | dict | yes | order/execution config |
+| `reporting` | dict | no | output config |
+| `monitoring` | dict | no | runtime monitoring config |
+
+### Example
+
+```json
+{
+  "run_id": "bt-spy-sma-001",
+  "runtime_mode": "BACKTEST",
+  "symbols": ["SPY"],
+  "start": "2024-01-01",
+  "end": "2024-12-31",
+  "timeframe": "MINUTE",
+  "market_data": {"provider": "local_parquet", "path": "data/raw/bars.parquet"},
+  "broker": {"broker_type": "backtest", "fill_policy": "next_bar_open"},
+  "strategies": ["sma_cross_v1"],
+  "risk": {"sizing_method": "fixed_notional"},
+  "portfolio": {"starting_cash": 100000, "currency": "USD"}
+}
+```
+
+### Producers
+
+- config loader.
+
+### Consumers
+
+- engines,
+- factories,
+- reporters.

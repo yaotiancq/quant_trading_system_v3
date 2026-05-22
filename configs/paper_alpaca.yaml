@@ -1,0 +1,31 @@
+extends: base.yaml
+
+runtime:
+  mode: PAPER
+
+market_data:
+  provider: alpaca
+
+broker:
+  broker_type: alpaca_paper
+  paper: true
+  base_url_env: ALPACA_PAPER_BASE_URL
+  credential_env_keys:
+    api_key_id: ALPACA_API_KEY_ID
+    secret_key: ALPACA_SECRET_KEY
+
+portfolio:
+  currency: USD
+
+strategies: []
+
+risk:
+  sizing_method: fixed_notional
+  sizing_parameters:
+    notional_per_trade: 1000
+
+execution:
+  allow_fractional: false
+
+monitoring:
+  enabled: false

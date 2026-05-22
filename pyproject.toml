@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quant-trading-system-v3"
+version = "0.0.0"
+description = "Modular quantitative trading strategy development system scaffold."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "Quant Trading System Contributors" }
+]
+dependencies = []
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8.0"
+]
+dev = [
+  "mypy>=1.13",
+  "pytest>=8.0",
+  "ruff>=0.8"
+]
+
+[project.scripts]
+qts = "qts.cli:main"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.mypy]
+python_version = "3.12"
+packages = ["qts"]
