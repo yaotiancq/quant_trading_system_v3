@@ -14,16 +14,17 @@ The architecture documents in the project root are the source of truth:
 
 ## Current Status
 
-Phase 3 is complete. The repository now includes the package layout, validated
+Phase 4 is complete. The repository now includes the package layout, validated
 domain models and enums, core configuration loading, clocks, common exceptions,
 logging setup, local market data providers, deterministic replay, reusable batch
 indicators, feature schemas, feature pipelines, broker-agnostic example
-strategies, a risk engine with position sizing and basic rules, configuration
-templates, and unit tests.
+strategies, a risk engine with position sizing and basic rules, an execution
+engine, order manager/router, normalized brokerage protocol, simulated
+BacktestBrokerage, configuration templates, and unit tests.
 
-Order execution, broker adapters, portfolio accounting, and backtest orchestration
-are intentionally deferred. The next milestone is Phase 4: execution layer and
-BacktestBrokerage.
+Internal portfolio accounting, backtest orchestration, reporting, and real broker
+adapters are intentionally deferred. The next milestone is Phase 5: backtest
+engine and reporting.
 
 ## Layout
 
@@ -37,7 +38,10 @@ src/qts/features/ Reusable batch indicators and feature pipelines
 src/qts/strategies/
                   Strategy interface, SMA crossover, RSI mean reversion
 src/qts/risk/     Position sizing, risk rules, and risk engine
-tests/            Smoke, Phase 1, Phase 2, and Phase 3 unit tests
+src/qts/execution/
+                  Order requests, manager, router, fill handler, engine
+src/qts/brokers/  Brokerage protocol and BacktestBrokerage simulation
+tests/            Smoke and Phase 1-4 unit tests
 data/             Local data placeholder, ignored by git
 artifacts/        Runtime output placeholder, ignored by git
 ```
@@ -115,4 +119,9 @@ PY
 
 Phase 3 strategy and risk components are importable from `qts.strategies` and
 `qts.risk`. They generate and approve/reject normalized domain objects only;
-order routing begins in Phase 4.
+Phase 4 execution converts approved decisions into order requests.
+
+Phase 4 execution and backtest brokerage components are importable from
+`qts.execution` and `qts.brokers.backtest`. `BacktestBrokerage` fills orders only
+from market events supplied by the caller; the full backtest loop starts in
+Phase 5.

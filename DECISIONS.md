@@ -437,3 +437,56 @@ same normalized risk decisions when execution and broker adapters are added.
 - Let example strategies emit sized trade intents directly.
 - Put buying-power logic in the future execution or broker layer only.
 - Reject all over-limit intents instead of allowing conservative size reduction.
+
+---
+
+## ADR-016: BacktestBrokerage Owns Simulated Broker State, Not Portfolio Accounting
+
+### Context
+
+Phase 4 adds execution routing and a simulated backtest brokerage, while full
+backtest orchestration and internal portfolio accounting are reserved for Phase
+5. The project still needs fills and broker-side state in Phase 4 so execution
+can be tested realistically.
+
+### Decision
+
+`BacktestBrokerage` implements the normalized `Brokerage` interface and owns
+simulated broker-side cash, positions, orders, and fills. It fills accepted
+orders only on market events supplied by the caller; it does not load historical
+data or run a backtest loop.
+
+The default fill policy remains `next_bar_open`. Initial supported fill policies
+are:
+
+- `next_bar_open`
+- `next_bar_close`
+- `next_bar_typical_price`
+- `quote_bid_ask`
+
+Market, limit, stop, and stop-limit orders are simulated with simple
+bar/quote/trade trigger rules. Commission and slippage models are intentionally
+small and deterministic. Fill slippage is recorded as the per-share price
+adjustment applied to the simulated execution price.
+
+### Rationale
+
+This keeps the backtest broker realistic enough for execution tests while
+preserving the documented boundary between brokerage state and internal
+portfolio accounting. Phase 5 can consume these fills to build ledgers,
+snapshots, and reports without changing the broker interface.
+
+### Consequences
+
+- Execution can route approved risk decisions into orders before a full backtest
+  engine exists.
+- Backtest fill behavior is deterministic and explicitly configured.
+- `BacktestBrokerage` can reject orders for insufficient cash or positions.
+- Broker-side cash/positions are available for tests and later reconciliation,
+  but internal portfolio ledgers remain unimplemented until Phase 5.
+
+### Alternatives Considered
+
+- Put fill simulation directly in the future `BacktestEngine`.
+- Defer broker-side cash and position updates until portfolio accounting exists.
+- Fill all orders immediately on submission without market events.

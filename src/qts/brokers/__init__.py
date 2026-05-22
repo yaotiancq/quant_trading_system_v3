@@ -1,5 +1,7 @@
-"""Brokerage interface and implementation package placeholder."""
+"""Brokerage interfaces and implementations."""
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from .interfaces import Brokerage
+
+__all__ = ["Brokerage"]

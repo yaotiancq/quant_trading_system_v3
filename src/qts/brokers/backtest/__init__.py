@@ -1,5 +1,7 @@
-"""Backtest brokerage package placeholder."""
+"""Backtest brokerage implementation."""
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from .brokerage import BacktestBrokerage, VALID_FILL_POLICIES
+
+__all__ = ["BacktestBrokerage", "VALID_FILL_POLICIES"]

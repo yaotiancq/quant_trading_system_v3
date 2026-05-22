@@ -8,6 +8,63 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Phase 4] - 2026-05-22
+
+### Added
+
+- Implemented normalized `Brokerage` protocol.
+- Implemented execution workflow components:
+  - `build_order_request`,
+  - `OrderManager`,
+  - `OrderRouter`,
+  - `FillHandler`,
+  - `ExecutionEngine`.
+- Implemented `BacktestBrokerage` with broker-side order, fill, cash, account,
+  and position state.
+- Added simulated order lifecycle behavior for accepted, rejected, submitted,
+  partially filled, filled, canceled, and expired orders.
+- Added simulated market, limit, stop, and stop-limit order handling.
+- Added deterministic fill policies:
+  - `next_bar_open`,
+  - `next_bar_close`,
+  - `next_bar_typical_price`,
+  - `quote_bid_ask`.
+- Added simple commission and slippage models for backtest fills.
+- Added broker-side buying-power/cash and position checks.
+- Added Phase 4 unit tests for:
+  - order request construction,
+  - rejected risk decision handling,
+  - order routing,
+  - order manager cancellation and open-order tracking,
+  - market, limit, stop, quote, partial-fill, insufficient-cash, cancellation,
+    slippage, and commission behavior.
+
+### Changed
+
+- Updated `README.md` to reflect Phase 4 status and execution/backtest broker
+  modules.
+- Updated `PROJECT_STATE.md` to mark Phase 4 complete and Phase 5 pending.
+- Added ADR-016 documenting the Phase 4 backtest brokerage state and fill-policy
+  decisions.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+### Notes
+
+- Phase 4 does not implement a full backtest engine, internal portfolio
+  accounting, ledgers, reporting, Alpaca integration, ML workflows, or live/paper
+  trading runtime behavior.
+- `BacktestBrokerage` does not load historical data; callers must provide market
+  events from the market data layer or future engines.
+
+---
+
 ## [Phase 3] - 2026-05-22
 
 ### Added
