@@ -150,6 +150,10 @@ def create_strategy(config: StrategyConfig) -> BaseStrategy:
         return SMACrossoverStrategy(config)
     if strategy_type in {"rsi_mean_reversion", "rsi_reversion"}:
         return RSIMeanReversionStrategy(config)
+    if strategy_type in {"ml_signal", "ml_directional", "ml_direction"}:
+        from .ml_strategy import MLSignalStrategy
+
+        return MLSignalStrategy(config)
     raise StrategyError(f"unsupported strategy type: {config.strategy_type}")
 
 

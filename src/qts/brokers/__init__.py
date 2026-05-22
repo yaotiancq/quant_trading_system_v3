@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .alpaca import AlpacaBrokerage
 from .interfaces import Brokerage
 
-__all__ = ["Brokerage"]
+__all__ = ["AlpacaBrokerage", "Brokerage"]

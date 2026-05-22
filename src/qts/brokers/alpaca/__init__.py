@@ -1,5 +1,7 @@
-"""Alpaca brokerage package placeholder."""
+"""Alpaca brokerage adapter."""
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from .brokerage import AlpacaBrokerage
+
+__all__ = ["AlpacaBrokerage"]

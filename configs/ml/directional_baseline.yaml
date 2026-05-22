@@ -1,0 +1,33 @@
+model:
+  model_id: directional_fixture_v1
+  registry_dir: artifacts/models
+  decision_threshold: 0.55
+
+market_data:
+  provider: local_csv
+  path: tests/fixtures/market_data/ml_directional.csv
+  symbols: [SPY]
+  timeframe: MINUTE
+  start: 2024-01-02T14:30:00Z
+  end: 2024-01-02T14:45:00Z
+
+features:
+  schema_version: ml_features_v1
+  specs:
+    - name: returns
+      parameters:
+        window: 1
+    - name: sma
+      parameters:
+        window: 3
+
+labels:
+  horizon_bars: 1
+  up_threshold: 0.0
+  down_threshold: 0.0
+
+splits:
+  train_fraction: 0.5
+  validation_fraction: 0.25
+  test_fraction: 0.25
+  embargo_bars: 1

@@ -540,3 +540,136 @@ still leaves room to evolve the engine later.
 - Build a generalized event bus before the first backtest.
 - Put portfolio accounting inside `BacktestBrokerage`.
 - Delay reporting exports until plotting support exists.
+
+---
+
+## ADR-018: Use a Dependency-Free Alpaca REST Boundary for Phase 6
+
+### Context
+
+Phase 6 adds the first real broker adapter. The local development environment
+does not require third-party dependencies, and tests must run without Alpaca
+credentials or network access. Alpaca exposes a Trading API v2 with REST
+endpoints for orders, account state, open positions, and market clock.
+
+### Decision
+
+Implement a small standard-library REST client under `integrations/alpaca/` and
+keep all Alpaca payload mapping at the integration/broker boundary.
+`AlpacaBrokerage` consumes that low-level client and implements the existing
+normalized `Brokerage` interface.
+
+Phase 6 uses order polling to derive fill deltas from Alpaca order state. A
+mock in-memory Alpaca client is provided for dry-run paper engine initialization
+and tests. Alpaca market data and streaming order updates remain separate and
+are not coupled into the brokerage adapter.
+
+### Rationale
+
+This keeps strategy, risk, execution, and portfolio code unchanged between
+backtest and paper modes. It also preserves the project's no-vendor-object
+boundary while allowing real paper order submission when credentials are
+provided.
+
+### Consequences
+
+- Tests can validate order conversion, errors, polling fills, and paper engine
+  wiring without network access.
+- Paper trading can initialize safely in mock mode without credentials.
+- Fill polling is intentionally conservative and may be replaced or augmented by
+  Alpaca trade updates/streams in a later operational-readiness phase.
+- Live Alpaca configuration is rejected by the Phase 6 adapter.
+
+### Alternatives Considered
+
+- Require Alpaca's Python SDK as a runtime dependency.
+- Pass Alpaca SDK/order objects through execution and portfolio modules.
+- Implement streaming updates before the first paper brokerage adapter.
+
+---
+
+## ADR-019: Use a Dependency-Free Directional ML Baseline for Phase 7
+
+### Context
+
+Phase 7 needs to prove the ML workflow boundaries: dataset construction,
+labeling, time-aware splitting, leakage checks, training, evaluation, model
+registration, runtime inference, and strategy adaptation. The current local
+environment can run the project without data-science packages, and the phase
+must not depend on external model services or package downloads.
+
+### Decision
+
+Implement Phase 7 with a small dependency-free directional linear baseline and a
+filesystem model registry. Offline ML workflow code lives under `qts.ml`.
+Runtime trading integration lives in `qts.strategies.ml_strategy` and consumes
+registered models through the documented inference interface.
+
+### Rationale
+
+This keeps the project installable and testable in the current environment
+while preserving the architecture from ADR-005. The baseline model is enough to
+exercise stable workflow contracts without committing the project to a specific
+ML framework before the surrounding runtime and monitoring layers exist.
+
+### Consequences
+
+- Phase 7 tests can run without pandas, scikit-learn, model servers, or network
+  access.
+- Model artifacts are portable JSON files stored by model ID under the local
+  registry root.
+- More advanced models can be added later behind the same inference and registry
+  boundaries.
+- Production model monitoring, feature stores, online learning, and
+  hyperparameter optimization remain future work.
+
+### Alternatives Considered
+
+- Require scikit-learn or another ML framework immediately.
+- Store model artifacts in a database or remote registry.
+- Put training code directly inside the strategy layer.
+
+---
+
+## ADR-020: Keep Phase 8 Live Trading Guarded and Dry-Run First
+
+### Context
+
+Phase 8 adds operational readiness features before live trading can be
+considered. The project has a paper brokerage adapter, but real live broker
+submission still needs stricter operations, credentials, monitoring, and manual
+review. The phase requirements prioritize health checks, reconciliation, alerts,
+recovery behavior, runbooks, safety gates, and guarded `LiveEngine` scaffolding.
+
+### Decision
+
+Implement `LiveEngine` as a safety-first scaffold. It requires explicit
+`LIVE` runtime mode and live safety settings before initialization. Phase 8 only
+provides dry-run live brokerage initialization by default; real live broker
+submission remains disabled. Order safety validation exists as a reusable guard
+for future live submission paths.
+
+### Rationale
+
+This satisfies operational-readiness requirements without crossing into
+unguarded live trading. It also keeps broker-specific behavior behind the
+normalized brokerage interface and gives future phases a tested safety boundary
+for account allowlists, symbol allowlists, max order caps, reconciliation,
+alerts, metrics, and recovery behavior.
+
+### Consequences
+
+- Dry-run live initialization is runnable and testable without credentials or
+  network access.
+- Real live broker submission fails closed until a future phase explicitly
+  enables and tests it.
+- Future live engines must validate normalized `OrderRequest` objects through
+  the same safety helpers before broker submission.
+- Operational runbooks are now part of the repository contract.
+
+### Alternatives Considered
+
+- Enable Alpaca live order submission immediately.
+- Treat dry-run mode as equivalent to paper trading.
+- Put safety checks inside each broker adapter instead of central live
+  monitoring/safety helpers.

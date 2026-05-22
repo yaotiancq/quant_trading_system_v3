@@ -8,6 +8,167 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Phase 8] - 2026-05-22
+
+### Added
+
+- Implemented monitoring primitives under `qts.monitoring`:
+  - health check results and aggregation,
+  - runtime metric logging,
+  - alert events and alert sinks,
+  - recovery manager behavior,
+  - broker/internal reconciliation health checks,
+  - live safety validation helpers.
+- Added guarded `LiveEngine` scaffolding with explicit safety gates and
+  dry-run-only broker initialization.
+- Added live order safety validation for allowed symbols, account allowlists,
+  max order notional, and max order quantity.
+- Added `scripts/run_live_trading.py` for safe dry-run live initialization.
+- Added `docs/runbooks.md` with Phase 8 operational procedures.
+- Added Phase 8 tests for:
+  - live safety gates,
+  - account and symbol allowlists,
+  - max order size checks,
+  - health check aggregation,
+  - alert hooks,
+  - runtime metrics logging,
+  - recovery manager stop behavior,
+  - reconciliation mismatches,
+  - dry-run live engine initialization.
+
+### Changed
+
+- Updated `configs/live_alpaca.yaml` with explicit live safety defaults.
+- Updated `README.md` with Phase 8 status and dry-run live initialization
+  instructions.
+- Updated `PROJECT_STATE.md` to mark Phase 8 complete.
+- Updated `INTERFACES.md` with monitoring and live-safety helper contracts.
+- Added ADR-020 documenting the guarded dry-run live-engine foundation.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+### Notes
+
+- Phase 8 does not enable real live broker order submission.
+- The dry-run live engine validates operational wiring and safety controls
+  without touching external broker APIs.
+
+---
+
+## [Phase 7] - 2026-05-22
+
+### Added
+
+- Implemented offline ML dataset construction from existing feature pipelines.
+- Added forward-return directional labels with configurable horizon and
+  thresholds.
+- Added chronological train/validation/test splits, walk-forward split helpers,
+  and temporal leakage checks.
+- Implemented a dependency-free directional baseline model with training,
+  evaluation, and runtime prediction support.
+- Added a filesystem model registry under `artifacts/models/` conventions.
+- Implemented `DefaultMLModelInference` for loading registered model artifacts
+  and producing normalized `ModelPrediction` objects.
+- Added `MLSignalStrategy` to convert model predictions into broker-agnostic
+  `Signal` outputs.
+- Added fixture ML configs:
+  - `configs/ml/directional_baseline.yaml`,
+  - `configs/strategies/ml_directional.yaml`.
+- Added `scripts/train_model.py` for local Phase 7 model training.
+- Added Phase 7 tests for:
+  - dataset construction and labels,
+  - chronological and walk-forward splits,
+  - temporal leakage detection,
+  - model registry and inference,
+  - ML strategy signal conversion,
+  - fixture-backed training pipeline execution.
+
+### Changed
+
+- Updated `README.md` with Phase 7 status and local training instructions.
+- Updated `PROJECT_STATE.md` to mark Phase 7 complete and Phase 8 pending.
+- Added ADR-019 documenting the dependency-free Phase 7 baseline model and local
+  registry approach.
+- Extended the strategy factory to instantiate the ML signal strategy from
+  configuration.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+### Notes
+
+- Phase 7 does not introduce advanced model libraries, online learning,
+  optimization, production model monitoring, or live trading readiness.
+- The initial ML model is intentionally small and dependency-free so workflow
+  contracts can be tested in the current local environment.
+
+---
+
+## [Phase 6] - 2026-05-22
+
+### Added
+
+- Implemented a dependency-free Alpaca Trading API client boundary under
+  `integrations/alpaca/`.
+- Added Alpaca payload mapping for:
+  - order requests,
+  - normalized orders,
+  - fill deltas from polled order state,
+  - accounts,
+  - positions.
+- Implemented `AlpacaBrokerage` for paper trading through the normalized
+  `Brokerage` interface.
+- Added an in-memory Alpaca client for credential-free mock paper runs.
+- Implemented portfolio reconciliation against broker account and positions.
+- Implemented `PaperTradingEngine` initialization and externally supplied
+  market-event handling for paper mode.
+- Added `scripts/run_paper_trading.py` for paper runtime initialization.
+- Added mocked Phase 6 tests for:
+  - Alpaca mapping,
+  - broker order submission and fill polling,
+  - broker error normalization,
+  - live-mode safety rejection,
+  - portfolio reconciliation,
+  - mock paper engine initialization,
+  - shared paper execution path from strategy to portfolio fill.
+
+### Changed
+
+- Updated `configs/paper_alpaca.yaml` with explicit paper safety settings.
+- Updated `README.md` with Phase 6 status and mock paper runtime instructions.
+- Updated `PROJECT_STATE.md` to mark Phase 6 complete and Phase 7 pending.
+- Added ADR-018 documenting the Alpaca REST boundary, mock client, and polling
+  fill approach.
+- Updated `.env.example` to describe Alpaca credentials as active paper
+  configuration values.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+### Notes
+
+- Phase 6 does not enable live trading.
+- Alpaca market data and streaming order updates remain separate future work.
+- Paper fills are currently detected by polling order filled-quantity deltas.
+
+---
+
 ## [Phase 5] - 2026-05-22
 
 ### Added

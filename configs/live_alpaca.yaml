@@ -15,8 +15,15 @@ broker:
     secret_key: ALPACA_SECRET_KEY
   safety:
     live_enabled: false
+    confirm_live_trading: false
+    dry_run: false
+    mock_mode: false
     require_account_allowlist: true
+    allowed_account_ids: []
     require_symbol_allowlist: true
+    allowed_symbols: [SPY]
+    max_order_notional: 1000
+    max_order_quantity: 10
 
 portfolio:
   currency: USD

@@ -1,0 +1,9 @@
+strategy_id: ml_directional_v1
+strategy_type: ml_directional
+symbols: [SPY]
+enabled: true
+parameters:
+  model_id: directional_fixture_v1
+  registry_dir: artifacts/models
+  buy_probability_threshold: 0.55
+  sell_probability_threshold: 0.45

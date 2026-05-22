@@ -6,8 +6,9 @@
 
 The project has completed the initial documentation package, repository scaffold,
 Phase 1 core foundation, Phase 2 market data/feature layer, Phase 3
-strategy/risk layer, Phase 4 execution/backtest brokerage layer, and Phase 5
-backtest engine/reporting layer.
+strategy/risk layer, Phase 4 execution/backtest brokerage layer, Phase 5
+backtest engine/reporting layer, Phase 6 Alpaca paper trading integration,
+Phase 7 ML workflow, and Phase 8 monitoring/live-trading readiness.
 
 The Python package now includes stable domain enums and data models, core config
 loading and validation, clocks, common exceptions, logging setup, local
@@ -20,13 +21,22 @@ builder, order manager, order router, fill handler, normalized brokerage
 interface, simulated `BacktestBrokerage`, internal portfolio accounting, trade
 and cash ledgers, mark-to-market snapshots, a deterministic bar-driven
 `BacktestEngine`, reporting metrics, report artifact export, configuration
-templates, a small CLI config validation path, runnable backtest scripts, and
+templates, a small CLI config validation path, runnable backtest scripts, a
+dependency-free Alpaca Trading API client boundary, Alpaca payload mapping,
+`AlpacaBrokerage`, mock Alpaca client support, portfolio reconciliation,
+`PaperTradingEngine`, a paper runtime initialization script, offline ML dataset
+construction, forward-return labels, chronological and walk-forward splitting,
+leakage checks, a dependency-free directional training pipeline, filesystem
+model registry, runtime model inference, an ML strategy adapter, fixture ML
+configs, a training script, monitoring health checks, runtime metrics logging,
+alert hooks, recovery behavior, broker reconciliation checks, live safety
+gates, guarded dry-run `LiveEngine` scaffolding, operational runbooks, and
 focused tests.
 
-No Alpaca brokerage implementation, paper/live trading runtime, ML workflow, or
-production monitoring has been implemented.
+Real live broker order submission remains disabled by default. Phase 8 provides
+guarded dry-run initialization and safety validation only.
 
-- **Current phase:** Phase 6 pending
+- **Current phase:** All documented phases complete
 - **Completed phases:**
   - Phase 0 - Documentation and repository scaffold initialization
   - Phase 1 - Project Skeleton and Core Domain Models
@@ -34,8 +44,12 @@ production monitoring has been implemented.
   - Phase 3 - Strategy and Risk Layer
   - Phase 4 - Execution Layer and BacktestBrokerage
   - Phase 5 - Backtest Engine and Reporting
+  - Phase 6 - Alpaca Paper Trading Integration
+  - Phase 7 - ML Workflow
+  - Phase 8 - Monitoring, Reconciliation, and Live-Trading Readiness
 - **In-progress phase:** None
-- **Next recommended task:** Start Phase 6: Alpaca Paper Trading Integration
+- **Next recommended task:** Define the next documented phase or backlog before
+  adding functionality beyond Phase 8.
 
 ## 2. Completed Phases
 
@@ -47,14 +61,15 @@ production monitoring has been implemented.
 | Phase 3 | Complete | Implemented broker-agnostic strategy interfaces, SMA crossover and RSI example strategies, signal-to-intent conversion, position sizing, basic risk rules, default risk engine, configs, and tests. |
 | Phase 4 | Complete | Implemented execution engine, order request builder, order manager, router, fill handler, brokerage protocol, BacktestBrokerage, fill/cost models, broker-side cash/positions, and tests. |
 | Phase 5 | Complete | Implemented internal portfolio accounting, ledgers, mark-to-market snapshots, bar-driven BacktestEngine, metrics, report artifact export, fixture backtest config, scripts, and tests. |
+| Phase 6 | Complete | Implemented Alpaca integration client/mapping, AlpacaBrokerage, mock paper mode, paper engine initialization/event handling, portfolio reconciliation, runner script, and mocked tests. |
+| Phase 7 | Complete | Implemented ML dataset building, forward-return labeling, time-aware splits, leakage checks, dependency-free directional model training/evaluation, filesystem registry, runtime inference, ML signal strategy adapter, fixture configs, training script, and tests. |
+| Phase 8 | Complete | Implemented monitoring health checks, metrics, alerts, recovery behavior, broker reconciliation checks, live safety gates, guarded dry-run LiveEngine scaffolding, live runner script, runbooks, and tests. |
 
 ## 3. Pending Phases
 
 | Phase | Status |
 |---|---|
-| Phase 6: Alpaca Paper Trading Integration | Pending |
-| Phase 7: ML Workflow | Pending |
-| Phase 8: Monitoring, Reconciliation, and Live-Trading Readiness | Pending |
+| None in current `PHASE_PLAN.md` | Complete |
 
 ## 4. Implemented Modules
 
@@ -79,11 +94,14 @@ Repository scaffold exists:
 - `configs/backtest_fixture.yaml`
 - `configs/paper_alpaca.yaml`
 - `configs/live_alpaca.yaml`
+- `configs/ml/directional_baseline.yaml`
+- `configs/strategies/ml_directional.yaml`
 - `configs/strategies/sma_crossover.yaml`
 - `configs/strategies/rsi_mean_reversion.yaml`
 - `configs/risk/base.yaml`
 - `src/qts/`
 - `tests/`
+- `docs/runbooks.md`
 - `data/.gitkeep`
 - `artifacts/.gitkeep`
 
@@ -120,6 +138,7 @@ Strategy layer implemented:
 
 - `src/qts/strategies/base.py`
 - `src/qts/strategies/rule_based.py`
+- `src/qts/strategies/ml_strategy.py`
 - `src/qts/strategies/__init__.py`
 
 Risk layer implemented:
@@ -145,15 +164,26 @@ Brokerage layer implemented:
 - `src/qts/brokers/__init__.py`
 - `src/qts/brokers/backtest/brokerage.py`
 - `src/qts/brokers/backtest/__init__.py`
+- `src/qts/brokers/alpaca/brokerage.py`
+- `src/qts/brokers/alpaca/__init__.py`
+
+Integration layer implemented:
+
+- `src/qts/integrations/alpaca/client.py`
+- `src/qts/integrations/alpaca/mapping.py`
+- `src/qts/integrations/alpaca/mock.py`
+- `src/qts/integrations/alpaca/__init__.py`
 
 Portfolio layer implemented:
 
 - `src/qts/portfolio/accounting.py`
 - `src/qts/portfolio/__init__.py`
 
-Backtest engine implemented:
+Runtime engines implemented:
 
 - `src/qts/engines/backtest_engine.py`
+- `src/qts/engines/paper_trading_engine.py`
+- `src/qts/engines/live_engine.py`
 - `src/qts/engines/__init__.py`
 
 Reporting layer implemented:
@@ -162,10 +192,37 @@ Reporting layer implemented:
 - `src/qts/reporting/reporter.py`
 - `src/qts/reporting/__init__.py`
 
+ML workflow layer implemented:
+
+- `src/qts/ml/types.py`
+- `src/qts/ml/labels.py`
+- `src/qts/ml/dataset.py`
+- `src/qts/ml/splits.py`
+- `src/qts/ml/leakage.py`
+- `src/qts/ml/models.py`
+- `src/qts/ml/registry.py`
+- `src/qts/ml/inference.py`
+- `src/qts/ml/training.py`
+- `src/qts/ml/__init__.py`
+
+Monitoring and live-readiness layer implemented:
+
+- `src/qts/monitoring/types.py`
+- `src/qts/monitoring/health.py`
+- `src/qts/monitoring/metrics.py`
+- `src/qts/monitoring/alerts.py`
+- `src/qts/monitoring/safety.py`
+- `src/qts/monitoring/reconciliation.py`
+- `src/qts/monitoring/recovery.py`
+- `src/qts/monitoring/__init__.py`
+
 Scripts implemented:
 
 - `scripts/run_backtest.py`
 - `scripts/generate_report.py`
+- `scripts/run_paper_trading.py`
+- `scripts/train_model.py`
+- `scripts/run_live_trading.py`
 
 Tests and fixtures implemented:
 
@@ -178,51 +235,56 @@ Tests and fixtures implemented:
 - `tests/unit/risk/`
 - `tests/unit/execution/`
 - `tests/unit/brokers/backtest/`
+- `tests/unit/brokers/alpaca/`
+- `tests/unit/integrations/alpaca/`
 - `tests/unit/portfolio/`
 - `tests/unit/reporting/`
+- `tests/unit/ml/`
+- `tests/unit/monitoring/`
 - `tests/integration/backtest/`
+- `tests/integration/alpaca/`
+- `tests/integration/ml/`
+- `tests/integration/live_safety/`
 - `tests/fixtures/market_data/`
 - `tests/fixtures/market_data/backtest_sma_cross.csv`
+- `tests/fixtures/market_data/ml_directional.csv`
 
 Placeholder package modules still exist for later phases:
 
-- `src/qts/ml/`
-- `src/qts/brokers/alpaca/`
 - `src/qts/integrations/`
-- `src/qts/integrations/alpaca/`
 - `src/qts/integrations/futu/`
 - `src/qts/integrations/polygon/`
-- `src/qts/monitoring/`
 - `src/qts/research/`
 - `src/qts/utils/`
 
-These placeholder modules intentionally contain no Alpaca broker, monitoring,
-research, or ML business logic yet.
+These placeholder modules intentionally contain no research or non-Alpaca
+vendor business logic yet.
 
 ## 5. Missing Modules and Functional Work
 
-Phase 6 needs to implement:
+Future functionality outside the current phase plan remains missing:
 
-- low-level Alpaca integration clients,
-- `AlpacaBrokerage`,
-- Alpaca paper broker configuration,
-- paper trading runner,
-- broker fill/order status polling or stream handling,
-- portfolio reconciliation with Alpaca account and positions,
-- mocked Alpaca tests.
-
-All later application functionality remains missing:
-
-- live trading runtime,
-- monitoring,
 - research workflows,
-- ML workflows,
-- production runbooks.
+- production deployment automation,
+- real live broker order submission,
+- production dashboarding and notification integrations.
 
 ## 6. Known Issues
 
-- The current foundation has a deterministic bar-driven backtest path, but no
-  paper/live broker runtime by design.
+- The current foundation has a deterministic bar-driven backtest path and a
+  mockable Alpaca paper initialization/event-handling path.
+- `PaperTradingEngine` does not yet own a continuous live market-data stream;
+  it handles externally supplied `Bar`/`Quote` events and dry-run
+  initialization.
+- Alpaca market data provider support is not implemented in Phase 6.
+- Alpaca order/fill updates currently use polling and filled-quantity deltas;
+  streaming trade updates remain future operational-readiness work.
+- Phase 8 live readiness is dry-run and safety-gated only. Real live broker
+  order submission remains disabled and should require a new documented phase.
+- The Phase 7 ML model is a dependency-free directional baseline intended to
+  validate workflow boundaries. Advanced model libraries, feature stores,
+  online learning, optimization, and production model monitoring remain future
+  work.
 - Plot generation is not implemented; Phase 5 exports Markdown, JSON, and CSV
   report artifacts.
 - `pytest` is listed as an optional test dependency but is not installed in the
@@ -236,16 +298,16 @@ All later application functionality remains missing:
 - Live trading is intentionally deferred and must remain guarded.
 - First implementation target is minute-level bars.
 - Second-level data support should be preserved architecturally but not overbuilt early.
-- Alpaca is the first real broker target.
+- Alpaca is the first real broker target and now has a paper adapter.
 - Local Parquet is the first historical data source.
 - Backtest brokerage must not own historical data loading.
 - Buying-power checks use `PortfolioSnapshot.metadata["buying_power"]` when
-  present and otherwise fall back to cash until portfolio/account integration is
-  implemented.
+  present and otherwise fall back to cash.
 
 ## 7. Next Recommended Task
 
-Start **Phase 6: Alpaca Paper Trading Integration**.
+Define the next documented phase or backlog item before adding functionality
+beyond Phase 8.
 
 The next AI coding agent should:
 
@@ -258,10 +320,13 @@ The next AI coding agent should:
    - `CHANGELOG.md`
 2. Reuse the existing Phase 1 domain/core infrastructure, Phase 2
    market-data/feature layer, Phase 3 strategy/risk layer, Phase 4
-   execution/backtest brokerage layer, and Phase 5 backtest/reporting layer.
-3. Implement Alpaca paper trading integration according to Phase 6 only.
-4. Add focused mocked tests for Alpaca order conversion, broker error handling,
-   paper brokerage behavior, and reconciliation scaffolding.
+   execution/brokerage layer, Phase 5 backtest/reporting layer, Phase 6
+   Alpaca paper integration, Phase 7 ML workflow, and Phase 8 monitoring/live
+   readiness layer.
+3. Check whether `PHASE_PLAN.md` has been extended with a new phase. If not,
+   update the planning documents before implementing new functional scope.
+4. Preserve the Phase 8 live-safety guardrails unless a future phase explicitly
+   changes them and documents the reason.
 5. Run tests.
 6. Update this file and `CHANGELOG.md`.
 

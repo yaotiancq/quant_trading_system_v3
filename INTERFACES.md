@@ -447,3 +447,42 @@ Generate metrics, plots, and exports.
 
 - Missing snapshots should return clear report error.
 - Plot failures should not corrupt metric exports.
+
+## 21. Monitoring and Live Safety
+
+### Purpose
+
+Provide operational visibility and guarded live-readiness checks without
+enabling unsafe broker submission.
+
+### Required Helpers
+
+| Helper | Inputs | Output | Notes |
+|---|---|---|---|
+| `HealthCheck` | none | `HealthCheckResult` | One runtime health check. |
+| `HealthMonitor` | list of checks | health summary | Aggregates OK/WARNING/CRITICAL checks. |
+| `RuntimeMetricsLogger` | metric name, value, tags | metric sample | Records runtime metrics and optional JSONL output. |
+| `AlertManager` | severity, source, message, details | alert event | Fans out alerts to configured sinks. |
+| `BrokerReconciliationCheck` | portfolio, brokerage | health result | Calls portfolio reconciliation and reports mismatch. |
+| `validate_live_safety_config` | `RuntimeConfig` | safety policy | Fails closed unless live gates are explicit. |
+| `validate_live_account` | config, broker account | bool | Enforces account allowlists. |
+| `validate_order_request_safety` | config, order request, optional price | bool | Enforces symbol and max order size caps. |
+
+### LiveEngine Safety Contract
+
+- `LiveEngine` must require `RuntimeMode.LIVE`.
+- Initialization must fail unless `broker.safety.live_enabled` is true.
+- Symbol allowlists, account allowlists, and max order size caps must be
+  configured before initialization.
+- Non-dry-run live mode must require an additional explicit confirmation flag.
+- Phase 8 dry-run initialization must not submit orders or call external broker
+  APIs.
+- Real live broker submission remains disabled until a later documented phase.
+
+### Error Behavior
+
+- Failed safety gates raise a controlled live-safety error.
+- Reconciliation mismatches raise a controlled reconciliation error during
+  guarded live initialization.
+- Critical runtime failures should emit alerts and stop the engine when a
+  recovery manager is configured.

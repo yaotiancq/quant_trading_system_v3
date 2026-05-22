@@ -14,18 +14,23 @@ The architecture documents in the project root are the source of truth:
 
 ## Current Status
 
-Phase 5 is complete. The repository now includes the package layout, validated
+Phase 8 is complete. The repository now includes the package layout, validated
 domain models and enums, core configuration loading, clocks, common exceptions,
 logging setup, local market data providers, deterministic replay, reusable batch
 indicators, feature schemas, feature pipelines, broker-agnostic example
 strategies, a risk engine with position sizing and basic rules, an execution
 engine, order manager/router, normalized brokerage protocol, simulated
 BacktestBrokerage, internal portfolio accounting, a deterministic backtest
-engine, reporting metrics and artifacts, configuration templates, and tests.
+engine, reporting metrics and artifacts, a dependency-free Alpaca paper
+brokerage adapter, a paper trading engine initialization path, configuration
+templates, an offline ML workflow, a filesystem model registry, runtime ML
+inference, an ML signal strategy adapter, monitoring and alert helpers,
+reconciliation health checks, guarded live safety gates, dry-run `LiveEngine`
+scaffolding, operational runbooks, and tests.
 
-Real broker adapters, paper/live trading runtime, ML workflows, and operational
-monitoring are intentionally deferred. The next milestone is Phase 6: Alpaca
-paper trading integration.
+Real live broker order submission remains disabled by default. The documented
+phase plan is complete through Phase 8; future work should be captured in a new
+phase or backlog before implementation.
 
 ## Layout
 
@@ -41,14 +46,20 @@ src/qts/strategies/
 src/qts/risk/     Position sizing, risk rules, and risk engine
 src/qts/execution/
                   Order requests, manager, router, fill handler, engine
-src/qts/brokers/  Brokerage protocol and BacktestBrokerage simulation
+src/qts/brokers/  Brokerage protocol, BacktestBrokerage, AlpacaBrokerage
+src/qts/integrations/
+                  Low-level vendor clients and mapping adapters
 src/qts/portfolio/
-                  Portfolio accounting, cash ledger, trade ledger, snapshots
-src/qts/engines/  Deterministic BacktestEngine
+                  Portfolio accounting, ledgers, snapshots, reconciliation
+src/qts/engines/  BacktestEngine and PaperTradingEngine
 src/qts/reporting/
                   Backtest metrics and report artifact export
-scripts/          Local backtest and report commands
-tests/            Smoke, unit, and integration tests through Phase 5
+src/qts/ml/       Offline datasets, labels, splits, training, registry, inference
+src/qts/monitoring/
+                  Health checks, metrics, alerts, recovery, safety gates
+scripts/          Local backtest, report, paper, ML, and live dry-run commands
+docs/             Operational runbooks
+tests/            Smoke, unit, and integration tests through Phase 8
 data/             Local data placeholder, ignored by git
 artifacts/        Runtime output placeholder, ignored by git
 ```
@@ -100,12 +111,14 @@ Configuration templates live under `configs/`:
 - `backtest_fixture.yaml`
 - `paper_alpaca.yaml`
 - `live_alpaca.yaml`
+- `ml/directional_baseline.yaml`
 - `strategies/sma_crossover.yaml`
 - `strategies/rsi_mean_reversion.yaml`
+- `strategies/ml_directional.yaml`
 - `risk/base.yaml`
 
 Secrets must not be stored in YAML files. Copy `.env.example` to `.env` for
-local secret placeholders when future broker integrations are implemented.
+local Alpaca paper credentials when using the real paper API.
 
 Validate a runtime config through the CLI:
 
@@ -145,3 +158,31 @@ Generate report artifacts:
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/generate_report.py --config configs/backtest_fixture.yaml
 ```
+
+Initialize the Phase 6 paper runtime without credentials by using mock mode:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_paper_trading.py --config configs/paper_alpaca.yaml --mock --dry-run
+```
+
+With Alpaca paper credentials in `.env`, omit `--mock` to initialize against the
+paper API:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_paper_trading.py --config configs/paper_alpaca.yaml --dry-run
+```
+
+Train the Phase 7 fixture directional model into a local model registry:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/train_model.py --config configs/ml/directional_baseline.yaml
+```
+
+Initialize the Phase 8 guarded live engine in dry-run mode:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_live_trading.py --config configs/live_alpaca.yaml --dry-run --confirm-live-safety
+```
+
+This dry-run command validates safety gates, broker/account scaffolding,
+reconciliation, and health checks. It does not submit live orders.

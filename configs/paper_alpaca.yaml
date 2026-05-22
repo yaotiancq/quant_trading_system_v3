@@ -13,6 +13,9 @@ broker:
   credential_env_keys:
     api_key_id: ALPACA_API_KEY_ID
     secret_key: ALPACA_SECRET_KEY
+  safety:
+    mock_mode: false
+    require_paper: true
 
 portfolio:
   currency: USD

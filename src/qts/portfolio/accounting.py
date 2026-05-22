@@ -167,7 +167,65 @@ class DefaultPortfolio:
         return list(self._cash_ledger)
 
     def reconcile(self, broker_account: Account, broker_positions: list[Position]) -> dict[str, object]:
-        raise PortfolioError("broker reconciliation is out of scope for Phase 5 backtests")
+        """Compare internal portfolio state with broker-reported state."""
+        current_account = self.get_account()
+        broker_positions_by_symbol = {
+            normalize_symbol(position.symbol): position for position in broker_positions
+        }
+        symbols = sorted(set(self._positions) | set(broker_positions_by_symbol))
+        position_differences: list[dict[str, float | str]] = []
+        tolerance = 1e-6
+
+        for symbol in symbols:
+            internal = self._positions.get(symbol)
+            broker = broker_positions_by_symbol.get(symbol)
+            internal_quantity = internal.quantity if internal is not None else 0.0
+            broker_quantity = broker.quantity if broker is not None else 0.0
+            internal_average_cost = internal.average_cost if internal is not None else 0.0
+            broker_average_cost = broker.average_cost if broker is not None else 0.0
+            internal_market_value = internal.market_value if internal is not None else 0.0
+            broker_market_value = broker.market_value if broker is not None else 0.0
+            quantity_difference = internal_quantity - broker_quantity
+            average_cost_difference = internal_average_cost - broker_average_cost
+            market_value_difference = internal_market_value - broker_market_value
+            if (
+                abs(quantity_difference) > tolerance
+                or abs(average_cost_difference) > tolerance
+                or abs(market_value_difference) > tolerance
+            ):
+                position_differences.append(
+                    {
+                        "symbol": symbol,
+                        "internal_quantity": internal_quantity,
+                        "broker_quantity": broker_quantity,
+                        "quantity_difference": quantity_difference,
+                        "internal_average_cost": internal_average_cost,
+                        "broker_average_cost": broker_average_cost,
+                        "average_cost_difference": average_cost_difference,
+                        "internal_market_value": internal_market_value,
+                        "broker_market_value": broker_market_value,
+                        "market_value_difference": market_value_difference,
+                    }
+                )
+
+        cash_difference = current_account.cash - broker_account.cash
+        equity_difference = current_account.equity - broker_account.equity
+        buying_power_difference = current_account.buying_power - broker_account.buying_power
+        matched = (
+            abs(cash_difference) <= tolerance
+            and abs(equity_difference) <= tolerance
+            and not position_differences
+        )
+        return {
+            "status": "matched" if matched else "mismatch",
+            "matched": matched,
+            "cash_difference": cash_difference,
+            "equity_difference": equity_difference,
+            "buying_power_difference": buying_power_difference,
+            "position_differences": position_differences,
+            "internal_timestamp": current_account.timestamp,
+            "broker_timestamp": broker_account.timestamp,
+        }
 
     def _record_trade(self, fill: Fill, order: Order | None, realized_delta: float) -> None:
         position = self._positions.get(fill.symbol)
