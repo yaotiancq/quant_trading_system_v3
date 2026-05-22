@@ -5,26 +5,30 @@
 ## 1. Current Status
 
 The project has completed the initial documentation package, repository scaffold,
-Phase 1 core foundation, and Phase 2 market data/feature layer.
+Phase 1 core foundation, Phase 2 market data/feature layer, and Phase 3
+strategy/risk layer.
 
 The Python package now includes stable domain enums and data models, core config
 loading and validation, clocks, common exceptions, logging setup, local
 historical bar providers, data normalization, deterministic replay, a default
 data portal, reusable batch indicators, feature schemas, feature pipelines,
-configuration templates, a small CLI config validation path, and focused unit
-tests.
+broker-agnostic strategy interfaces, SMA crossover and RSI mean-reversion
+example strategies, normalized signal-to-intent conversion, position sizing, a
+default risk engine, basic risk rules, configuration templates, a small CLI
+config validation path, and focused unit tests.
 
-No strategies, risk engine, execution layer, brokerage implementation, portfolio
-accounting, backtest engine, reporting, ML workflow, or live/paper trading
-runtime has been implemented.
+No execution layer, brokerage implementation, portfolio accounting, backtest
+engine, reporting, ML workflow, or live/paper trading runtime has been
+implemented.
 
-- **Current phase:** Phase 3 pending
+- **Current phase:** Phase 4 pending
 - **Completed phases:**
   - Phase 0 - Documentation and repository scaffold initialization
   - Phase 1 - Project Skeleton and Core Domain Models
   - Phase 2 - Market Data and Feature Layer
+  - Phase 3 - Strategy and Risk Layer
 - **In-progress phase:** None
-- **Next recommended task:** Start Phase 3: Strategy and Risk Layer
+- **Next recommended task:** Start Phase 4: Execution Layer and BacktestBrokerage
 
 ## 2. Completed Phases
 
@@ -33,12 +37,12 @@ runtime has been implemented.
 | Phase 0 | Complete | Documentation package created. Repository scaffold initialized with package layout, configuration templates, dependency metadata, README, and smoke tests. |
 | Phase 1 | Complete | Implemented stable domain models/enums, core config loading, clocks, exceptions, logging setup, CLI config validation, and unit tests. |
 | Phase 2 | Complete | Implemented local market data interfaces/providers, CSV fixtures, optional Parquet provider, replay, default data portal, batch indicators, feature schema/pipeline, and tests. |
+| Phase 3 | Complete | Implemented broker-agnostic strategy interfaces, SMA crossover and RSI example strategies, signal-to-intent conversion, position sizing, basic risk rules, default risk engine, configs, and tests. |
 
 ## 3. Pending Phases
 
 | Phase | Status |
 |---|---|
-| Phase 3: Strategy and Risk Layer | Pending |
 | Phase 4: Execution Layer and BacktestBrokerage | Pending |
 | Phase 5: Backtest Engine and Reporting | Pending |
 | Phase 6: Alpaca Paper Trading Integration | Pending |
@@ -67,6 +71,9 @@ Repository scaffold exists:
 - `configs/backtest.yaml`
 - `configs/paper_alpaca.yaml`
 - `configs/live_alpaca.yaml`
+- `configs/strategies/sma_crossover.yaml`
+- `configs/strategies/rsi_mean_reversion.yaml`
+- `configs/risk/base.yaml`
 - `src/qts/`
 - `tests/`
 - `data/.gitkeep`
@@ -101,6 +108,20 @@ Feature layer implemented:
 - `src/qts/features/pipeline.py`
 - `src/qts/features/__init__.py`
 
+Strategy layer implemented:
+
+- `src/qts/strategies/base.py`
+- `src/qts/strategies/rule_based.py`
+- `src/qts/strategies/__init__.py`
+
+Risk layer implemented:
+
+- `src/qts/risk/types.py`
+- `src/qts/risk/sizing.py`
+- `src/qts/risk/rules.py`
+- `src/qts/risk/engine.py`
+- `src/qts/risk/__init__.py`
+
 Tests and fixtures implemented:
 
 - `tests/test_scaffold.py`
@@ -108,13 +129,13 @@ Tests and fixtures implemented:
 - `tests/unit/core/`
 - `tests/unit/market_data/`
 - `tests/unit/features/`
+- `tests/unit/strategies/`
+- `tests/unit/risk/`
 - `tests/fixtures/market_data/`
 
 Placeholder package modules still exist for later phases:
 
-- `src/qts/strategies/`
 - `src/qts/ml/`
-- `src/qts/risk/`
 - `src/qts/execution/`
 - `src/qts/brokers/`
 - `src/qts/brokers/backtest/`
@@ -130,27 +151,26 @@ Placeholder package modules still exist for later phases:
 - `src/qts/research/`
 - `src/qts/utils/`
 
-These placeholder modules intentionally contain no strategy, risk, execution,
-broker, portfolio, engine, reporting, monitoring, research, or ML business logic yet.
+These placeholder modules intentionally contain no execution, broker, portfolio,
+engine, reporting, monitoring, research, or ML business logic yet.
 
 ## 5. Missing Modules and Functional Work
 
-Phase 3 needs to implement:
+Phase 4 needs to implement:
 
-- base `Strategy` interface,
-- example SMA crossover strategy,
-- example RSI mean reversion strategy,
-- normalized signal/trade-intent generation,
-- risk rule and risk engine interfaces,
-- position sizing,
-- basic risk rules,
-- risk decision reasons,
-- focused tests and configs for strategy and risk behavior.
+- execution engine,
+- order manager,
+- order router,
+- order request builder,
+- fill handler,
+- normalized `Brokerage` interface,
+- `BacktestBrokerage`,
+- order lifecycle and simulated fills,
+- cost/slippage models,
+- execution and broker tests.
 
 All later application functionality remains missing:
 
-- execution layer,
-- brokerage implementations,
 - portfolio accounting,
 - runtime engines,
 - reporting,
@@ -161,7 +181,8 @@ All later application functionality remains missing:
 
 ## 6. Known Issues
 
-- The current foundation has no trading decision or order execution behavior by design.
+- The current foundation has strategy/risk decision behavior but no order
+  execution behavior by design.
 - `pytest` is listed as an optional test dependency but is not installed in the
   current local virtual environment. The test suite currently runs with
   standard-library `unittest`.
@@ -176,10 +197,13 @@ All later application functionality remains missing:
 - Alpaca is the first real broker target.
 - Local Parquet is the first historical data source.
 - Backtest brokerage must not own historical data loading.
+- Buying-power checks use `PortfolioSnapshot.metadata["buying_power"]` when
+  present and otherwise fall back to cash until portfolio/account integration is
+  implemented.
 
 ## 7. Next Recommended Task
 
-Start **Phase 3: Strategy and Risk Layer**.
+Start **Phase 4: Execution Layer and BacktestBrokerage**.
 
 The next AI coding agent should:
 
@@ -190,10 +214,11 @@ The next AI coding agent should:
    - `INTERFACES.md`
    - `DATA_MODELS.md`
    - `CHANGELOG.md`
-2. Reuse the existing Phase 1 domain/core infrastructure and Phase 2
-   market-data/feature layer.
-3. Implement strategy and risk behavior according to Phase 3 only.
-4. Add focused tests for strategies, risk rules, and position sizing.
+2. Reuse the existing Phase 1 domain/core infrastructure, Phase 2
+   market-data/feature layer, and Phase 3 strategy/risk layer.
+3. Implement execution and backtest brokerage behavior according to Phase 4 only.
+4. Add focused tests for order request building, order lifecycle, routing,
+   simulated fills, and rejection behavior.
 5. Run tests.
 6. Update this file and `CHANGELOG.md`.
 

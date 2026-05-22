@@ -1,0 +1,15 @@
+sizing_method: fixed_notional
+sizing_parameters:
+  notional_per_trade: 5000
+max_position_notional: 10000
+max_gross_exposure: 50000
+max_symbol_weight: 0.25
+daily_loss_limit: 1000
+allowed_symbols: [SPY]
+blocked_symbols: []
+cooldown_seconds: 60
+session_rules:
+  enabled: true
+  market_open: "14:30"
+  market_close: "21:00"
+  weekdays: [0, 1, 2, 3, 4]

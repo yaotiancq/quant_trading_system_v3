@@ -393,3 +393,47 @@ minimal environment while leaving a direct path to efficient Parquet data.
 - Require pandas and pyarrow as hard runtime dependencies immediately.
 - Store `FeatureFrame.features` as a pandas DataFrame.
 - Delay Parquet provider implementation until a dependency install step exists.
+
+---
+
+## ADR-015: Phase 3 Strategies Emit Signals and Risk Owns Final Sizing
+
+### Context
+
+Phase 3 introduces the first trading decision path without implementing
+execution, brokers, fills, or portfolio accounting. Strategies need to be useful
+for future backtests while staying broker-agnostic and reusable.
+
+### Decision
+
+The Phase 3 example strategies emit `Signal` objects only. The risk layer
+converts `Signal` and `TargetPosition` inputs into `TradeIntent` objects and
+applies position sizing before evaluating rules. The default risk engine may
+modify an intent to satisfy a configured max-position-notional rule, and it
+rejects intents that fail symbol, session, cooldown, daily-loss, gross-exposure,
+symbol-weight, or buying-power checks.
+
+Buying-power checks use `PortfolioSnapshot.metadata["buying_power"]` when
+present and fall back to `PortfolioSnapshot.cash` until portfolio/account
+integration adds a first-class source.
+
+### Rationale
+
+This preserves the documented strategy/risk boundary and keeps the first
+strategies deterministic and easy to test. It also lets later phases reuse the
+same normalized risk decisions when execution and broker adapters are added.
+
+### Consequences
+
+- Phase 3 can test strategy and risk behavior without routing orders.
+- Strategies remain unsized by default.
+- Risk decisions include sizing details and rule reason codes.
+- Portfolio snapshots must provide enough context for risk checks; richer
+  account-derived buying power can be introduced later without changing the
+  `RiskEngine` interface.
+
+### Alternatives Considered
+
+- Let example strategies emit sized trade intents directly.
+- Put buying-power logic in the future execution or broker layer only.
+- Reject all over-limit intents instead of allowing conservative size reduction.

@@ -8,6 +8,60 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Phase 3] - 2026-05-22
+
+### Added
+
+- Implemented broker-agnostic strategy contracts and shared strategy helpers.
+- Implemented example rule-based strategies:
+  - `SMACrossoverStrategy`,
+  - `RSIMeanReversionStrategy`,
+  - `create_strategy` factory for Phase 3 strategy configs.
+- Implemented signal and target-position conversion into normalized
+  `TradeIntent` objects.
+- Implemented `DefaultPositionSizer` with fixed quantity, fixed notional, and
+  percent-of-equity sizing policies.
+- Implemented risk result helpers, default risk rules, and `RiskEngine`.
+- Added basic risk rules for:
+  - symbol allow/block lists,
+  - trading session checks,
+  - daily loss limit placeholder,
+  - cooldown,
+  - max position notional,
+  - max symbol weight,
+  - max gross exposure,
+  - buying power.
+- Added Phase 3 configuration templates under `configs/strategies/` and
+  `configs/risk/`.
+- Added Phase 3 unit tests for deterministic strategy output, signal/target
+  conversion, sizing, approvals, rejections, risk modifications, session checks,
+  buying power, daily-loss rejection, gross exposure, and cooldown.
+
+### Changed
+
+- Updated `README.md` to reflect Phase 3 status and the new strategy/risk
+  modules.
+- Updated `PROJECT_STATE.md` to mark Phase 3 complete and Phase 4 pending.
+- Added ADR-015 documenting the Phase 3 signal-first strategy behavior and
+  risk-owned sizing decision.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+### Notes
+
+- Phase 3 does not implement order routing, broker adapters, fill simulation,
+  portfolio accounting, backtest orchestration, reporting, ML workflows, or
+  live/paper trading runtime behavior.
+- Strategy and risk tests run with standard-library `unittest`.
+
+---
+
 ## [Phase 2] - 2026-05-22
 
 ### Added

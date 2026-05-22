@@ -1,0 +1,10 @@
+strategy_id: rsi_mean_reversion_v1
+strategy_type: rsi_mean_reversion
+symbols: [SPY]
+enabled: true
+parameters:
+  window: 14
+  oversold: 30
+  overbought: 70
+feature_config:
+  required_features: [rsi_14]

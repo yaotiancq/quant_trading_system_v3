@@ -14,14 +14,16 @@ The architecture documents in the project root are the source of truth:
 
 ## Current Status
 
-Phase 2 is complete. The repository now includes the package layout, validated
+Phase 3 is complete. The repository now includes the package layout, validated
 domain models and enums, core configuration loading, clocks, common exceptions,
 logging setup, local market data providers, deterministic replay, reusable batch
-indicators, feature schemas, feature pipelines, configuration templates, and
-unit tests.
+indicators, feature schemas, feature pipelines, broker-agnostic example
+strategies, a risk engine with position sizing and basic rules, configuration
+templates, and unit tests.
 
-Trading decision logic has not been implemented yet. The next milestone is
-Phase 3: strategy and risk layers.
+Order execution, broker adapters, portfolio accounting, and backtest orchestration
+are intentionally deferred. The next milestone is Phase 4: execution layer and
+BacktestBrokerage.
 
 ## Layout
 
@@ -32,7 +34,10 @@ src/qts/core/     Config loading, clocks, exceptions, and logging setup
 src/qts/market_data/
                   Local historical data loading, normalization, replay, portal
 src/qts/features/ Reusable batch indicators and feature pipelines
-tests/            Smoke, Phase 1, and Phase 2 unit tests
+src/qts/strategies/
+                  Strategy interface, SMA crossover, RSI mean reversion
+src/qts/risk/     Position sizing, risk rules, and risk engine
+tests/            Smoke, Phase 1, Phase 2, and Phase 3 unit tests
 data/             Local data placeholder, ignored by git
 artifacts/        Runtime output placeholder, ignored by git
 ```
@@ -83,6 +88,9 @@ Configuration templates live under `configs/`:
 - `backtest.yaml`
 - `paper_alpaca.yaml`
 - `live_alpaca.yaml`
+- `strategies/sma_crossover.yaml`
+- `strategies/rsi_mean_reversion.yaml`
+- `risk/base.yaml`
 
 Secrets must not be stored in YAML files. Copy `.env.example` to `.env` for
 local secret placeholders when future broker integrations are implemented.
@@ -104,3 +112,7 @@ bars = provider.get_history(["SPY"], "2024-01-02T14:30:00Z", "2024-01-02T14:35:0
 print(len(bars), bars[-1].symbol, bars[-1].close)
 PY
 ```
+
+Phase 3 strategy and risk components are importable from `qts.strategies` and
+`qts.risk`. They generate and approve/reject normalized domain objects only;
+order routing begins in Phase 4.
