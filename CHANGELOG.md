@@ -8,6 +8,73 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Phase 5] - 2026-05-22
+
+### Added
+
+- Implemented internal portfolio accounting with:
+  - fill application,
+  - position accounting,
+  - realized and unrealized PnL,
+  - cash ledger entries,
+  - trade ledger entries,
+  - mark-to-market portfolio snapshots.
+- Implemented reporting metrics:
+  - total return,
+  - annualized return when the period is long enough,
+  - volatility,
+  - Sharpe ratio,
+  - max drawdown,
+  - win rate,
+  - profit factor,
+  - average trade PnL,
+  - trade counts,
+  - exposure summary.
+- Implemented `BacktestReporter` for Markdown, JSON, and CSV artifact export.
+- Implemented deterministic bar-driven `BacktestEngine` wiring together market
+  data, features, strategy, risk, execution, backtest brokerage, portfolio, and
+  reporting.
+- Added runnable scripts:
+  - `scripts/run_backtest.py`,
+  - `scripts/generate_report.py`.
+- Added a local SMA crossover fixture config and CSV fixture:
+  - `configs/backtest_fixture.yaml`,
+  - `tests/fixtures/market_data/backtest_sma_cross.csv`.
+- Added Phase 5 tests for:
+  - portfolio accounting,
+  - metric calculation,
+  - report artifact export,
+  - end-to-end backtest execution,
+  - empty-signal backtests,
+  - fixed-fixture reproducibility.
+
+### Changed
+
+- Updated `README.md` to reflect Phase 5 status and fixture backtest commands.
+- Updated `PROJECT_STATE.md` to mark Phase 5 complete and Phase 6 pending.
+- Added ADR-017 documenting the deterministic bar-driven Phase 5 backtest engine
+  and artifact-export approach.
+- Added strategy attribution to backtest broker order metadata so portfolio trade
+  ledgers can preserve strategy IDs without changing stable fill models.
+
+### Fixed
+
+- Avoided intraday annualized-return overflow by returning no annualized value
+  for periods shorter than one day.
+
+### Removed
+
+- None.
+
+### Notes
+
+- Phase 5 does not implement Alpaca integration, paper/live runtime engines, ML
+  workflows, operational monitoring, or visual plotting.
+- Report output is intentionally lightweight and dependency-free: Markdown,
+  JSON, and CSV.
+
+---
+
 ## [Phase 4] - 2026-05-22
 
 ### Added

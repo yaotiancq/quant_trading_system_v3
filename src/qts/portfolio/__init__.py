@@ -1,5 +1,7 @@
-"""Portfolio accounting package placeholder."""
+"""Portfolio accounting."""
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from .accounting import DefaultPortfolio
+
+__all__ = ["DefaultPortfolio"]

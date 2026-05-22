@@ -1,0 +1,49 @@
+extends: base.yaml
+
+run_id: backtest-fixture-sma
+
+runtime:
+  mode: BACKTEST
+
+date_range:
+  start: 2024-01-02T00:00:00Z
+  end: 2024-01-02T23:59:59Z
+
+market_data:
+  provider: local_csv
+  path: tests/fixtures/market_data/backtest_sma_cross.csv
+  adjustment: RAW
+
+broker:
+  broker_type: backtest
+  fill_policy: next_bar_open
+  commission_model:
+    type: per_share
+    value: 0.0
+  slippage_model:
+    type: bps
+    value: 0.0
+
+portfolio:
+  starting_cash: 100000
+  currency: USD
+
+strategies:
+  - strategy_id: sma_cross_v1
+    strategy_type: sma_crossover
+    symbols: [SPY]
+    enabled: true
+    parameters:
+      fast_window: 2
+      slow_window: 3
+
+risk:
+  sizing_method: fixed_quantity
+  sizing_parameters:
+    quantity: 10
+
+execution:
+  allow_fractional: true
+
+reporting:
+  output_dir: artifacts/reports

@@ -1,0 +1,9 @@
+symbol,timestamp,timeframe,open,high,low,close,volume,vwap,trade_count,source
+spy,2024-01-02T14:30:00Z,MINUTE,100,101,99,100,1000,100,10,backtest_fixture
+spy,2024-01-02T14:31:00Z,MINUTE,99,100,98,99,1000,99,10,backtest_fixture
+spy,2024-01-02T14:32:00Z,MINUTE,98,99,97,98,1000,98,10,backtest_fixture
+spy,2024-01-02T14:33:00Z,MINUTE,101,102,100,101,1000,101,10,backtest_fixture
+spy,2024-01-02T14:34:00Z,MINUTE,103,104,102,103,1000,103,10,backtest_fixture
+spy,2024-01-02T14:35:00Z,MINUTE,102,103,101,102,1000,102,10,backtest_fixture
+spy,2024-01-02T14:36:00Z,MINUTE,99,100,98,99,1000,99,10,backtest_fixture
+spy,2024-01-02T14:37:00Z,MINUTE,97,98,96,97,1000,97,10,backtest_fixture

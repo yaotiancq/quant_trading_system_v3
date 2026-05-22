@@ -129,6 +129,7 @@ class BacktestBrokerage:
         metadata = dict(order_request.metadata)
         metadata.update(
             {
+                "strategy_id": order_request.strategy_id,
                 "time_in_force": order_request.time_in_force.value,
                 "requested_notional": order_request.notional,
             }

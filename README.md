@@ -14,17 +14,18 @@ The architecture documents in the project root are the source of truth:
 
 ## Current Status
 
-Phase 4 is complete. The repository now includes the package layout, validated
+Phase 5 is complete. The repository now includes the package layout, validated
 domain models and enums, core configuration loading, clocks, common exceptions,
 logging setup, local market data providers, deterministic replay, reusable batch
 indicators, feature schemas, feature pipelines, broker-agnostic example
 strategies, a risk engine with position sizing and basic rules, an execution
 engine, order manager/router, normalized brokerage protocol, simulated
-BacktestBrokerage, configuration templates, and unit tests.
+BacktestBrokerage, internal portfolio accounting, a deterministic backtest
+engine, reporting metrics and artifacts, configuration templates, and tests.
 
-Internal portfolio accounting, backtest orchestration, reporting, and real broker
-adapters are intentionally deferred. The next milestone is Phase 5: backtest
-engine and reporting.
+Real broker adapters, paper/live trading runtime, ML workflows, and operational
+monitoring are intentionally deferred. The next milestone is Phase 6: Alpaca
+paper trading integration.
 
 ## Layout
 
@@ -41,7 +42,13 @@ src/qts/risk/     Position sizing, risk rules, and risk engine
 src/qts/execution/
                   Order requests, manager, router, fill handler, engine
 src/qts/brokers/  Brokerage protocol and BacktestBrokerage simulation
-tests/            Smoke and Phase 1-4 unit tests
+src/qts/portfolio/
+                  Portfolio accounting, cash ledger, trade ledger, snapshots
+src/qts/engines/  Deterministic BacktestEngine
+src/qts/reporting/
+                  Backtest metrics and report artifact export
+scripts/          Local backtest and report commands
+tests/            Smoke, unit, and integration tests through Phase 5
 data/             Local data placeholder, ignored by git
 artifacts/        Runtime output placeholder, ignored by git
 ```
@@ -90,6 +97,7 @@ Configuration templates live under `configs/`:
 
 - `base.yaml`
 - `backtest.yaml`
+- `backtest_fixture.yaml`
 - `paper_alpaca.yaml`
 - `live_alpaca.yaml`
 - `strategies/sma_crossover.yaml`
@@ -123,5 +131,17 @@ Phase 4 execution converts approved decisions into order requests.
 
 Phase 4 execution and backtest brokerage components are importable from
 `qts.execution` and `qts.brokers.backtest`. `BacktestBrokerage` fills orders only
-from market events supplied by the caller; the full backtest loop starts in
-Phase 5.
+from market events supplied by the caller; `qts.engines.BacktestEngine` supplies
+the Phase 5 backtest loop.
+
+Run the Phase 5 fixture backtest:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_backtest.py --config configs/backtest_fixture.yaml
+```
+
+Generate report artifacts:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/generate_report.py --config configs/backtest_fixture.yaml
+```

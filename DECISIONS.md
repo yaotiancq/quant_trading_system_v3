@@ -490,3 +490,53 @@ snapshots, and reports without changing the broker interface.
 - Put fill simulation directly in the future `BacktestEngine`.
 - Defer broker-side cash and position updates until portfolio accounting exists.
 - Fill all orders immediately on submission without market events.
+
+---
+
+## ADR-017: Use a Deterministic Bar-Driven Backtest Engine for Phase 5
+
+### Context
+
+Phase 5 is the first end-to-end integration milestone. The system needs to
+connect market data, features, strategies, risk, execution, backtest brokerage,
+portfolio accounting, and reporting without introducing a broad event framework
+too early.
+
+### Decision
+
+Implement `BacktestEngine` as a deterministic bar-driven loop. On each bar, the
+engine:
+
+1. advances the data portal,
+2. lets `BacktestBrokerage` fill previously submitted orders,
+3. applies fills to internal portfolio accounting,
+4. marks the portfolio to market,
+5. updates features,
+6. asks strategies for normalized outputs,
+7. evaluates risk,
+8. submits approved decisions through execution.
+
+Reports are exported as deterministic Markdown, JSON, and CSV artifacts. Plot
+generation remains optional and is not part of the Phase 5 baseline.
+
+### Rationale
+
+This creates a complete, reproducible signal-to-report path while preserving the
+existing module boundaries. It is easier to test than a generalized event bus and
+still leaves room to evolve the engine later.
+
+### Consequences
+
+- End-to-end backtests can run from a local CSV fixture without third-party
+  dependencies.
+- Portfolio ledgers and snapshots are generated from fills, not from broker
+  state directly.
+- Reporting has stable machine-readable artifacts before visual plotting exists.
+- More advanced event orchestration can be introduced later if requirements
+  justify it.
+
+### Alternatives Considered
+
+- Build a generalized event bus before the first backtest.
+- Put portfolio accounting inside `BacktestBrokerage`.
+- Delay reporting exports until plotting support exists.

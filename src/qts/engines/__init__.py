@@ -1,5 +1,7 @@
-"""Runtime engine package placeholder."""
+"""Runtime engines."""
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from .backtest_engine import BacktestEngine
+
+__all__ = ["BacktestEngine"]
