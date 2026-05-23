@@ -181,6 +181,7 @@ class AlpacaDownloaderTests(unittest.TestCase):
                     },
                     "output": {
                         "directory": str(Path(tmp) / "downloads"),
+                        "layout": "single_file",
                         "filename_template": (
                             "alpaca_{feed}_{symbols}_{timeframe}_{start}_{end}.{format}"
                         ),
@@ -191,10 +192,35 @@ class AlpacaDownloaderTests(unittest.TestCase):
             )
 
         self.assertEqual(config.output_format, "parquet")
+        self.assertEqual(config.output_layout, "single_file")
         self.assertEqual(
             config.output_path.name,
             "alpaca_sip_spy-qqq_15min_20240102t143000z_20240102t210000z.parquet",
         )
+
+    def test_config_defaults_to_partitioned_dataset_without_fixed_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            config = AlpacaBarDownloadConfig.from_mapping(
+                {
+                    "market_data": {
+                        "provider": "alpaca_sip",
+                        "symbols": ["SPY", "QQQ"],
+                        "timeframe": "1min",
+                        "start": "2024-01-02T14:30:00Z",
+                        "end": "2024-01-02T21:00:00Z",
+                    },
+                    "output": {
+                        "directory": str(Path(tmp) / "dataset"),
+                        "format": "csv",
+                        "partition_by": ["timeframe", "symbol", "date"],
+                    },
+                },
+                env_values={"ALPACA_API_KEY_ID": "key", "ALPACA_SECRET_KEY": "secret"},
+            )
+
+        self.assertEqual(config.output_layout, "partitioned")
+        self.assertEqual(config.partition_by, ("timeframe", "symbol", "date"))
+        self.assertEqual(config.output_path.name, "dataset")
 
     def test_config_infers_output_format_from_fixed_path_extension(self) -> None:
         config = AlpacaBarDownloadConfig.from_mapping(
@@ -212,6 +238,7 @@ class AlpacaDownloaderTests(unittest.TestCase):
         )
 
         self.assertEqual(config.output_format, "parquet")
+        self.assertEqual(config.output_layout, "single_file")
 
     def test_rejects_unsupported_output_format(self) -> None:
         with self.assertRaises(ConfigurationError):
@@ -244,6 +271,88 @@ class AlpacaDownloaderTests(unittest.TestCase):
                 },
                 env_values={"ALPACA_API_KEY_ID": "key", "ALPACA_SECRET_KEY": "secret"},
             )
+
+    def test_downloads_alpaca_bars_to_partitioned_csv_dataset(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_path = Path(tmp) / "dataset"
+            config = AlpacaBarDownloadConfig(
+                symbols=["SPY", "AAPL"],
+                start="2024-01-02T14:30:00Z",
+                end="2024-01-02T14:30:00Z",
+                timeframe="1Min",
+                feed="sip",
+                output_path=output_path,
+                output_format="csv",
+                output_layout="partitioned",
+                partition_by=("timeframe", "symbol", "date"),
+                api_key_id="key",
+                secret_key="secret",
+                base_url="https://data.alpaca.test/v2",
+            )
+            transport = FakeTransport(
+                [
+                    {
+                        "bars": {
+                            "SPY": [
+                                {
+                                    "t": "2024-01-02T14:30:00Z",
+                                    "o": 100,
+                                    "h": 101,
+                                    "l": 99,
+                                    "c": 100.5,
+                                    "v": 1000,
+                                }
+                            ],
+                            "AAPL": [
+                                {
+                                    "t": "2024-01-02T14:30:00Z",
+                                    "o": 190,
+                                    "h": 191,
+                                    "l": 189,
+                                    "c": 190.5,
+                                    "v": 2000,
+                                }
+                            ],
+                        }
+                    }
+                ]
+            )
+            client = AlpacaMarketDataClient(
+                base_url=config.base_url,
+                api_key_id="key",
+                secret_key="secret",
+                transport=transport,
+            )
+
+            result = download_alpaca_bars(config, client=client)
+
+            self.assertEqual(result.output_layout, "partitioned")
+            self.assertEqual(result.output_file_count, 2)
+            spy_file = (
+                output_path
+                / "timeframe=1Min"
+                / "symbol=SPY"
+                / "date=2024-01-02"
+                / "bars_20240102t143000z_20240102t143000z.csv"
+            )
+            aapl_file = (
+                output_path
+                / "timeframe=1Min"
+                / "symbol=AAPL"
+                / "date=2024-01-02"
+                / "bars_20240102t143000z_20240102t143000z.csv"
+            )
+            self.assertTrue(spy_file.is_file())
+            self.assertTrue(aapl_file.is_file())
+
+            provider = CSVBarProvider(output_path)
+            bars = provider.get_history(
+                ["SPY", "AAPL"],
+                "2024-01-02T14:30:00Z",
+                "2024-01-02T14:30:00Z",
+                "MINUTE",
+            )
+            self.assertEqual([bar.symbol for bar in bars], ["AAPL", "SPY"])
 
     @unittest.skipUnless(parquet_write_read_available(), "Parquet writer engine is not installed")
     def test_downloads_alpaca_bars_to_parquet_compatible_with_provider(self) -> None:
@@ -300,6 +409,62 @@ class AlpacaDownloaderTests(unittest.TestCase):
             )
             self.assertEqual(len(bars), 1)
             self.assertEqual(bars[0].source, "alpaca_sip_1Min")
+            self.assertEqual(bars[0].close, 100.5)
+
+    @unittest.skipUnless(parquet_write_read_available(), "Parquet writer engine is not installed")
+    def test_downloads_alpaca_bars_to_partitioned_parquet_dataset(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_path = Path(tmp) / "dataset"
+            config = AlpacaBarDownloadConfig(
+                symbols=["SPY"],
+                start="2024-01-02T14:30:00Z",
+                end="2024-01-02T14:30:00Z",
+                timeframe="1Min",
+                feed="sip",
+                output_path=output_path,
+                output_format="parquet",
+                output_layout="partitioned",
+                partition_by=("timeframe", "symbol", "date"),
+                api_key_id="key",
+                secret_key="secret",
+                base_url="https://data.alpaca.test/v2",
+            )
+            transport = FakeTransport(
+                [
+                    {
+                        "bars": {
+                            "SPY": [
+                                {
+                                    "t": "2024-01-02T14:30:00Z",
+                                    "o": 100,
+                                    "h": 101,
+                                    "l": 99,
+                                    "c": 100.5,
+                                    "v": 1000,
+                                }
+                            ]
+                        }
+                    }
+                ]
+            )
+            client = AlpacaMarketDataClient(
+                base_url=config.base_url,
+                api_key_id="key",
+                secret_key="secret",
+                transport=transport,
+            )
+
+            result = download_alpaca_bars(config, client=client)
+
+            self.assertEqual(result.output_file_count, 1)
+            provider = LocalParquetProvider(output_path)
+            bars = provider.get_history(
+                ["SPY"],
+                "2024-01-02T14:30:00Z",
+                "2024-01-02T14:30:00Z",
+                "MINUTE",
+            )
+            self.assertEqual(len(bars), 1)
             self.assertEqual(bars[0].close, 100.5)
 
 

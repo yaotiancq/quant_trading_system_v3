@@ -58,8 +58,11 @@ Provide normalized market data without exposing vendor-specific APIs.
 
 Config-driven download helpers may live under `market_data/` when they produce
 normalized local data for providers to consume. The Alpaca SIP downloader writes
-CSV or Parquet rows compatible with `CSVBarProvider` and `LocalParquetProvider`;
-it does not submit orders and does not share code with broker adapters.
+CSV or Parquet rows compatible with `CSVBarProvider` and `LocalParquetProvider`.
+The default layout is a partitioned dataset by exact timeframe, symbol, and
+date; providers recursively read matching files when given a dataset directory.
+The downloader does not submit orders and does not share code with broker
+adapters.
 
 ### Error Behavior
 

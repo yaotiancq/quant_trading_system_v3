@@ -54,11 +54,14 @@ Each layer owns a small responsibility:
 
 1. `scripts/download_data.py` loads `configs/data/alpaca_sip_bars.yaml`.
 2. `AlpacaBarDownloadConfig` validates symbols, date range, K-line timeframe,
-   output format, and either a fixed output path or directory/filename template.
+   output format, layout, and partition settings.
 3. `AlpacaMarketDataClient` requests paginated Alpaca stock bars.
 4. `download_alpaca_bars` normalizes bars into CSV or Parquet rows.
-5. The resulting file can be consumed by `CSVBarProvider` or
-   `LocalParquetProvider`.
+5. Partitioned output is written below directories such as
+   `timeframe=1Min/symbol=SPY/date=2024-01-02/`.
+6. The resulting dataset can be consumed by `CSVBarProvider` or
+   `LocalParquetProvider`, both of which read matching files recursively when
+   given a directory.
 
 ### Paper Flow
 
@@ -137,7 +140,7 @@ generated egg-info metadata are not part of the source contract.
 | File | Purpose |
 |---|---|
 | `scripts/run_backtest.py` | Loads a runtime config, runs `BacktestEngine`, prints fill count and return. |
-| `scripts/download_data.py` | Downloads Alpaca SIP historical stock bars to normalized CSV or Parquet. |
+| `scripts/download_data.py` | Downloads Alpaca SIP historical stock bars to normalized CSV or Parquet partitioned datasets. |
 | `scripts/generate_report.py` | Runs a backtest and prints generated report artifact paths. |
 | `scripts/run_paper_trading.py` | Initializes configured paper runtime, supports broker mock mode. |
 | `scripts/run_live_trading.py` | Initializes guarded live dry-run runtime with explicit safety confirmation. |
@@ -182,7 +185,7 @@ installed. Keep config templates simple unless PyYAML becomes a hard dependency.
 | `src/qts/market_data/interfaces.py` | `MarketDataProvider` and `DataPortal` protocols. |
 | `src/qts/market_data/alpaca.py` | Config-driven Alpaca SIP historical stock bar downloader and client. |
 | `src/qts/market_data/normalization.py` | CSV reading, bar schema validation, timestamp/symbol normalization, filtering. |
-| `src/qts/market_data/providers.py` | CSV provider, optional Parquet provider, replay provider. |
+| `src/qts/market_data/providers.py` | CSV provider, optional Parquet provider, partitioned directory loading, replay provider. |
 | `src/qts/market_data/portal.py` | Default data portal with replay-bounded reads. |
 | `src/qts/market_data/__init__.py` | Public market data exports. |
 
@@ -396,7 +399,7 @@ Detailed test file index:
 | `tests/unit/core/test_config.py` | Tests config loading, env parsing, YAML parsing, and invalid config failures. |
 | `tests/unit/core/test_logging.py` | Tests structured logging setup. |
 | `tests/unit/market_data/__init__.py` | Market data test package marker. |
-| `tests/unit/market_data/test_alpaca_downloader.py` | Tests Alpaca SIP timeframe normalization, pagination, CSV/Parquet writing, and config loading. |
+| `tests/unit/market_data/test_alpaca_downloader.py` | Tests Alpaca SIP timeframe normalization, pagination, CSV/Parquet writing, partitioned datasets, and config loading. |
 | `tests/unit/market_data/test_csv_provider.py` | Tests CSV provider, normalization errors, replay ordering, and data portal behavior. |
 | `tests/unit/features/__init__.py` | Feature test package marker. |
 | `tests/unit/features/test_indicators.py` | Known-value tests for indicators. |

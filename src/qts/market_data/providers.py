@@ -62,7 +62,7 @@ class BaseHistoricalBarProvider:
 
 
 class CSVBarProvider(BaseHistoricalBarProvider):
-    """Historical bar provider backed by a local CSV file."""
+    """Historical bar provider backed by a local CSV file or partitioned directory."""
 
     def __init__(
         self,
@@ -72,12 +72,12 @@ class CSVBarProvider(BaseHistoricalBarProvider):
         source: str = "local_csv",
     ) -> None:
         self.path = Path(path)
-        rows = read_csv_rows(self.path)
+        rows = _read_csv_dataset_rows(self.path)
         super().__init__(rows_to_bars(rows, default_timeframe=default_timeframe, source=source))
 
 
 class LocalParquetProvider(BaseHistoricalBarProvider):
-    """Historical bar provider backed by a local Parquet file.
+    """Historical bar provider backed by a local Parquet file or partitioned directory.
 
     This provider uses pandas or pyarrow when one is installed. The project keeps
     those dependencies optional in Phase 2 so CSV fixtures remain runnable in a
@@ -104,6 +104,30 @@ class ReplayMarketDataProvider(BaseHistoricalBarProvider):
 
 
 def _read_parquet_rows(path: Path) -> list[dict[str, Any]]:
+    if path.is_dir():
+        parquet_paths = sorted(path.rglob("*.parquet"))
+        if not parquet_paths:
+            raise DataError(f"Parquet dataset has no .parquet files: {path}")
+        rows: list[dict[str, Any]] = []
+        for parquet_path in parquet_paths:
+            rows.extend(_read_parquet_file_rows(parquet_path))
+        return rows
+    return _read_parquet_file_rows(path)
+
+
+def _read_csv_dataset_rows(path: Path) -> list[dict[str, Any]]:
+    if path.is_dir():
+        csv_paths = sorted(path.rglob("*.csv"))
+        if not csv_paths:
+            raise DataError(f"CSV dataset has no .csv files: {path}")
+        rows: list[dict[str, Any]] = []
+        for csv_path in csv_paths:
+            rows.extend(read_csv_rows(csv_path))
+        return rows
+    return read_csv_rows(path)
+
+
+def _read_parquet_file_rows(path: Path) -> list[dict[str, Any]]:
     if not path.is_file():
         raise DataError(f"Parquet file does not exist: {path}")
 

@@ -32,8 +32,11 @@ ALPACA_BAR_TIMEFRAMES = {
 }
 SUPPORTED_ALPACA_BAR_TIMEFRAMES = ("1Min", "5Min", "15Min", "1Hour", "1Day")
 OUTPUT_FORMATS = {"csv", "parquet"}
+OUTPUT_LAYOUTS = {"partitioned", "single_file"}
+PARTITION_FIELDS = {"alpaca_timeframe", "date", "source", "symbol", "timeframe"}
 DEFAULT_OUTPUT_DIRECTORY = Path("data/alpaca")
-DEFAULT_OUTPUT_FILENAME_TEMPLATE = "alpaca_{feed}_{symbols}_{timeframe}_{start}_{end}.{format}"
+DEFAULT_OUTPUT_FILENAME_TEMPLATE = "bars_{start}_{end}.{format}"
+DEFAULT_PARTITION_BY = ("timeframe", "symbol", "date")
 BAR_FIELDNAMES = [
     "symbol",
     "timestamp",
@@ -97,6 +100,9 @@ class AlpacaBarDownloadConfig:
     timeframe: str
     output_path: Path
     output_format: str = "csv"
+    output_layout: str = "single_file"
+    partition_by: tuple[str, ...] = ()
+    filename_template: str = DEFAULT_OUTPUT_FILENAME_TEMPLATE
     feed: str = "sip"
     adjustment: str = "raw"
     sort: str = "asc"
@@ -145,6 +151,11 @@ class AlpacaBarDownloadConfig:
             _required_text(market_data.get("timeframe"), "market_data.timeframe")
         )
         output_format = _configured_output_format(output)
+        output_layout = _configured_output_layout(output)
+        partition_by = _configured_partition_by(output, output_layout)
+        filename_template = (
+            _optional_text(output.get("filename_template")) or DEFAULT_OUTPUT_FILENAME_TEMPLATE
+        )
         output_path = resolve_alpaca_output_path(
             output,
             symbols=symbols,
@@ -154,6 +165,8 @@ class AlpacaBarDownloadConfig:
             feed=feed,
             adjustment=str(market_data.get("adjustment") or "raw").lower(),
             output_format=output_format,
+            output_layout=output_layout,
+            filename_template=filename_template,
         )
 
         return cls(
@@ -163,6 +176,9 @@ class AlpacaBarDownloadConfig:
             timeframe=timeframe,
             output_path=output_path,
             output_format=output_format,
+            output_layout=output_layout,
+            partition_by=partition_by,
+            filename_template=filename_template,
             feed=feed,
             adjustment=str(market_data.get("adjustment") or "raw").lower(),
             sort=str(market_data.get("sort") or "asc").lower(),
@@ -185,11 +201,13 @@ class AlpacaBarDownloadResult:
 
     output_path: Path
     output_format: str
+    output_layout: str
     symbols: list[str]
     timeframe: str
     feed: str
     row_count: int
     page_count: int
+    output_file_count: int
     request_ids: list[str]
 
 
@@ -268,7 +286,10 @@ def download_alpaca_bars(
         secret_key=config.secret_key or "",
     )
     output_path = config.output_path
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    if config.output_layout == "partitioned":
+        output_path.mkdir(parents=True, exist_ok=True)
+    else:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
     rows: list[dict[str, Any]] = []
     request_ids: list[str] = []
@@ -295,15 +316,33 @@ def download_alpaca_bars(
             break
 
     rows.sort(key=lambda row: (str(row["timestamp"]), str(row["symbol"])))
-    write_alpaca_bar_rows(output_path, rows, output_format=config.output_format)
+    output_files = write_alpaca_bar_rows(
+        output_path,
+        rows,
+        output_format=config.output_format,
+        output_layout=config.output_layout,
+        partition_by=config.partition_by,
+        filename_template=config.filename_template,
+        template_values=_output_template_values(
+            symbols=config.symbols,
+            start=config.start,
+            end=config.end,
+            timeframe=config.timeframe,
+            feed=config.feed,
+            adjustment=config.adjustment,
+            output_format=config.output_format,
+        ),
+    )
     return AlpacaBarDownloadResult(
         output_path=output_path,
         output_format=config.output_format,
+        output_layout=config.output_layout,
         symbols=list(config.symbols),
         timeframe=config.timeframe,
         feed=config.feed,
         row_count=len(rows),
         page_count=page_count,
+        output_file_count=len(output_files),
         request_ids=request_ids,
     )
 
@@ -321,6 +360,9 @@ def download_alpaca_bars_to_csv(
         timeframe=config.timeframe,
         output_path=config.output_path,
         output_format="csv",
+        output_layout=config.output_layout,
+        partition_by=config.partition_by,
+        filename_template=config.filename_template,
         feed=config.feed,
         adjustment=config.adjustment,
         sort=config.sort,
@@ -353,6 +395,15 @@ def normalize_output_format(value: str) -> str:
     return normalized
 
 
+def normalize_output_layout(value: str) -> str:
+    """Normalize downloader output layout."""
+    normalized = str(value).strip().lower().replace("-", "_")
+    if normalized not in OUTPUT_LAYOUTS:
+        allowed = ", ".join(sorted(OUTPUT_LAYOUTS))
+        raise ConfigurationError(f"unsupported output.layout {value!r}; expected one of {allowed}")
+    return normalized
+
+
 def resolve_alpaca_output_path(
     output: Mapping[str, Any],
     *,
@@ -363,9 +414,21 @@ def resolve_alpaca_output_path(
     feed: str,
     adjustment: str,
     output_format: str,
+    output_layout: str,
+    filename_template: str,
 ) -> Path:
     """Resolve a concrete downloader output path from path or filename templates."""
     normalized_format = normalize_output_format(output_format)
+    normalized_layout = normalize_output_layout(output_layout)
+
+    explicit_path = _optional_text(output.get("path"))
+    directory_text = _optional_text(output.get("directory"))
+    if normalized_layout == "partitioned":
+        path = Path(explicit_path or directory_text or DEFAULT_OUTPUT_DIRECTORY)
+        if path.suffix.lower().lstrip(".") in OUTPUT_FORMATS:
+            raise ConfigurationError("partitioned output path must be a directory, not a file")
+        return path
+
     template_values = _output_template_values(
         symbols=symbols,
         start=start,
@@ -375,16 +438,10 @@ def resolve_alpaca_output_path(
         adjustment=adjustment,
         output_format=normalized_format,
     )
-
-    explicit_path = _optional_text(output.get("path"))
+    directory = Path(directory_text) if directory_text else DEFAULT_OUTPUT_DIRECTORY
     if explicit_path:
         path = Path(_render_output_template(explicit_path, template_values, "output.path"))
     else:
-        directory_text = _optional_text(output.get("directory"))
-        directory = Path(directory_text) if directory_text else DEFAULT_OUTPUT_DIRECTORY
-        filename_template = (
-            _optional_text(output.get("filename_template")) or DEFAULT_OUTPUT_FILENAME_TEMPLATE
-        )
         filename = _render_output_template(
             filename_template,
             template_values,
@@ -401,14 +458,30 @@ def write_alpaca_bar_rows(
     rows: list[dict[str, Any]],
     *,
     output_format: str,
-) -> None:
-    """Write normalized Alpaca bar rows to CSV or Parquet."""
+    output_layout: str = "single_file",
+    partition_by: Sequence[str] = (),
+    filename_template: str = DEFAULT_OUTPUT_FILENAME_TEMPLATE,
+    template_values: Mapping[str, str] | None = None,
+) -> list[Path]:
+    """Write normalized Alpaca bar rows to CSV/Parquet and return written paths."""
     normalized_format = normalize_output_format(output_format)
+    normalized_layout = normalize_output_layout(output_layout)
+    if normalized_layout == "partitioned":
+        return _write_partitioned_bar_rows(
+            path,
+            rows,
+            output_format=normalized_format,
+            partition_by=tuple(partition_by or DEFAULT_PARTITION_BY),
+            filename_template=filename_template,
+            template_values=template_values or {"format": normalized_format},
+        )
+
     _validate_output_path_extension(path, normalized_format)
     if normalized_format == "csv":
         _write_bar_rows_csv(path, rows)
-        return
-    _write_bar_rows_parquet(path, rows)
+    else:
+        _write_bar_rows_parquet(path, rows)
+    return [path]
 
 
 def _bars_payload_to_rows(
@@ -486,12 +559,85 @@ def _write_bar_rows_parquet(path: Path, rows: list[dict[str, Any]]) -> None:
     pq.write_table(table, path)
 
 
+def _write_partitioned_bar_rows(
+    root: Path,
+    rows: list[dict[str, Any]],
+    *,
+    output_format: str,
+    partition_by: tuple[str, ...],
+    filename_template: str,
+    template_values: Mapping[str, str],
+) -> list[Path]:
+    root.mkdir(parents=True, exist_ok=True)
+    if not rows:
+        return []
+
+    grouped: dict[tuple[str, ...], list[dict[str, Any]]] = {}
+    group_values: dict[tuple[str, ...], dict[str, str]] = {}
+    for row in rows:
+        row_values = _row_template_values(row)
+        rendered_parts = tuple(
+            f"{field}={_partition_path_token(_partition_value(row, field))}"
+            for field in partition_by
+        )
+        grouped.setdefault(rendered_parts, []).append(row)
+        group_values.setdefault(rendered_parts, {**template_values, **row_values})
+
+    output_paths: list[Path] = []
+    for rendered_parts, partition_rows in sorted(grouped.items()):
+        partition_dir = root.joinpath(*rendered_parts)
+        partition_dir.mkdir(parents=True, exist_ok=True)
+        filename = _render_output_template(
+            filename_template,
+            group_values[rendered_parts],
+            "output.filename_template",
+        )
+        output_path = partition_dir / filename
+        _validate_output_path_extension(output_path, output_format)
+        if output_format == "csv":
+            _write_bar_rows_csv(output_path, partition_rows)
+        else:
+            _write_bar_rows_parquet(output_path, partition_rows)
+        output_paths.append(output_path)
+    return output_paths
+
+
 def _domain_timeframe(alpaca_timeframe: str) -> str:
     if alpaca_timeframe.endswith("Min"):
         return "MINUTE"
     if alpaca_timeframe.endswith("Hour"):
         return "HOUR"
     return "DAY"
+
+
+def _configured_output_layout(output: Mapping[str, Any]) -> str:
+    configured_layout = _optional_text(output.get("layout"))
+    if configured_layout:
+        return normalize_output_layout(configured_layout)
+    if _optional_text(output.get("path")):
+        return "single_file"
+    return "partitioned"
+
+
+def _configured_partition_by(output: Mapping[str, Any], output_layout: str) -> tuple[str, ...]:
+    normalized_layout = normalize_output_layout(output_layout)
+    raw_partition_by = output.get("partition_by")
+    if normalized_layout == "single_file":
+        if raw_partition_by:
+            raise ConfigurationError("output.partition_by is only valid for partitioned output")
+        return ()
+
+    if raw_partition_by is None:
+        return DEFAULT_PARTITION_BY
+    if isinstance(raw_partition_by, str):
+        fields = [field.strip() for field in raw_partition_by.split(",") if field.strip()]
+    elif isinstance(raw_partition_by, Sequence):
+        fields = [str(field).strip() for field in raw_partition_by if str(field).strip()]
+    else:
+        raise ConfigurationError("output.partition_by must be a list or comma-separated string")
+    if not fields:
+        raise ConfigurationError("output.partition_by must include at least one field")
+    return tuple(_normalize_partition_field(field) for field in fields)
 
 
 def _configured_output_format(output: Mapping[str, Any]) -> str:
@@ -503,6 +649,8 @@ def _configured_output_format(output: Mapping[str, Any]) -> str:
 
 
 def _infer_output_format(output: Mapping[str, Any]) -> str | None:
+    if _optional_text(output.get("layout")) == "partitioned":
+        return None
     for key in ("path", "filename_template"):
         raw_value = _optional_text(output.get(key))
         if not raw_value or "{format}" in raw_value:
@@ -511,6 +659,16 @@ def _infer_output_format(output: Mapping[str, Any]) -> str | None:
         if suffix in OUTPUT_FORMATS:
             return suffix
     return None
+
+
+def _normalize_partition_field(value: str) -> str:
+    normalized = str(value).strip().lower().replace("-", "_")
+    if normalized not in PARTITION_FIELDS:
+        allowed = ", ".join(sorted(PARTITION_FIELDS))
+        raise ConfigurationError(
+            f"unsupported output.partition_by field {value!r}; expected one of {allowed}"
+        )
+    return normalized
 
 
 def _output_template_values(
@@ -534,6 +692,28 @@ def _output_template_values(
         "adjustment": _filename_token(adjustment),
         "format": output_format,
     }
+
+
+def _row_template_values(row: Mapping[str, Any]) -> dict[str, str]:
+    return {
+        "alpaca_timeframe": _filename_token(str(row.get("alpaca_timeframe") or "")),
+        "date": _partition_value(row, "date"),
+        "source": _filename_token(str(row.get("source") or "")),
+        "symbol": _filename_token(str(row.get("symbol") or "")),
+        "timeframe": _filename_token(_partition_value(row, "timeframe")),
+    }
+
+
+def _partition_value(row: Mapping[str, Any], field: str) -> str:
+    normalized_field = _normalize_partition_field(field)
+    if normalized_field == "date":
+        return normalize_timestamp(row["timestamp"], assume_utc_for_naive=True).date().isoformat()
+    if normalized_field == "timeframe":
+        return str(row.get("alpaca_timeframe") or row.get("timeframe") or "")
+    value = row.get(normalized_field)
+    if value is None or value == "":
+        raise DataError(f"cannot partition bar rows by missing field: {normalized_field}")
+    return str(value)
 
 
 def _render_output_template(
@@ -575,6 +755,20 @@ def _filename_token(value: str) -> str:
     previous_separator = False
     for char in text:
         if char.isalnum():
+            chars.append(char)
+            previous_separator = False
+        elif not previous_separator:
+            chars.append("-")
+            previous_separator = True
+    return "".join(chars).strip("-") or "value"
+
+
+def _partition_path_token(value: str) -> str:
+    text = str(value).strip()
+    chars: list[str] = []
+    previous_separator = False
+    for char in text:
+        if char.isalnum() or char in {"_", "-", "."}:
             chars.append(char)
             previous_separator = False
         elif not previous_separator:
@@ -665,7 +859,10 @@ __all__ = [
     "BAR_FIELDNAMES",
     "DEFAULT_OUTPUT_DIRECTORY",
     "DEFAULT_OUTPUT_FILENAME_TEMPLATE",
+    "DEFAULT_PARTITION_BY",
     "OUTPUT_FORMATS",
+    "OUTPUT_LAYOUTS",
+    "PARTITION_FIELDS",
     "SUPPORTED_ALPACA_BAR_TIMEFRAMES",
     "AlpacaBarDownloadConfig",
     "AlpacaBarDownloadResult",
@@ -675,6 +872,7 @@ __all__ = [
     "download_alpaca_bars",
     "download_alpaca_bars_to_csv",
     "normalize_alpaca_bar_timeframe",
+    "normalize_output_layout",
     "normalize_output_format",
     "resolve_alpaca_output_path",
     "write_alpaca_bar_rows",

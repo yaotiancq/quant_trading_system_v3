@@ -26,7 +26,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--output",
         default=None,
-        help="output file path override; .csv/.parquet extension must match --format",
+        help="output file path override for single-file configs or dataset directory for partitioned configs",
     )
     parser.add_argument(
         "--format",
@@ -51,7 +51,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(
         f"downloaded {result.row_count} Alpaca {result.feed.upper()} {result.timeframe} bars "
         f"for {','.join(result.symbols)} to {result.output_path} "
-        f"as {result.output_format} "
+        f"as {result.output_format} {result.output_layout} output "
+        f"({result.output_file_count} file(s)) "
         f"across {result.page_count} page(s)"
     )
     if result.request_ids:

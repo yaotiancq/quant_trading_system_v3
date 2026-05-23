@@ -740,9 +740,10 @@ Implement Alpaca SIP historical data download under `qts.market_data`, not under
 broker adapters. Add a config-driven script that requests Alpaca stock bars and
 writes normalized CSV or Parquet files compatible with `CSVBarProvider` and
 `LocalParquetProvider`.
-The template config resolves filenames from user settings and includes
-`{format}` in the filename template so the file extension follows the selected
-output format.
+The template config writes a partitioned dataset by exact downloaded timeframe,
+symbol, and date. This keeps multi-symbol and multi-day downloads maintainable
+and lets local providers read only files under a dataset root instead of relying
+on one large file.
 
 The supported user-facing K-line levels are:
 
@@ -770,8 +771,7 @@ network access by mocking the HTTP transport.
 - Historical data download is available before live market data streaming.
 - Exact sub-hour aggregation is retained in output metadata rather than by
   expanding the stable domain enum.
-- Future database or partitioned dataset export can be added behind the same
-  downloader contract.
+- Future database export can be added behind the same downloader contract.
 
 ### Alternatives Considered
 

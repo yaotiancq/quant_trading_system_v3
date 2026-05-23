@@ -91,7 +91,7 @@ Secondary users:
 | Use Case | Description |
 |---|---|
 | Run local research | Load local historical data, compute indicators, inspect features, and test strategy ideas. |
-| Download historical bars | Download Alpaca SIP historical K-line data into normalized local CSV or Parquet files. |
+| Download historical bars | Download Alpaca SIP historical K-line data into normalized local CSV or Parquet partitioned datasets. |
 | Run standardized backtest | Execute a strategy through the same signal → risk → execution → brokerage → portfolio path used by paper/live modes. |
 | Compare strategies | Run multiple strategies under the same data, cost, slippage, and risk assumptions. |
 | Train ML models | Build datasets, labels, splits, leakage checks, train models, and register artifacts. |

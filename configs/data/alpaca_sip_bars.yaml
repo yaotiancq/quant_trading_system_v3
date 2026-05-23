@@ -18,7 +18,12 @@ credentials:
 output:
   # Supported values: csv, parquet.
   format: csv
+  # Supported values: partitioned, single_file.
+  layout: partitioned
   directory: data/alpaca
-  # Available placeholders: {feed}, {symbols}, {timeframe}, {start}, {end},
-  # {adjustment}, {format}.
-  filename_template: alpaca_{feed}_{symbols}_{timeframe}_{start}_{end}.{format}
+  # Partitioned datasets write one or more files below:
+  #   data/alpaca/timeframe=1Min/symbol=SPY/date=2026-05-22/
+  partition_by: [timeframe, symbol, date]
+  # Available placeholders: {feed}, {symbols}, {symbol}, {timeframe}, {start},
+  # {end}, {date}, {adjustment}, {format}.
+  filename_template: bars_{start}_{end}.{format}

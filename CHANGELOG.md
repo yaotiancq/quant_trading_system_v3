@@ -25,9 +25,13 @@ The format follows a simplified Keep a Changelog style.
 
 - Exported Alpaca downloader helpers from `qts.market_data`.
 - Added config and CLI support for `output.format: csv` or `parquet`.
-- Replaced the sample fixed data-download filename with
-  `output.directory`/`output.filename_template`, including a `{format}`
-  placeholder so CSV and Parquet extensions stay in sync.
+- Added partitioned dataset output for Alpaca SIP downloads with configurable
+  `output.partition_by` fields.
+- Updated CSV and Parquet local providers to read partitioned dataset
+  directories recursively.
+- Replaced the sample fixed data-download filename with partitioned
+  `timeframe`/`symbol`/`date` storage so multi-symbol downloads do not land in a
+  single large file.
 - Updated `.env.example`, README, user manual, system handbook, project state,
   system design, phase plan, and decisions docs for the new data download path.
 

@@ -78,7 +78,7 @@ validation.
 | Phase 7 | Complete | Implemented ML dataset building, forward-return labeling, time-aware splits, leakage checks, dependency-free directional model training/evaluation, filesystem registry, runtime inference, ML signal strategy adapter, fixture configs, training script, and tests. |
 | Phase 8 | Complete | Implemented monitoring health checks, metrics, alerts, recovery behavior, broker reconciliation checks, live safety gates, guarded dry-run LiveEngine scaffolding, live runner script, runbooks, and tests. |
 | Phase 9 | Complete | Implemented dependency-free IBKR client/mapping, IBKRBrokerage, mock paper mode, IBKR paper config, paper engine factory support, and mocked tests. |
-| Phase 10 | Complete | Implemented config-driven Alpaca SIP historical bar downloader, CSV/Parquet output, download script, data config template, docs, and tests. |
+| Phase 10 | Complete | Implemented config-driven Alpaca SIP historical bar downloader, partitioned CSV/Parquet output, download script, data config template, docs, and tests. |
 
 ## 3. Pending Phases
 
@@ -338,8 +338,8 @@ Future functionality outside the current phase plan remains missing:
 - IBKR is the second broker target and now has a paper adapter foundation.
 - Alpaca SIP is the first remote historical data download target and writes
   normalized CSV or Parquet for the existing local provider/backtest path. The
-  sample config now derives filenames from a template so the extension follows
-  `output.format`.
+  sample config now writes a partitioned dataset by timeframe, symbol, and date
+  so multi-symbol downloads do not accumulate in one large file.
 - Local Parquet is the first historical data source.
 - Backtest brokerage must not own historical data loading.
 - Buying-power checks use `PortfolioSnapshot.metadata["buying_power"]` when

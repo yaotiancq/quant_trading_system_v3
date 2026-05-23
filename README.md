@@ -153,8 +153,9 @@ PYTHONPATH=src .venv/bin/python scripts/download_data.py --config configs/data/a
 ```
 
 The downloader supports `1min`, `5min`, `15min`, `1hour`, and `1day` levels.
-The default config generates filenames from symbols, timeframe, date range, and
-`output.format`. Use CLI overrides for quick experiments:
+The default config writes a partitioned dataset under `data/alpaca` using
+`timeframe`, `symbol`, and `date` partitions. Use CLI overrides for quick
+experiments:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/download_data.py \
@@ -162,7 +163,7 @@ PYTHONPATH=src .venv/bin/python scripts/download_data.py \
   --symbols SPY,QQQ \
   --timeframe 5min \
   --format parquet \
-  --output data/alpaca/sip_bars_5min.parquet
+  --output data/alpaca_parquet
 ```
 
 The Phase 2 CSV fixture provider can be exercised from Python:

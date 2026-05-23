@@ -837,8 +837,8 @@ reply prompts.
 ### Objective
 
 Add a user-configurable script for downloading Alpaca SIP historical stock
-K-line data into normalized CSV or Parquet files that existing local providers
-can read.
+K-line data into normalized CSV or Parquet partitioned datasets that existing
+local providers can read.
 
 ### Scope
 
@@ -852,10 +852,10 @@ can read.
   - `15min`,
   - `1hour`,
   - `1day`.
-- Write normalized CSV output compatible with `CSVBarProvider` and normalized
-  Parquet output compatible with `LocalParquetProvider`.
-- Add tests for timeframe validation, pagination, CSV/Parquet writing, and
-  config/env loading.
+- Write normalized CSV/Parquet partitioned output compatible with
+  `CSVBarProvider` and `LocalParquetProvider`.
+- Add tests for timeframe validation, pagination, CSV/Parquet writing,
+  partitioned datasets, and config/env loading.
 
 ### Out of Scope
 
@@ -876,12 +876,13 @@ can read.
 
 - User settings are owned by a config file.
 - Credentials are loaded from environment variables or `.env`.
-- The default output path is derived from a filename template, not a fixed
-  extension.
+- The default output layout is a partitioned dataset, not one large file.
+- Partitioned output is organized by timeframe, symbol, and date.
 - The downloader requests Alpaca stock bars with `feed=sip`.
 - Pagination via `next_page_token` is supported.
 - Output includes normalized OHLCV columns and the exact Alpaca timeframe.
-- Output can be loaded by `CSVBarProvider` or `LocalParquetProvider`.
+- Output can be loaded by `CSVBarProvider` or `LocalParquetProvider`, including
+  partitioned dataset directories.
 
 ### Testing Requirements
 
@@ -890,6 +891,7 @@ can read.
 - Paginated response tests.
 - Config/env loading tests.
 - CSV and Parquet compatibility tests.
+- Partitioned dataset write/read tests.
 
 ### Acceptance Criteria
 
@@ -901,7 +903,7 @@ can read.
 ### Expected Deliverables
 
 - Configurable Alpaca SIP data downloader.
-- Normalized CSV or Parquet output path for backtests.
+- Normalized CSV or Parquet partitioned dataset path for backtests.
 - Updated user and system documentation.
 
 ### Notes for Coding Agent

@@ -199,24 +199,33 @@ credentials:
 output:
   # Supported values: csv, parquet.
   format: csv
+  # Supported values: partitioned, single_file.
+  layout: partitioned
   directory: data/alpaca
-  # Available placeholders: {feed}, {symbols}, {timeframe}, {start}, {end},
-  # {adjustment}, {format}.
-  filename_template: alpaca_{feed}_{symbols}_{timeframe}_{start}_{end}.{format}
+  # Creates directories such as:
+  # data/alpaca/timeframe=1Min/symbol=SPY/date=2024-01-02/
+  partition_by: [timeframe, symbol, date]
+  # Available placeholders: {feed}, {symbols}, {symbol}, {timeframe}, {start},
+  # {end}, {date}, {adjustment}, {format}.
+  filename_template: bars_{start}_{end}.{format}
 ```
 
-With this template, changing `format` automatically changes the generated file
-extension. To write Parquet, install the data extra and set:
+With this layout, multiple symbols and dates are written as separate partition
+files instead of one large file. Changing `format` automatically changes the
+generated file extension. To write Parquet, install the data extra and set:
 
 ```yaml
 output:
   format: parquet
+  layout: partitioned
   directory: data/alpaca
-  filename_template: alpaca_{feed}_{symbols}_{timeframe}_{start}_{end}.{format}
+  partition_by: [timeframe, symbol, date]
+  filename_template: bars_{start}_{end}.{format}
 ```
 
-You can still use a fixed `output.path`, but if it ends with `.csv` or
-`.parquet`, the extension must match `output.format`.
+You can still use `layout: single_file` with a fixed `output.path`, but that is
+intended for small fixtures and ad hoc exports. If `output.path` ends with
+`.csv` or `.parquet`, the extension must match `output.format`.
 
 Quick CLI overrides are available:
 
@@ -228,7 +237,7 @@ PYTHONPATH=src .venv/bin/python scripts/download_data.py \
   --format parquet \
   --start 2024-01-02T14:30:00Z \
   --end 2024-01-31T21:00:00Z \
-  --output data/alpaca/sip_spy_qqq_15min.parquet
+  --output data/alpaca_parquet
 ```
 
 Output columns in both formats:
@@ -245,24 +254,25 @@ Output columns in both formats:
 | `source` | Source label such as `alpaca_sip_5Min`. |
 | `alpaca_timeframe` | Exact Alpaca aggregation, such as `5Min`. |
 
-To backtest downloaded CSV data, point a backtest config at the file:
+To backtest downloaded CSV data, point a backtest config at the dataset root:
 
 ```yaml
 market_data:
   provider: local_csv
-  path: data/alpaca/sip_spy_qqq_15min.csv
+  path: data/alpaca
   adjustment: RAW
 
 timeframe: MINUTE
 ```
 
 For Parquet data, set `market_data.provider: local_parquet` and use the
-`.parquet` output path.
+partitioned dataset root.
 
 Notes:
 
 - Alpaca SIP access depends on your account subscription and permissions.
-- The script uses paginated requests and writes all returned rows to one output file.
+- The script uses paginated requests and writes returned rows to one or more
+  partition files.
 - If Alpaca returns request IDs, the script prints them for support/debugging.
 
 ## 7. Backtesting
