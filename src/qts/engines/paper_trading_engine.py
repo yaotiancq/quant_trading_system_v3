@@ -27,6 +27,7 @@ from qts.risk import RiskEngine
 from qts.strategies import BaseStrategy, create_strategy
 
 from .features import feature_pipeline_settings_from_strategies
+from .market_data import resolve_event_market_data_provider
 
 
 class PaperTradingEngine:
@@ -47,6 +48,7 @@ class PaperTradingEngine:
         self.strategies = list(strategies or [])
         self.clock = clock or RealClock()
         self.data_portal = _PaperDataPortal()
+        self.market_data_provider_name: str | None = None
         self.portfolio: DefaultPortfolio | None = None
         self.risk_engine: RiskEngine | None = None
         self.execution_engine: ExecutionEngine | None = None
@@ -61,6 +63,10 @@ class PaperTradingEngine:
             self.config = runtime_config
         if self.config.runtime_mode != RuntimeMode.PAPER:
             raise ConfigurationError("PaperTradingEngine requires PAPER runtime mode")
+        self.market_data_provider_name = resolve_event_market_data_provider(
+            self.config,
+            engine_name="PaperTradingEngine",
+        )
         if self.feature_pipeline is None:
             feature_specs, schema_version = feature_pipeline_settings_from_strategies(
                 self.config.strategies
@@ -70,7 +76,7 @@ class PaperTradingEngine:
                 schema_version=schema_version,
             )
         self.data_portal.feature_pipeline = self.feature_pipeline
-        self.brokerage = self.brokerage or AlpacaBrokerage(self.config.broker)
+        self.brokerage = self.brokerage or _paper_brokerage_from_config(self.config)
         self.brokerage.connect(self.config.broker)
 
         broker_account = self.brokerage.get_account()
@@ -83,7 +89,10 @@ class PaperTradingEngine:
         )
         self._last_reconciliation = self.portfolio.reconcile(broker_account, broker_positions)
         self.risk_engine = RiskEngine(self.config.risk)
-        self.execution_engine = ExecutionEngine(OrderRouter(self.brokerage))
+        self.execution_engine = ExecutionEngine(
+            OrderRouter(self.brokerage),
+            allow_fractional=bool(self.config.execution.get("allow_fractional", True)),
+        )
         if not self.strategies:
             self.strategies = [
                 create_strategy(strategy_config)
@@ -204,6 +213,7 @@ class PaperTradingEngine:
             "market_open": market_open,
             "reconciliation": self._last_reconciliation,
             "mock_mode": bool(self.config.broker.safety.get("mock_mode")),
+            "market_data_provider": self.market_data_provider_name,
         }
 
     def _apply_fill(self, fill: Fill) -> None:
@@ -278,6 +288,15 @@ def _event_price(market_event: Bar | Quote) -> float:
     if isinstance(market_event, Quote):
         return (market_event.bid_price + market_event.ask_price) / 2.0
     return market_event.close
+
+
+def _paper_brokerage_from_config(config: RuntimeConfig) -> AlpacaBrokerage:
+    broker_type = config.broker.broker_type.lower()
+    if broker_type != "alpaca_paper" or config.broker.paper is False:
+        raise ConfigurationError(
+            "PaperTradingEngine currently supports broker.broker_type=alpaca_paper only"
+        )
+    return AlpacaBrokerage(config.broker)
 
 
 __all__ = ["PaperTradingEngine"]

@@ -13,6 +13,7 @@ def make_live_config(
     safety: dict[str, object] | None = None,
     symbols: list[str] | None = None,
     account_id: str = "acct-1",
+    execution: dict[str, object] | None = None,
 ) -> RuntimeConfig:
     merged_safety = {
         "live_enabled": True,
@@ -32,7 +33,7 @@ def make_live_config(
         runtime_mode="LIVE",
         symbols=selected_symbols,
         timeframe="MINUTE",
-        market_data={"provider": "dry_run"},
+        market_data={"provider": "external_events"},
         broker=BrokerConfig(
             broker_type="alpaca_live",
             account_id=account_id,
@@ -52,6 +53,6 @@ def make_live_config(
             "sizing_parameters": {"notional_per_trade": 100},
         },
         portfolio={"currency": "USD"},
-        execution={"allow_fractional": False},
+        execution={"allow_fractional": False, **dict(execution or {})},
         monitoring={"enabled": True},
     )

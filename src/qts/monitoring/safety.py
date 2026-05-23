@@ -89,6 +89,14 @@ def validate_order_request_safety(
     if policy.allowed_symbols and symbol not in set(policy.allowed_symbols):
         raise LiveSafetyError(f"order symbol is not allowed for live trading: {symbol}")
 
+    allow_fractional = bool(config.execution.get("allow_fractional", True))
+    if (
+        not allow_fractional
+        and order_request.quantity is not None
+        and abs(order_request.quantity - round(order_request.quantity)) > 1e-9
+    ):
+        raise LiveSafetyError("fractional quantities are disabled by execution config")
+
     if (
         policy.max_order_quantity is not None
         and order_request.quantity is not None

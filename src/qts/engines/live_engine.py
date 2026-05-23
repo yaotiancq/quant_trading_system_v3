@@ -35,6 +35,8 @@ from qts.monitoring import (
 )
 from qts.portfolio import DefaultPortfolio
 
+from .market_data import resolve_event_market_data_provider
+
 
 class LiveEngine:
     """Live runtime scaffold guarded by explicit safety gates.
@@ -64,6 +66,7 @@ class LiveEngine:
         self.clock = clock or RealClock()
         self._running = False
         self._initialized = False
+        self.market_data_provider_name: str | None = None
         self._last_reconciliation: dict[str, object] | None = None
         self._last_market_event: Bar | Quote | None = None
 
@@ -73,6 +76,10 @@ class LiveEngine:
         if self.config.runtime_mode != RuntimeMode.LIVE:
             raise ConfigurationError("LiveEngine requires LIVE runtime mode")
 
+        self.market_data_provider_name = resolve_event_market_data_provider(
+            self.config,
+            engine_name="LiveEngine",
+        )
         policy = validate_live_safety_config(self.config)
         if self.brokerage is None:
             if not policy.dry_run:
@@ -176,6 +183,7 @@ class LiveEngine:
                 "initialized": self._initialized,
                 "running": self._running,
                 "dry_run": bool(self.config.broker.safety.get("dry_run")),
+                "market_data_provider": self.market_data_provider_name,
                 "last_reconciliation": self._last_reconciliation,
                 "last_market_event_symbol": (
                     self._last_market_event.symbol if self._last_market_event is not None else None

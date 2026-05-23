@@ -4,7 +4,7 @@ runtime:
   mode: LIVE
 
 market_data:
-  provider: alpaca
+  provider: external_events
 
 broker:
   broker_type: alpaca_live

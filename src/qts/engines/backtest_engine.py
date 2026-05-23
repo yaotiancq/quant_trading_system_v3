@@ -95,7 +95,10 @@ class BacktestEngine:
             slippage_model=self.config.broker.slippage_model,
         )
         self.brokerage.connect()
-        self.execution_engine = ExecutionEngine(OrderRouter(self.brokerage))
+        self.execution_engine = ExecutionEngine(
+            OrderRouter(self.brokerage),
+            allow_fractional=bool(self.config.execution.get("allow_fractional", True)),
+        )
         if not self.strategies:
             self.strategies = [
                 create_strategy(strategy_config)

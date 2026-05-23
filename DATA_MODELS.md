@@ -1099,7 +1099,7 @@ Top-level configuration for a run.
 | `strategies` | list[`StrategyConfig`] | yes | at least one enabled |
 | `risk` | `RiskConfig` | yes | risk config |
 | `portfolio` | dict | yes | starting cash, currency |
-| `execution` | dict | yes | order/execution config |
+| `execution` | dict | yes | order/execution config, including `allow_fractional` |
 | `reporting` | dict | no | output config |
 | `monitoring` | dict | no | runtime monitoring config |
 

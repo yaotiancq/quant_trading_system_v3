@@ -21,14 +21,19 @@ class ExecutionEngine:
         *,
         order_manager: OrderManager | None = None,
         fill_handler: FillHandler | None = None,
+        allow_fractional: bool = True,
     ) -> None:
         self.order_router = order_router
         self.order_manager = order_manager or OrderManager()
         self.fill_handler = fill_handler or FillHandler(self.order_manager)
+        self.allow_fractional = bool(allow_fractional)
         self._processed_fill_ids: set[str] = set()
 
     def submit(self, risk_decision: RiskDecision) -> Order:
-        request = build_order_request(risk_decision)
+        request = build_order_request(
+            risk_decision,
+            allow_fractional=self.allow_fractional,
+        )
         order = self.order_router.submit_order(request)
         self.order_manager.register_order(order)
         return order

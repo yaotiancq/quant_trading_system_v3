@@ -16,8 +16,15 @@ The format follows a simplified Keep a Changelog style.
   `BacktestBrokerage` no longer depends on the execution package.
 - Added shared engine feature-pipeline settings resolution from
   `StrategyConfig.feature_config`.
+- Added explicit event-driven market-data provider validation for paper and live
+  engines.
+- Added explicit paper broker selection validation from `broker.broker_type`.
+- Wired `execution.allow_fractional` into execution order validation and live
+  order safety validation.
 - Updated the ML strategy fixture config with explicit feature specs and schema
   version for runtime training-serving consistency.
+- Updated paper/live configuration templates to declare `external_events` as the
+  current supported market-data provider.
 
 ### Fixed
 
@@ -27,6 +34,8 @@ The format follows a simplified Keep a Changelog style.
   falling back to default features.
 - `MLSignalStrategy` now validates the runtime feature pipeline schema against
   the loaded model during initialization when a pipeline is available.
+- Paper/live configs no longer imply that Alpaca market data is implemented in
+  the current phase.
 
 ### Removed
 

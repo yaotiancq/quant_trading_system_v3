@@ -14,6 +14,7 @@ def build_order_request(
     timestamp: Any | None = None,
     client_order_id: str | None = None,
     metadata: dict[str, Any] | None = None,
+    allow_fractional: bool = True,
 ) -> OrderRequest:
     """Convert an approved risk decision into a broker-ready order request."""
     if risk_decision.status == RiskDecisionStatus.REJECTED:
@@ -22,6 +23,7 @@ def build_order_request(
         raise ExecutionError("risk decision has no approved intent")
 
     intent = risk_decision.approved_intent
+    _validate_fractional_quantity(intent.quantity, allow_fractional=allow_fractional)
     request_metadata: dict[str, Any] = {
         "risk_decision_id": risk_decision.decision_id,
         "risk_status": risk_decision.status.value,
@@ -48,6 +50,13 @@ def build_order_request(
         time_in_force=intent.time_in_force,
         metadata=request_metadata,
     )
+
+
+def _validate_fractional_quantity(quantity: float | None, *, allow_fractional: bool) -> None:
+    if allow_fractional or quantity is None:
+        return
+    if abs(quantity - round(quantity)) > 1e-9:
+        raise ExecutionError("fractional quantities are disabled by execution config")
 
 
 __all__ = ["build_order_request"]

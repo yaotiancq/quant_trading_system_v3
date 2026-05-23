@@ -120,6 +120,11 @@ Configuration templates live under `configs/`:
 Secrets must not be stored in YAML files. Copy `.env.example` to `.env` for
 local Alpaca paper credentials when using the real paper API.
 
+Paper/live templates use `market_data.provider: external_events` because the
+current paper and live scaffolds consume externally supplied `Bar`/`Quote`
+events. Alpaca market data integration remains future work; Alpaca is currently
+used only as a broker adapter.
+
 Validate a runtime config through the CLI:
 
 ```bash

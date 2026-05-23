@@ -33,8 +33,8 @@ def make_intent(quantity: float = 10.0) -> TradeIntent:
     )
 
 
-def approved_decision() -> RiskDecision:
-    intent = make_intent()
+def approved_decision(quantity: float = 10.0) -> RiskDecision:
+    intent = make_intent(quantity)
     return RiskDecision(
         decision_id="risk-1",
         timestamp=NOW,
@@ -82,6 +82,14 @@ class ExecutionTests(unittest.TestCase):
         with self.assertRaises(ExecutionError):
             build_order_request(rejected_decision())
 
+    def test_fractional_quantity_respects_execution_policy(self) -> None:
+        request = build_order_request(approved_decision(10.5), allow_fractional=True)
+
+        self.assertEqual(request.quantity, 10.5)
+
+        with self.assertRaises(ExecutionError):
+            build_order_request(approved_decision(10.5), allow_fractional=False)
+
     def test_execution_engine_routes_order_and_tracks_fill(self) -> None:
         broker = BacktestBrokerage(starting_cash=10000)
         broker.connect()
@@ -94,6 +102,14 @@ class ExecutionTests(unittest.TestCase):
         self.assertEqual(order.status, OrderStatus.ACCEPTED)
         self.assertEqual(tracked_order.status, OrderStatus.FILLED)
         self.assertEqual(tracked_order.filled_quantity, 10)
+
+    def test_execution_engine_uses_allow_fractional_policy(self) -> None:
+        broker = BacktestBrokerage(starting_cash=10000)
+        broker.connect()
+        engine = ExecutionEngine(OrderRouter(broker), allow_fractional=False)
+
+        with self.assertRaises(ExecutionError):
+            engine.submit(approved_decision(1.5))
 
     def test_order_manager_tracks_open_orders_and_cancellations(self) -> None:
         broker = BacktestBrokerage(starting_cash=10000)

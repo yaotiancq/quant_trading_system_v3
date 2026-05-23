@@ -82,6 +82,22 @@ class LiveSafetyTests(unittest.TestCase):
         with self.assertRaises(LiveSafetyError):
             validate_order_request_safety(config, wrong_symbol, price=100)
 
+    def test_order_request_safety_enforces_fractional_execution_setting(self) -> None:
+        config = make_live_config(execution={"allow_fractional": False})
+        fractional = OrderRequest(
+            client_order_id="live-fractional",
+            strategy_id="sma_live",
+            symbol="SPY",
+            timestamp=NOW,
+            side=OrderSide.BUY,
+            quantity=1.5,
+            order_type=OrderType.MARKET,
+            time_in_force=TimeInForce.DAY,
+        )
+
+        with self.assertRaises(LiveSafetyError):
+            validate_order_request_safety(config, fractional, price=100)
+
 
 if __name__ == "__main__":
     unittest.main()

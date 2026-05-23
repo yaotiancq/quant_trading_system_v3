@@ -38,7 +38,10 @@ guarded dry-run initialization and safety validation only.
 
 Post-Phase 8 design review fixes have been applied for replay-bounded backtest
 data portal reads, broker/execution dependency direction, and explicit ML
-runtime feature schema wiring.
+runtime feature schema wiring. ADR-007 follow-up fixes also make the current
+paper/live market-data mode explicit through `market_data.provider:
+external_events` and enforce `execution.allow_fractional` in runtime order
+validation.
 
 - **Current phase:** All documented phases complete
 - **Completed phases:**
@@ -280,7 +283,9 @@ Future functionality outside the current phase plan remains missing:
 - `PaperTradingEngine` does not yet own a continuous live market-data stream;
   it handles externally supplied `Bar`/`Quote` events and dry-run
   initialization.
-- Alpaca market data provider support is not implemented in Phase 6.
+- Alpaca market data provider support is not implemented in Phase 6. Paper and
+  live scaffolds currently validate `market_data.provider: external_events` and
+  consume externally supplied `Bar`/`Quote` events.
 - Alpaca order/fill updates currently use polling and filled-quantity deltas;
   streaming trade updates remain future operational-readiness work.
 - Phase 8 live readiness is dry-run and safety-gated only. Real live broker

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from qts.brokers.alpaca import AlpacaBrokerage
-from qts.core import load_runtime_config
+from qts.core import ConfigurationError, load_runtime_config
 from qts.domain import Bar, BarTimeframe, PortfolioSnapshot, Signal, SignalDirection
 from qts.engines import PaperTradingEngine
 from qts.strategies import BaseStrategy
@@ -151,7 +151,20 @@ class PaperTradingEngineIntegrationTests(unittest.TestCase):
         self.assertTrue(status["initialized"])
         self.assertTrue(status["healthy"])
         self.assertTrue(status["mock_mode"])
+        self.assertEqual(status["market_data_provider"], "external_events")
         self.assertEqual(status["reconciliation"]["status"], "matched")
+
+    def test_paper_engine_rejects_unimplemented_market_data_provider(self) -> None:
+        config = load_paper_config(market_data={"provider": "alpaca"})
+
+        with self.assertRaises(ConfigurationError):
+            PaperTradingEngine(config).initialize()
+
+    def test_paper_engine_rejects_unsupported_broker_type(self) -> None:
+        config = load_paper_config(broker={"broker_type": "backtest", "paper": True})
+
+        with self.assertRaises(ConfigurationError):
+            PaperTradingEngine(config).initialize()
 
     def test_paper_engine_uses_shared_execution_path_for_market_event(self) -> None:
         config = load_paper_config()

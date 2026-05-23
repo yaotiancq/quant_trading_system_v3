@@ -265,6 +265,8 @@ Convert approved risk decisions into orders and process order/fill events.
 - Execution engine does not decide strategy direction.
 - Execution engine does not perform core risk approval.
 - Execution engine does not call vendor clients directly.
+- Execution engine must enforce configured execution policy such as
+  `allow_fractional` before routing normalized order requests.
 
 ## 13. OrderManager
 
