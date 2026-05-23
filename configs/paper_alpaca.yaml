@@ -1,41 +1,78 @@
+# Function: Alpaca paper-trading runtime configuration.
+# Used by: scripts/run_paper_trading.py --config configs/paper_alpaca.yaml.
+# Notes: Use --mock for credential-free smoke checks and --dry-run to initialize,
+#        reconcile, print health, and exit.
+
+# Inherit shared defaults from configs/base.yaml.
 extends: base.yaml
 
 runtime:
+  # Options: BACKTEST, PAPER, LIVE. Paper engine requires PAPER.
   mode: PAPER
 
+# Paper/live runtimes currently receive bars/events from an external event loop.
 market_data:
+  # Options for this runtime: external_events.
   provider: external_events
 
+# Alpaca paper brokerage settings.
 broker:
+  # Options for paper script: alpaca_paper, ibkr_paper.
   broker_type: alpaca_paper
+  # true selects Alpaca paper mode; live configs must set false.
   paper: true
+  # Environment variable containing Alpaca paper trading base URL.
   base_url_env: ALPACA_PAPER_BASE_URL
+  # Environment variable names for credentials.
   credential_env_keys:
+    # Alpaca API key id env var.
     api_key_id: ALPACA_API_KEY_ID
+    # Alpaca secret key env var.
     secret_key: ALPACA_SECRET_KEY
+  # Safety gates used by the paper broker adapter.
   safety:
+    # true uses the in-memory mock client and does not require credentials.
     mock_mode: false
+    # true rejects configs that do not look like paper trading.
     require_paper: true
 
+# Account/reporting currency.
 portfolio:
   currency: USD
 
+# Strategies loaded by the paper engine.
 strategies:
   - strategy_id: sma_cross_v1
+    # Options: sma_crossover, sma_cross, rsi_mean_reversion, rsi_reversion,
+    # ml_signal, ml_directional, ml_direction.
     strategy_type: sma_crossover
+    # Symbols traded by this strategy.
     symbols: [SPY]
+    # false keeps config but disables strategy.
     enabled: true
+    # SMA crossover parameters in bars.
     parameters:
+      # Fast SMA window.
       fast_window: 20
+      # Slow SMA window.
       slow_window: 50
 
+# Risk sizing for paper orders.
 risk:
+  # Options: fixed_quantity, fixed_notional, fixed_dollar, percent_equity,
+  # percent_of_equity.
   sizing_method: fixed_notional
   sizing_parameters:
+    # Used by fixed_notional/fixed_dollar.
     notional_per_trade: 1000
 
+# Execution settings.
 execution:
+  # Alpaca can support fractional shares for eligible assets, but this template
+  # keeps whole-share behavior by default.
   allow_fractional: false
 
+# Runtime health/telemetry toggle.
 monitoring:
+  # true enables monitoring hooks when configured.
   enabled: false

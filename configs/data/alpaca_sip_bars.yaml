@@ -1,36 +1,73 @@
+# Function: Download Alpaca SIP historical stock bars into a local dataset.
+# Used by: scripts/download_data.py --config configs/data/alpaca_sip_bars.yaml.
+# Notes: CLI flags can override symbols, timeframe, start, end, output path, and
+#        format. The downloader requests the full interval from Alpaca, then
+#        applies local session filtering before writing files.
+
+# Alpaca historical bars request settings.
 market_data:
+  # Options: alpaca_sip, alpaca_stock_bars, alpaca_bars.
   provider: alpaca_sip
+  # Current downloader supports stocks.
   asset_class: stocks
+  # Symbols to download. Options: any Alpaca-supported stock tickers.
   symbols: [SPY, AAPL, MSFT]
+  # User-facing K-line levels. Options: 1min, 5min, 15min, 1hour, 1day.
+  # Alpaca-native spellings 1Min, 5Min, 15Min, 1Hour, 1Day are also accepted.
   timeframe: 1min
+  # Request start timestamp. Use UTC ISO-8601 with Z for repeatable downloads.
   start: 2026-05-22T13:30:00Z
+  # Request end timestamp. Alpaca is queried for the full interval before local
+  # session filtering removes bars outside regular trading hours.
   end: 2026-05-22T20:00:00Z
+  # Options: sip for paid SIP feed, iex for free IEX feed if your account uses it.
   feed: sip
+  # Alpaca adjustment option. Common values: raw, split, dividend, all.
   adjustment: raw
+  # Options: asc, desc.
   sort: asc
+  # Page size/request limit passed to Alpaca. Raise for fewer pages; keep within
+  # Alpaca API limits for your account.
   limit: 10000
+  # Environment variable containing the Alpaca data API base URL override.
+  # Leave the env var unset to use the built-in Alpaca default.
   base_url_env: ALPACA_DATA_BASE_URL
-  # Alpaca is asked for the full configured interval. Returned rows are then
-  # filtered locally by bar start time in America/New_York.
+  # Local regular-session filter. Options: true/false, regular, disabled, or this
+  # mapping form. For intraday bars, rows are kept when timestamp_et is
+  # >= start and < end.
   session_filter:
+    # true enables filtering; false keeps all returned rows.
     enabled: true
+    # IANA timezone used to interpret the session clock.
     timezone: America/New_York
+    # Inclusive local session start time.
     start: "09:30"
+    # Exclusive local session end time.
     end: "16:00"
 
+# Credential environment variable names.
 credentials:
+  # Environment variable that stores the Alpaca API key id.
   api_key_id_env: ALPACA_API_KEY_ID
+  # Environment variable that stores the Alpaca secret key.
   secret_key_env: ALPACA_SECRET_KEY
 
+# Local output dataset settings.
 output:
-  # Supported values: csv, parquet.
+  # Options: csv, parquet. Parquet requires installing the data extra/pyarrow.
   format: csv
-  # Supported values: partitioned, single_file.
+  # Options: partitioned, single_file. Partitioned is recommended for historical
+  # datasets with multiple symbols or dates.
   layout: partitioned
+  # Dataset root directory for partitioned output. For single_file output, use
+  # path instead of directory.
   directory: data/alpaca
-  # Partitioned datasets write one or more files below:
-  #   data/alpaca/timeframe=1Min/symbol=SPY/date=2026-05-22/
+  # Options: any ordered subset of timeframe, symbol, date, alpaca_timeframe,
+  # source. The default keeps data queryable by timeframe, symbol, and date.
+  # Example output path:
+  # data/alpaca/timeframe=1Min/symbol=SPY/date=2026-05-22/bars_...csv
   partition_by: [timeframe, symbol, date]
-  # Available placeholders: {feed}, {symbols}, {symbol}, {timeframe}, {start},
-  # {end}, {date}, {adjustment}, {format}.
+  # Filename template inside each partition. Placeholders: {feed}, {symbols},
+  # {symbol}, {timeframe}, {start}, {end}, {date}, {adjustment}, {format},
+  # {alpaca_timeframe}, {source}.
   filename_template: bars_{start}_{end}.{format}

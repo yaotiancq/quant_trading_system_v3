@@ -1,15 +1,47 @@
+# Function: Reusable risk-management template.
+# Used by: copy these keys under the `risk:` section of runtime configs such as
+#          configs/backtest.yaml, configs/paper_alpaca.yaml, or configs/live_alpaca.yaml.
+# Notes: This file is a reference snippet; it is not auto-loaded by runtime configs.
+
+# Position sizing method applied to unsized strategy signals.
+# Options: fixed_quantity, fixed_notional, fixed_dollar, percent_equity,
+# percent_of_equity.
 sizing_method: fixed_notional
+
+# Method-specific sizing parameters.
 sizing_parameters:
+  # Used by fixed_notional/fixed_dollar; dollar notional per trade.
   notional_per_trade: 5000
+
+# Maximum notional exposure allowed for one symbol after a proposed order.
 max_position_notional: 10000
+
+# Maximum total gross exposure allowed across all positions.
 max_gross_exposure: 50000
+
+# Maximum symbol exposure as a fraction of account equity. Example: 0.25 = 25%.
 max_symbol_weight: 0.25
+
+# Maximum allowed realized plus unrealized daily loss before new risk is blocked.
 daily_loss_limit: 1000
+
+# Optional allowlist. Empty means no allowlist restriction.
 allowed_symbols: [SPY]
+
+# Optional blocklist. Any symbol here is rejected even if also allowlisted.
 blocked_symbols: []
+
+# Minimum seconds between approved orders for the same symbol/strategy path.
 cooldown_seconds: 60
+
+# Trading-session guard evaluated in UTC unless another layer converts times.
 session_rules:
+  # true enforces session window and weekday rules; false disables them.
   enabled: true
+  # Inclusive UTC market open time. 14:30 UTC corresponds to 09:30 ET outside
+  # daylight saving time; adjust for your session/date if needed.
   market_open: "14:30"
+  # Exclusive UTC market close time.
   market_close: "21:00"
+  # Python weekday numbers. Options: 0 Monday through 6 Sunday.
   weekdays: [0, 1, 2, 3, 4]

@@ -1,49 +1,91 @@
+# Function: Deterministic fixture backtest for tests, smoke checks, and examples.
+# Used by: scripts/run_backtest.py by default and tests that validate the
+#          backtest stack against tests/fixtures/market_data/backtest_sma_cross.csv.
+# Notes: This config should stay tiny and predictable so regressions are easy to spot.
+
+# Inherit common defaults from configs/base.yaml.
 extends: base.yaml
 
+# Stable run id used in generated fixture reports.
 run_id: backtest-fixture-sma
 
 runtime:
+  # Options: BACKTEST, PAPER, LIVE. Fixture runs must use BACKTEST.
   mode: BACKTEST
 
+# Fixture data window. ISO-8601 UTC timestamps are safest.
 date_range:
+  # First bar timestamp included by the local provider.
   start: 2024-01-02T00:00:00Z
+  # Last timestamp included by the local provider.
   end: 2024-01-02T23:59:59Z
 
+# Local test data source.
 market_data:
+  # Options implemented for backtests: local_csv, csv, fixture_csv,
+  # local_parquet, parquet.
   provider: local_csv
+  # CSV fixture with normalized bar columns.
   path: tests/fixtures/market_data/backtest_sma_cross.csv
+  # Options: RAW, SPLIT_ADJUSTED, DIVIDEND_ADJUSTED, TOTAL_RETURN.
   adjustment: RAW
 
+# Simulated broker assumptions for the fixture.
 broker:
+  # Options here: backtest.
   broker_type: backtest
+  # Options: next_bar_open, next_bar_close, next_bar_typical_price, quote_bid_ask.
   fill_policy: next_bar_open
+  # Per-share commission in dollars.
   commission_model:
     type: per_share
     value: 0.0
+  # Slippage in basis points.
   slippage_model:
     type: bps
     value: 0.0
 
+# Starting simulated account state.
 portfolio:
+  # Starting cash balance.
   starting_cash: 100000
+  # Reporting/account currency.
   currency: USD
 
+# Inline strategy list used by the fixture.
 strategies:
+  # Unique strategy id used in signals and reports.
   - strategy_id: sma_cross_v1
+    # Options: sma_crossover, sma_cross, rsi_mean_reversion, rsi_reversion,
+    # ml_signal, ml_directional, ml_direction.
     strategy_type: sma_crossover
+    # Fixture symbols present in the CSV.
     symbols: [SPY]
+    # false disables this strategy without removing it.
     enabled: true
+    # Small windows make the fixture cross quickly.
     parameters:
+      # Fast SMA window in bars.
       fast_window: 2
+      # Slow SMA window in bars.
       slow_window: 3
 
+# Risk sizing used to make expected fills deterministic.
 risk:
+  # Options: fixed_quantity, fixed_notional, fixed_dollar, percent_equity,
+  # percent_of_equity.
   sizing_method: fixed_quantity
+  # Required keys depend on sizing_method.
   sizing_parameters:
+    # Used by fixed_quantity.
     quantity: 10
 
+# Execution settings for the simulated order router.
 execution:
+  # true allows fractional shares; the fixture uses true to exercise that path.
   allow_fractional: true
 
+# Report artifact location.
 reporting:
+  # Directory for fixture report outputs.
   output_dir: artifacts/reports

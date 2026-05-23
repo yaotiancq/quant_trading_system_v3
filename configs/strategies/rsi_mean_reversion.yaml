@@ -1,10 +1,30 @@
+# Function: Standalone RSI mean-reversion strategy snippet/template.
+# Used by: copy this mapping into a runtime config's `strategies:` list.
+# Notes: Runtime configs do not auto-import this file.
+
+# Unique strategy id used in signals, orders, fills, and reports.
 strategy_id: rsi_mean_reversion_v1
+
+# Strategy factory options: rsi_mean_reversion or rsi_reversion.
 strategy_type: rsi_mean_reversion
+
+# Symbols traded by this strategy. Must exist in the selected market data source.
 symbols: [SPY]
+
+# false disables signal generation when this snippet is copied into a runtime config.
 enabled: true
+
+# RSI threshold parameters.
 parameters:
+  # RSI lookback window in bars.
   window: 14
+  # BUY threshold; RSI crossing below/above this level can create long signals.
   oversold: 30
+  # SELL/EXIT threshold; RSI crossing above/below this level can create exit signals.
   overbought: 70
+
+# Optional feature metadata. The runtime derives RSI features from `window` unless
+# explicit `specs` are provided.
 feature_config:
+  # Informational list for humans/tools; not used by the current runtime loader.
   required_features: [rsi_14]

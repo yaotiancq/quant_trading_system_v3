@@ -1,49 +1,95 @@
+# Function: Guarded Alpaca live-trading runtime configuration.
+# Used by: scripts/run_live_trading.py --config configs/live_alpaca.yaml.
+# Notes: Live mode is intentionally disabled by default. Use --dry-run and
+#        --confirm-live-safety for non-ordering initialization checks.
+
+# Inherit shared defaults from configs/base.yaml.
 extends: base.yaml
 
 runtime:
+  # Options: BACKTEST, PAPER, LIVE. Live engine requires LIVE.
   mode: LIVE
 
+# Live runtime event source.
 market_data:
+  # Options for this runtime scaffold: external_events.
   provider: external_events
 
+# Alpaca live brokerage settings.
 broker:
+  # Options for live script: alpaca_live. Paper script supports alpaca_paper/ibkr_paper.
   broker_type: alpaca_live
+  # false selects live brokerage mode.
   paper: false
+  # Environment variable containing Alpaca live trading base URL.
   base_url_env: ALPACA_LIVE_BASE_URL
+  # Environment variable names for credentials.
   credential_env_keys:
+    # Alpaca API key id env var.
     api_key_id: ALPACA_API_KEY_ID
+    # Alpaca secret key env var.
     secret_key: ALPACA_SECRET_KEY
+  # Live safety gates. Keep conservative defaults until you intentionally enable
+  # live trading after account and symbol allowlists are correct.
   safety:
+    # Must be true before the live engine can submit live orders.
     live_enabled: false
+    # Must be true as a second explicit operator confirmation.
     confirm_live_trading: false
+    # true routes through dry-run/mock brokerage behavior.
     dry_run: false
+    # true uses in-memory broker client behavior.
     mock_mode: false
+    # true requires broker.account_id to appear in allowed_account_ids.
     require_account_allowlist: true
+    # Account ids allowed for live trading. Empty rejects all when allowlist is required.
     allowed_account_ids: []
+    # true requires all strategy symbols to appear in allowed_symbols.
     require_symbol_allowlist: true
+    # Symbols allowed for live trading.
     allowed_symbols: [SPY]
+    # Maximum notional allowed for any single live order.
     max_order_notional: 1000
+    # Maximum quantity allowed for any single live order.
     max_order_quantity: 10
 
+# Account/reporting currency.
 portfolio:
   currency: USD
 
+# Strategies loaded by the live engine.
 strategies:
   - strategy_id: sma_cross_v1
+    # Options: sma_crossover, sma_cross, rsi_mean_reversion, rsi_reversion,
+    # ml_signal, ml_directional, ml_direction.
     strategy_type: sma_crossover
+    # Must also be permitted by broker.safety.allowed_symbols.
     symbols: [SPY]
+    # false disables strategy signal generation.
     enabled: true
+    # SMA crossover parameters in bars.
     parameters:
+      # Fast SMA window.
       fast_window: 20
+      # Slow SMA window.
       slow_window: 50
 
+# Live template risk sizing. Notional is zero by default to avoid accidental
+# order sizing if safety gates are changed without updating risk intentionally.
 risk:
+  # Options: fixed_quantity, fixed_notional, fixed_dollar, percent_equity,
+  # percent_of_equity.
   sizing_method: fixed_notional
   sizing_parameters:
+    # Must be positive before fixed_notional sizing can approve trades.
     notional_per_trade: 0
 
+# Execution settings.
 execution:
+  # true permits fractional share quantities when the broker and asset support them.
   allow_fractional: false
 
+# Runtime health/telemetry toggle.
 monitoring:
+  # true enables monitoring hooks when configured.
   enabled: true

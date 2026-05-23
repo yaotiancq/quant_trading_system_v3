@@ -1,33 +1,68 @@
+# Function: Train the dependency-free directional ML baseline model.
+# Used by: scripts/train_model.py --config configs/ml/directional_baseline.yaml.
+# Notes: The generated model can be referenced by an ml_directional strategy
+#        through parameters.model_id and parameters.registry_dir.
+
+# Output model registry settings.
 model:
+  # Stable model identifier used by FileModelRegistry and strategy configs.
   model_id: directional_fixture_v1
+  # Directory where the trained model artifact is written.
   registry_dir: artifacts/models
+  # Probability threshold used by the trained model wrapper for positive decisions.
   decision_threshold: 0.55
 
+# Historical data used for training.
 market_data:
+  # Options implemented by train_model.py: local_csv, csv, fixture_csv,
+  # local_parquet, parquet.
   provider: local_csv
+  # CSV or parquet path containing normalized bars.
   path: tests/fixtures/market_data/ml_directional.csv
+  # Symbols to load from the provider.
   symbols: [SPY]
+  # Domain timeframe options: SECOND, MINUTE, HOUR, DAY.
   timeframe: MINUTE
+  # Inclusive training data start timestamp.
   start: 2024-01-02T14:30:00Z
+  # Inclusive training data end timestamp.
   end: 2024-01-02T14:45:00Z
 
+# Feature generation settings. Keep this aligned with any ml_directional strategy
+# that consumes the trained model.
 features:
+  # Schema/version string stored with generated feature frames and model metadata.
   schema_version: ml_features_v1
+  # Options for spec names include returns, sma, ema, rsi, macd, bollinger, atr,
+  # vwap, volatility, volume_mean, and volume_ratio.
   specs:
+    # One-bar return feature.
     - name: returns
       parameters:
+        # Lookback window in bars.
         window: 1
+    # Simple moving average feature.
     - name: sma
       parameters:
+        # Lookback window in bars.
         window: 3
 
+# Label construction settings for supervised training.
 labels:
+  # Number of bars ahead used to compute the future return label.
   horizon_bars: 1
+  # Future return above this threshold is labeled up/positive.
   up_threshold: 0.0
+  # Future return below this threshold can be labeled down/negative.
   down_threshold: 0.0
 
+# Chronological train/validation/test split settings.
 splits:
+  # Fraction of labeled samples used for training.
   train_fraction: 0.5
+  # Fraction used for validation.
   validation_fraction: 0.25
+  # Fraction used for final test metrics.
   test_fraction: 0.25
+  # Number of bars excluded between split boundaries to reduce leakage.
   embargo_bars: 1

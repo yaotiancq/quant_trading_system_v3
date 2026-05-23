@@ -1,18 +1,45 @@
+# Function: Standalone ML directional strategy snippet/template.
+# Used by: copy this mapping into a runtime config's `strategies:` list after a
+#          model has been trained with scripts/train_model.py.
+# Notes: Runtime configs do not auto-import this file.
+
+# Unique strategy id used in signals, orders, fills, and reports.
 strategy_id: ml_directional_v1
+
+# Strategy factory options: ml_signal, ml_directional, ml_direction.
 strategy_type: ml_directional
+
+# Symbols traded by this strategy. Must match the trained model's intended universe.
 symbols: [SPY]
+
+# false disables signal generation when copied into a runtime config.
 enabled: true
+
+# ML strategy parameters.
 parameters:
+  # Model id stored in registry_dir.
   model_id: directional_fixture_v1
+  # Directory where FileModelRegistry loads model artifacts.
   registry_dir: artifacts/models
+  # Probability at or above this value emits BUY.
   buy_probability_threshold: 0.55
+  # Probability at or below this value emits SELL/EXIT.
   sell_probability_threshold: 0.45
+
+# Feature schema expected by the model. These specs should match training config.
 feature_config:
+  # Schema/version string stored with generated feature frames and model metadata.
   schema_version: ml_features_v1
+  # Options for spec names include returns, sma, ema, rsi, macd, bollinger, atr,
+  # vwap, volatility, volume_mean, and volume_ratio.
   specs:
+    # One-bar return feature.
     - name: returns
       parameters:
+        # Lookback window in bars.
         window: 1
+    # Simple moving average feature.
     - name: sma
       parameters:
+        # Lookback window in bars.
         window: 3

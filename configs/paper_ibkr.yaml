@@ -1,43 +1,81 @@
+# Function: IBKR paper-trading runtime configuration.
+# Used by: scripts/run_paper_trading.py --config configs/paper_ibkr.yaml.
+# Notes: Use --mock for a credential-free smoke check. Real IBKR paper usage
+#        requires a running IBKR Client Portal/Web API endpoint and valid account id.
+
+# Inherit shared defaults from configs/base.yaml.
 extends: base.yaml
 
 runtime:
+  # Options: BACKTEST, PAPER, LIVE. Paper engine requires PAPER.
   mode: PAPER
 
+# Paper runtime event source.
 market_data:
+  # Options for this runtime scaffold: external_events.
   provider: external_events
 
+# IBKR paper brokerage settings.
 broker:
+  # Options for paper script: alpaca_paper, ibkr_paper.
   broker_type: ibkr_paper
+  # true selects paper brokerage mode.
   paper: true
+  # IBKR paper account id. Replace with your DU account id.
   account_id: DU123456
+  # Environment variable containing the IBKR Web API base URL.
   base_url_env: IBKR_BASE_URL
+  # Environment variable names for credentials.
   credential_env_keys:
+    # Optional bearer token env var if your IBKR gateway requires one.
     access_token: IBKR_ACCESS_TOKEN
+  # Safety gates used by the IBKR broker adapter.
   safety:
+    # true uses the in-memory mock client and does not require gateway credentials.
     mock_mode: false
+    # true rejects configs that do not look like paper trading.
     require_paper: true
+    # Symbol-to-conid map required by IBKR order placement.
     symbol_conids:
+      # SPY stock contract id example. Verify before real usage.
       SPY: 756733
 
+# Account/reporting currency.
 portfolio:
   currency: USD
 
+# Strategies loaded by the paper engine.
 strategies:
   - strategy_id: sma_cross_v1
+    # Options: sma_crossover, sma_cross, rsi_mean_reversion, rsi_reversion,
+    # ml_signal, ml_directional, ml_direction.
     strategy_type: sma_crossover
+    # Must have matching entries under broker.safety.symbol_conids.
     symbols: [SPY]
+    # false disables strategy signal generation.
     enabled: true
+    # SMA crossover parameters in bars.
     parameters:
+      # Fast SMA window.
       fast_window: 20
+      # Slow SMA window.
       slow_window: 50
 
+# Risk sizing for IBKR paper orders.
 risk:
+  # Options: fixed_quantity, fixed_notional, fixed_dollar, percent_equity,
+  # percent_of_equity.
   sizing_method: fixed_quantity
   sizing_parameters:
+    # Used by fixed_quantity.
     quantity: 10
 
+# Execution settings.
 execution:
+  # false keeps whole-share order quantities.
   allow_fractional: false
 
+# Runtime health/telemetry toggle.
 monitoring:
+  # true enables monitoring hooks when configured.
   enabled: false

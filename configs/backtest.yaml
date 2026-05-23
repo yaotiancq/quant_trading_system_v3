@@ -1,47 +1,99 @@
+# Function: Default local backtest runtime configuration.
+# Used by: scripts/run_backtest.py --config configs/backtest.yaml and
+#          python -m qts.cli --config configs/backtest.yaml.
+# Notes: Strategy snippet files under configs/strategies are examples/templates;
+#        this file's inline `strategies` section is what the backtest actually uses.
+
+# Inherit common defaults from configs/base.yaml. Options: a relative YAML path or
+# remove this key to make the file self-contained.
 extends: base.yaml
 
+# Runtime mode for the engine selected by scripts/run_backtest.py.
 runtime:
+  # Options: BACKTEST, PAPER, LIVE. Backtests must use BACKTEST.
   mode: BACKTEST
 
+# Inclusive historical window requested from the local market-data provider.
+# Recommended format: ISO-8601 UTC timestamps ending in Z.
 date_range:
-  start: 2026-05-22
-  end: 2026-05-22
+  # Start timestamp. For U.S. regular session minute bars, 13:30:00Z is 09:30 ET
+  # during daylight saving time.
+  start: 2026-05-22T13:30:00Z
+  # End timestamp. Use the last in-session bar start or end-of-day timestamp that
+  # matches the data stored under market_data.path.
+  end:   2026-05-22T19:59:59.999999Z
 
+# Historical data source for the backtest engine.
 market_data:
+  # Options implemented for backtests: local_csv, csv, fixture_csv,
+  # local_parquet, parquet.
   provider: local_csv
+  # File or partitioned dataset directory. Partitioned Alpaca downloads can point
+  # at data/alpaca and are filtered by symbols/date_range/timeframe.
   path: data/alpaca
+  # Options: RAW, SPLIT_ADJUSTED, DIVIDEND_ADJUSTED, TOTAL_RETURN.
   adjustment: RAW
 
+# Simulated broker and fill assumptions.
 broker:
+  # Options here: backtest. Paper/live configs use Alpaca or IBKR broker types.
   broker_type: backtest
+  # Options: next_bar_open, next_bar_close, next_bar_typical_price, quote_bid_ask.
   fill_policy: next_bar_open
+  # Commission model. Current built-in type used by the backtest broker is
+  # per_share; value is dollars per share.
   commission_model:
     type: per_share
     value: 0.0
+  # Slippage model. Current built-in type is bps; value is basis points.
   slippage_model:
     type: bps
     value: 0.0
 
+# Starting account state for the simulated broker.
 portfolio:
+  # Starting cash balance.
   starting_cash: 100000
+  # Reporting and account currency.
   currency: USD
 
+# Enabled trading strategies. These are loaded directly; external strategy YAML
+# files are not imported automatically.
 strategies:
+  # Unique strategy id used in signals, orders, fills, and reports.
   - strategy_id: sma_cross_v1
+    # Options implemented by the strategy factory: sma_crossover, sma_cross,
+    # rsi_mean_reversion, rsi_reversion, ml_signal, ml_directional, ml_direction.
     strategy_type: sma_crossover
+    # Symbols traded by this strategy. Must exist in market data.
     symbols: [SPY]
+    # false keeps the strategy in config but skips signal generation.
     enabled: true
+    # Strategy-specific parameters. SMA crossover generates BUY/SELL signals when
+    # the fast SMA crosses the slow SMA.
     parameters:
-      fast_window: 5
-      slow_window: 10
+      # Fast moving-average window in bars.
+      fast_window: 20
+      # Slow moving-average window in bars. Usually greater than fast_window.
+      slow_window: 40
 
+# Risk and sizing settings applied after strategy signals.
 risk:
+  # Options: fixed_quantity, fixed_notional, fixed_dollar, percent_equity,
+  # percent_of_equity.
   sizing_method: fixed_notional
+  # Required keys depend on sizing_method.
   sizing_parameters:
+    # Used by fixed_notional/fixed_dollar; dollar notional per new trade.
     notional_per_trade: 5000
 
+# Execution adapter settings.
 execution:
+  # true permits fractional share quantities when the downstream broker supports
+  # them; false rounds to whole shares.
   allow_fractional: false
 
+# Report artifact settings.
 reporting:
+  # Directory for summary markdown, metrics JSON, trades CSV, and cash CSV.
   output_dir: artifacts/reports
