@@ -61,6 +61,8 @@ normalized local data for providers to consume. The Alpaca SIP downloader writes
 CSV or Parquet rows compatible with `CSVBarProvider` and `LocalParquetProvider`.
 The default layout is a partitioned dataset by exact timeframe, symbol, and
 date; providers recursively read matching files when given a dataset directory.
+The API request interval remains the configured `start`/`end`, and regular
+session inclusion is enforced locally on returned rows.
 The downloader does not submit orders and does not share code with broker
 adapters.
 

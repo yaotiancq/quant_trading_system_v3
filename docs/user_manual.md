@@ -191,6 +191,12 @@ market_data:
   adjustment: raw
   limit: 10000
   base_url_env: ALPACA_DATA_BASE_URL
+  # Alpaca is requested for the full interval; rows are filtered locally.
+  session_filter:
+    enabled: true
+    timezone: America/New_York
+    start: "09:30"
+    end: "16:00"
 
 credentials:
   api_key_id_env: ALPACA_API_KEY_ID
@@ -226,6 +232,13 @@ output:
 You can still use `layout: single_file` with a fixed `output.path`, but that is
 intended for small fixtures and ad hoc exports. If `output.path` ends with
 `.csv` or `.parquet`, the extension must match `output.format`.
+
+The regular-session filter is applied after download. For minute bars on US
+equities, this keeps bar start times where the timestamp converted to
+`America/New_York` is greater than or equal to `09:30` and less than `16:00`.
+For example, during Eastern daylight time, a `20:00:00Z` bar starts at `16:00`
+ET and is excluded. Set `session_filter.enabled: false` only when you want
+extended-hours data.
 
 Quick CLI overrides are available:
 
@@ -271,6 +284,8 @@ partitioned dataset root.
 Notes:
 
 - Alpaca SIP access depends on your account subscription and permissions.
+- The API request uses the full configured `start`/`end`; session boundaries are
+  controlled by local filtering.
 - The script uses paginated requests and writes returned rows to one or more
   partition files.
 - If Alpaca returns request IDs, the script prints them for support/debugging.

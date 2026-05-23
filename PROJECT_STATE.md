@@ -339,7 +339,9 @@ Future functionality outside the current phase plan remains missing:
 - Alpaca SIP is the first remote historical data download target and writes
   normalized CSV or Parquet for the existing local provider/backtest path. The
   sample config now writes a partitioned dataset by timeframe, symbol, and date
-  so multi-symbol downloads do not accumulate in one large file.
+  so multi-symbol downloads do not accumulate in one large file. Intraday rows
+  are locally filtered to regular US equity session start times after requesting
+  the full configured Alpaca interval.
 - Local Parquet is the first historical data source.
 - Backtest brokerage must not own historical data loading.
 - Buying-power checks use `PortfolioSnapshot.metadata["buying_power"]` when

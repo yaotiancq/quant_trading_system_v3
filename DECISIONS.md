@@ -744,6 +744,10 @@ The template config writes a partitioned dataset by exact downloaded timeframe,
 symbol, and date. This keeps multi-symbol and multi-day downloads maintainable
 and lets local providers read only files under a dataset root instead of relying
 on one large file.
+Alpaca requests still use the full configured interval. Intraday rows are then
+filtered locally by converting bar timestamps to `America/New_York` and keeping
+bar start times in `[09:30, 16:00)`. This makes the session boundary explicit
+and avoids depending on subtle upstream API end-boundary behavior.
 
 The supported user-facing K-line levels are:
 

@@ -10,6 +10,13 @@ market_data:
   sort: asc
   limit: 10000
   base_url_env: ALPACA_DATA_BASE_URL
+  # Alpaca is asked for the full configured interval. Returned rows are then
+  # filtered locally by bar start time in America/New_York.
+  session_filter:
+    enabled: true
+    timezone: America/New_York
+    start: "09:30"
+    end: "16:00"
 
 credentials:
   api_key_id_env: ALPACA_API_KEY_ID

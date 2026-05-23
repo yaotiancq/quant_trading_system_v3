@@ -6,10 +6,12 @@ import csv
 import json
 import os
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import time
 from pathlib import Path
 from typing import Any, Protocol
 from urllib import error, parse, request
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from qts.core import ConfigurationError, DataError
 from qts.domain import normalize_symbol, normalize_timestamp
@@ -37,6 +39,9 @@ PARTITION_FIELDS = {"alpaca_timeframe", "date", "source", "symbol", "timeframe"}
 DEFAULT_OUTPUT_DIRECTORY = Path("data/alpaca")
 DEFAULT_OUTPUT_FILENAME_TEMPLATE = "bars_{start}_{end}.{format}"
 DEFAULT_PARTITION_BY = ("timeframe", "symbol", "date")
+DEFAULT_SESSION_TIMEZONE = "America/New_York"
+DEFAULT_SESSION_START = time(9, 30)
+DEFAULT_SESSION_END = time(16, 0)
 BAR_FIELDNAMES = [
     "symbol",
     "timestamp",
@@ -91,6 +96,19 @@ class UrllibAlpacaDataTransport:
 
 
 @dataclass(frozen=True)
+class AlpacaSessionFilterConfig:
+    """Local post-download session filter for Alpaca bar rows."""
+
+    enabled: bool = True
+    timezone: str = DEFAULT_SESSION_TIMEZONE
+    start: time = DEFAULT_SESSION_START
+    end: time = DEFAULT_SESSION_END
+
+    def applies_to_timeframe(self, timeframe: str) -> bool:
+        return self.enabled and normalize_alpaca_bar_timeframe(timeframe) != "1Day"
+
+
+@dataclass(frozen=True)
 class AlpacaBarDownloadConfig:
     """Validated settings for one Alpaca historical bar download."""
 
@@ -103,6 +121,7 @@ class AlpacaBarDownloadConfig:
     output_layout: str = "single_file"
     partition_by: tuple[str, ...] = ()
     filename_template: str = DEFAULT_OUTPUT_FILENAME_TEMPLATE
+    session_filter: AlpacaSessionFilterConfig = field(default_factory=AlpacaSessionFilterConfig)
     feed: str = "sip"
     adjustment: str = "raw"
     sort: str = "asc"
@@ -150,6 +169,7 @@ class AlpacaBarDownloadConfig:
         timeframe = normalize_alpaca_bar_timeframe(
             _required_text(market_data.get("timeframe"), "market_data.timeframe")
         )
+        session_filter = _session_filter_config(market_data.get("session_filter"))
         output_format = _configured_output_format(output)
         output_layout = _configured_output_layout(output)
         partition_by = _configured_partition_by(output, output_layout)
@@ -179,6 +199,7 @@ class AlpacaBarDownloadConfig:
             output_layout=output_layout,
             partition_by=partition_by,
             filename_template=filename_template,
+            session_filter=session_filter,
             feed=feed,
             adjustment=str(market_data.get("adjustment") or "raw").lower(),
             sort=str(market_data.get("sort") or "asc").lower(),
@@ -209,6 +230,8 @@ class AlpacaBarDownloadResult:
     page_count: int
     output_file_count: int
     request_ids: list[str]
+    raw_row_count: int = 0
+    filtered_row_count: int = 0
 
 
 class AlpacaMarketDataClient:
@@ -315,6 +338,13 @@ def download_alpaca_bars(
         if not page_token:
             break
 
+    raw_row_count = len(rows)
+    rows = filter_alpaca_session_rows(
+        rows,
+        session_filter=config.session_filter,
+        timeframe=config.timeframe,
+    )
+    filtered_row_count = raw_row_count - len(rows)
     rows.sort(key=lambda row: (str(row["timestamp"]), str(row["symbol"])))
     output_files = write_alpaca_bar_rows(
         output_path,
@@ -344,6 +374,8 @@ def download_alpaca_bars(
         page_count=page_count,
         output_file_count=len(output_files),
         request_ids=request_ids,
+        raw_row_count=raw_row_count,
+        filtered_row_count=filtered_row_count,
     )
 
 
@@ -363,6 +395,7 @@ def download_alpaca_bars_to_csv(
         output_layout=config.output_layout,
         partition_by=config.partition_by,
         filename_template=config.filename_template,
+        session_filter=config.session_filter,
         feed=config.feed,
         adjustment=config.adjustment,
         sort=config.sort,
@@ -482,6 +515,33 @@ def write_alpaca_bar_rows(
     else:
         _write_bar_rows_parquet(path, rows)
     return [path]
+
+
+def filter_alpaca_session_rows(
+    rows: Sequence[dict[str, Any]],
+    *,
+    session_filter: AlpacaSessionFilterConfig,
+    timeframe: str,
+) -> list[dict[str, Any]]:
+    """Apply local regular-session filtering to normalized Alpaca bar rows."""
+    if not session_filter.applies_to_timeframe(timeframe):
+        return list(rows)
+    try:
+        session_zone = ZoneInfo(session_filter.timezone)
+    except ZoneInfoNotFoundError as exc:
+        raise ConfigurationError(f"unknown session filter timezone: {session_filter.timezone}") from exc
+
+    return [
+        row
+        for row in rows
+        if _time_in_session(
+            normalize_timestamp(row["timestamp"], assume_utc_for_naive=True)
+            .astimezone(session_zone)
+            .time(),
+            session_filter.start,
+            session_filter.end,
+        )
+    ]
 
 
 def _bars_payload_to_rows(
@@ -617,6 +677,40 @@ def _configured_output_layout(output: Mapping[str, Any]) -> str:
     if _optional_text(output.get("path")):
         return "single_file"
     return "partitioned"
+
+
+def _session_filter_config(raw: Any) -> AlpacaSessionFilterConfig:
+    if raw is None:
+        return AlpacaSessionFilterConfig()
+    if isinstance(raw, bool):
+        return AlpacaSessionFilterConfig(enabled=raw)
+    if isinstance(raw, str):
+        text = raw.strip().lower().replace("-", "_")
+        if text in {"regular", "regular_hours", "rth", "true", "enabled"}:
+            return AlpacaSessionFilterConfig(enabled=True)
+        if text in {"none", "off", "false", "disabled"}:
+            return AlpacaSessionFilterConfig(enabled=False)
+        raise ConfigurationError(
+            "market_data.session_filter must be a mapping, regular, or disabled"
+        )
+
+    data = _mapping(raw, "market_data.session_filter")
+    enabled = _optional_bool(data.get("enabled"), default=True)
+    timezone = _optional_text(data.get("timezone")) or DEFAULT_SESSION_TIMEZONE
+    start = _parse_session_time(data.get("start") or DEFAULT_SESSION_START, "session_filter.start")
+    end = _parse_session_time(data.get("end") or DEFAULT_SESSION_END, "session_filter.end")
+    if start == end:
+        raise ConfigurationError("session_filter.start and session_filter.end must differ")
+    try:
+        ZoneInfo(timezone)
+    except ZoneInfoNotFoundError as exc:
+        raise ConfigurationError(f"unknown session filter timezone: {timezone}") from exc
+    return AlpacaSessionFilterConfig(
+        enabled=enabled,
+        timezone=timezone,
+        start=start,
+        end=end,
+    )
 
 
 def _configured_partition_by(output: Mapping[str, Any], output_layout: str) -> tuple[str, ...]:
@@ -777,6 +871,41 @@ def _partition_path_token(value: str) -> str:
     return "".join(chars).strip("-") or "value"
 
 
+def _time_in_session(value: time, start: time, end: time) -> bool:
+    if start < end:
+        return start <= value < end
+    return value >= start or value < end
+
+
+def _parse_session_time(value: Any, field_name: str) -> time:
+    if isinstance(value, time):
+        return value
+    text = _required_text(value, field_name)
+    parts = text.split(":")
+    if len(parts) not in {2, 3}:
+        raise ConfigurationError(f"{field_name} must use HH:MM or HH:MM:SS")
+    try:
+        hour = int(parts[0])
+        minute = int(parts[1])
+        second = int(parts[2]) if len(parts) == 3 else 0
+        return time(hour, minute, second)
+    except ValueError as exc:
+        raise ConfigurationError(f"{field_name} must be a valid time") from exc
+
+
+def _optional_bool(value: Any, *, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "on", "enabled"}:
+        return True
+    if text in {"0", "false", "no", "off", "disabled"}:
+        return False
+    raise ConfigurationError(f"expected boolean value, got {value!r}")
+
+
 def _timestamp_text(value: str) -> str:
     return normalize_timestamp(value, assume_utc_for_naive=True).isoformat().replace("+00:00", "Z")
 
@@ -860,6 +989,9 @@ __all__ = [
     "DEFAULT_OUTPUT_DIRECTORY",
     "DEFAULT_OUTPUT_FILENAME_TEMPLATE",
     "DEFAULT_PARTITION_BY",
+    "DEFAULT_SESSION_END",
+    "DEFAULT_SESSION_START",
+    "DEFAULT_SESSION_TIMEZONE",
     "OUTPUT_FORMATS",
     "OUTPUT_LAYOUTS",
     "PARTITION_FIELDS",
@@ -868,9 +1000,11 @@ __all__ = [
     "AlpacaBarDownloadResult",
     "AlpacaDataTransport",
     "AlpacaMarketDataClient",
+    "AlpacaSessionFilterConfig",
     "UrllibAlpacaDataTransport",
     "download_alpaca_bars",
     "download_alpaca_bars_to_csv",
+    "filter_alpaca_session_rows",
     "normalize_alpaca_bar_timeframe",
     "normalize_output_layout",
     "normalize_output_format",

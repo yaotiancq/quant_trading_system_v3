@@ -11,6 +11,7 @@ from qts.core import ConfigurationError
 from qts.market_data import (
     AlpacaBarDownloadConfig,
     AlpacaMarketDataClient,
+    AlpacaSessionFilterConfig,
     CSVBarProvider,
     LocalParquetProvider,
     download_alpaca_bars,
@@ -165,6 +166,8 @@ class AlpacaDownloaderTests(unittest.TestCase):
         self.assertEqual(config.timeframe, "15Min")
         self.assertEqual(config.feed, "sip")
         self.assertEqual(config.output_format, "parquet")
+        self.assertTrue(config.session_filter.enabled)
+        self.assertEqual(config.session_filter.timezone, "America/New_York")
         self.assertEqual(config.api_key_id, "key")
         self.assertEqual(config.base_url, "https://data.alpaca.test/v2")
 
@@ -353,6 +356,141 @@ class AlpacaDownloaderTests(unittest.TestCase):
                 "MINUTE",
             )
             self.assertEqual([bar.symbol for bar in bars], ["AAPL", "SPY"])
+
+    def test_filters_regular_session_locally_after_full_interval_request(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_path = Path(tmp) / "bars.csv"
+            config = AlpacaBarDownloadConfig(
+                symbols=["SPY"],
+                start="2026-05-22T13:29:00Z",
+                end="2026-05-22T20:01:00Z",
+                timeframe="1Min",
+                feed="sip",
+                output_path=output_path,
+                output_format="csv",
+                session_filter=AlpacaSessionFilterConfig(
+                    enabled=True,
+                    timezone="America/New_York",
+                ),
+                api_key_id="key",
+                secret_key="secret",
+                base_url="https://data.alpaca.test/v2",
+            )
+            transport = FakeTransport(
+                [
+                    {
+                        "bars": {
+                            "SPY": [
+                                {
+                                    "t": "2026-05-22T13:29:00Z",
+                                    "o": 99,
+                                    "h": 100,
+                                    "l": 98,
+                                    "c": 99.5,
+                                    "v": 900,
+                                },
+                                {
+                                    "t": "2026-05-22T13:30:00Z",
+                                    "o": 100,
+                                    "h": 101,
+                                    "l": 99,
+                                    "c": 100.5,
+                                    "v": 1000,
+                                },
+                                {
+                                    "t": "2026-05-22T19:59:00Z",
+                                    "o": 101,
+                                    "h": 102,
+                                    "l": 100,
+                                    "c": 101.5,
+                                    "v": 1100,
+                                },
+                                {
+                                    "t": "2026-05-22T20:00:00Z",
+                                    "o": 102,
+                                    "h": 103,
+                                    "l": 101,
+                                    "c": 102.5,
+                                    "v": 1200,
+                                },
+                            ]
+                        }
+                    }
+                ]
+            )
+            client = AlpacaMarketDataClient(
+                base_url=config.base_url,
+                api_key_id="key",
+                secret_key="secret",
+                transport=transport,
+            )
+
+            result = download_alpaca_bars(config, client=client)
+
+            self.assertEqual(result.raw_row_count, 4)
+            self.assertEqual(result.filtered_row_count, 2)
+            self.assertEqual(result.row_count, 2)
+            first_query = parse.parse_qs(parse.urlparse(str(transport.calls[0]["url"])).query)
+            self.assertEqual(first_query["start"], ["2026-05-22T13:29:00Z"])
+            self.assertEqual(first_query["end"], ["2026-05-22T20:01:00Z"])
+
+            provider = CSVBarProvider(output_path)
+            bars = provider.get_history(
+                ["SPY"],
+                "2026-05-22T13:29:00Z",
+                "2026-05-22T20:01:00Z",
+                "MINUTE",
+            )
+            self.assertEqual(
+                [bar.timestamp.isoformat().replace("+00:00", "Z") for bar in bars],
+                ["2026-05-22T13:30:00Z", "2026-05-22T19:59:00Z"],
+            )
+
+    def test_session_filter_can_be_disabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            config = AlpacaBarDownloadConfig(
+                symbols=["SPY"],
+                start="2026-05-22T20:00:00Z",
+                end="2026-05-22T20:00:00Z",
+                timeframe="1Min",
+                feed="sip",
+                output_path=Path(tmp) / "bars.csv",
+                output_format="csv",
+                session_filter=AlpacaSessionFilterConfig(enabled=False),
+                api_key_id="key",
+                secret_key="secret",
+                base_url="https://data.alpaca.test/v2",
+            )
+            transport = FakeTransport(
+                [
+                    {
+                        "bars": {
+                            "SPY": [
+                                {
+                                    "t": "2026-05-22T20:00:00Z",
+                                    "o": 102,
+                                    "h": 103,
+                                    "l": 101,
+                                    "c": 102.5,
+                                    "v": 1200,
+                                }
+                            ]
+                        }
+                    }
+                ]
+            )
+            client = AlpacaMarketDataClient(
+                base_url=config.base_url,
+                api_key_id="key",
+                secret_key="secret",
+                transport=transport,
+            )
+
+            result = download_alpaca_bars(config, client=client)
+
+            self.assertEqual(result.raw_row_count, 1)
+            self.assertEqual(result.filtered_row_count, 0)
+            self.assertEqual(result.row_count, 1)
 
     @unittest.skipUnless(parquet_write_read_available(), "Parquet writer engine is not installed")
     def test_downloads_alpaca_bars_to_parquet_compatible_with_provider(self) -> None:

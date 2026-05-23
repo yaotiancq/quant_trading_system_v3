@@ -54,12 +54,15 @@ Each layer owns a small responsibility:
 
 1. `scripts/download_data.py` loads `configs/data/alpaca_sip_bars.yaml`.
 2. `AlpacaBarDownloadConfig` validates symbols, date range, K-line timeframe,
-   output format, layout, and partition settings.
+   local session filter, output format, layout, and partition settings.
 3. `AlpacaMarketDataClient` requests paginated Alpaca stock bars.
-4. `download_alpaca_bars` normalizes bars into CSV or Parquet rows.
-5. Partitioned output is written below directories such as
+4. `download_alpaca_bars` normalizes the full API interval, then applies local
+   regular-session filtering by converting bar timestamps to `America/New_York`
+   and keeping `[09:30, 16:00)`.
+5. Filtered bars are written as CSV or Parquet rows.
+6. Partitioned output is written below directories such as
    `timeframe=1Min/symbol=SPY/date=2024-01-02/`.
-6. The resulting dataset can be consumed by `CSVBarProvider` or
+7. The resulting dataset can be consumed by `CSVBarProvider` or
    `LocalParquetProvider`, both of which read matching files recursively when
    given a directory.
 

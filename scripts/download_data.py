@@ -55,6 +55,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"({result.output_file_count} file(s)) "
         f"across {result.page_count} page(s)"
     )
+    if result.filtered_row_count:
+        print(
+            f"session_filter_removed={result.filtered_row_count} "
+            f"raw_rows={result.raw_row_count}"
+        )
     if result.request_ids:
         print(f"alpaca_request_ids={','.join(result.request_ids)}")
     return 0

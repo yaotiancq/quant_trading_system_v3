@@ -154,8 +154,10 @@ PYTHONPATH=src .venv/bin/python scripts/download_data.py --config configs/data/a
 
 The downloader supports `1min`, `5min`, `15min`, `1hour`, and `1day` levels.
 The default config writes a partitioned dataset under `data/alpaca` using
-`timeframe`, `symbol`, and `date` partitions. Use CLI overrides for quick
-experiments:
+`timeframe`, `symbol`, and `date` partitions. Alpaca is requested for the full
+configured interval, then rows are filtered locally to regular US equity
+session starts `[09:30, 16:00)` in `America/New_York`. Use CLI overrides for
+quick experiments:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/download_data.py \

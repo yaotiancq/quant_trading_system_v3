@@ -878,6 +878,8 @@ local providers can read.
 - Credentials are loaded from environment variables or `.env`.
 - The default output layout is a partitioned dataset, not one large file.
 - Partitioned output is organized by timeframe, symbol, and date.
+- Alpaca requests use the full configured interval and apply local
+  regular-session filtering to returned intraday rows.
 - The downloader requests Alpaca stock bars with `feed=sip`.
 - Pagination via `next_page_token` is supported.
 - Output includes normalized OHLCV columns and the exact Alpaca timeframe.
@@ -892,6 +894,7 @@ local providers can read.
 - Config/env loading tests.
 - CSV and Parquet compatibility tests.
 - Partitioned dataset write/read tests.
+- Regular-session boundary filtering tests.
 
 ### Acceptance Criteria
 
