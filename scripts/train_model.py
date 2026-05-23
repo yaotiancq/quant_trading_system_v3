@@ -8,7 +8,13 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from qts.core import ConfigurationError, DataError, load_mapping_file
+from qts.core import (
+    ConfigurationError,
+    DataError,
+    find_project_root,
+    load_layered_mapping,
+    resolve_project_path,
+)
 from qts.features import FeatureSpec
 from qts.market_data import CSVBarProvider, LocalParquetProvider
 from qts.ml import FileModelRegistry, MLWorkflowError, train_directional_pipeline
@@ -29,8 +35,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        raw = load_mapping_file(args.config)
-        result = train_from_mapping(raw, output_dir=args.output_dir)
+        config_path = Path(args.config)
+        raw = _resolve_training_paths(load_layered_mapping(config_path), find_project_root(config_path))
+        output_dir = (
+            str(resolve_project_path(args.output_dir, project_root=find_project_root(config_path)))
+            if args.output_dir
+            else None
+        )
+        result = train_from_mapping(raw, output_dir=output_dir)
     except (ConfigurationError, DataError, MLWorkflowError, ValueError) as exc:
         print(f"model training failed: {exc}")
         return 2
@@ -110,6 +122,22 @@ def _feature_specs(config: Mapping[str, Any]) -> list[FeatureSpec]:
     if not specs:
         raise ConfigurationError("features.specs must be non-empty")
     return specs
+
+
+def _resolve_training_paths(raw: dict[str, Any], project_root: Path) -> dict[str, Any]:
+    resolved = dict(raw)
+    model = dict(resolved.get("model") or {})
+    if model.get("registry_dir"):
+        model["registry_dir"] = str(resolve_project_path(model["registry_dir"], project_root=project_root))
+    if model:
+        resolved["model"] = model
+
+    market_data = dict(resolved.get("market_data") or {})
+    if market_data.get("path"):
+        market_data["path"] = str(resolve_project_path(market_data["path"], project_root=project_root))
+    if market_data:
+        resolved["market_data"] = market_data
+    return resolved
 
 
 def _mapping(value: Any, name: str) -> Mapping[str, Any]:

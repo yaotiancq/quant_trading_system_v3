@@ -1,7 +1,8 @@
-# Function: Standalone ML directional strategy snippet/template.
-# Used by: copy this mapping into a runtime config's `strategies:` list after a
-#          model has been trained with scripts/train_model.py.
-# Notes: Runtime configs do not auto-import this file.
+# Function: Reusable ML directional strategy profile.
+# Used by: import this profile with config_ref after a model has been trained
+#          with scripts/train_model.py.
+# Notes: Runtime configs can import this file with
+#        `strategies: [{config_ref: strategies/ml_directional.yaml}]`.
 
 # Unique strategy id used in signals, orders, fills, and reports.
 strategy_id: ml_directional_v1

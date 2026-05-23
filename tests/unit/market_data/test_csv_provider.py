@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+import tempfile
 from datetime import timezone
 from pathlib import Path
 
@@ -60,6 +61,58 @@ class CSVBarProviderTests(unittest.TestCase):
             ],
         )
         self.assertEqual(provider.get_latest_bar("spy"), events[-1])
+
+    def test_filters_partitioned_dataset_by_exact_bar_interval(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            one_min = root / "timeframe=1Min" / "symbol=SPY" / "date=2024-01-02"
+            five_min = root / "timeframe=5Min" / "symbol=SPY" / "date=2024-01-02"
+            one_min.mkdir(parents=True)
+            five_min.mkdir(parents=True)
+            header = (
+                "symbol,timestamp,timeframe,open,high,low,close,volume,"
+                "source,alpaca_timeframe,adjustment\n"
+            )
+            (one_min / "bars.csv").write_text(
+                header + "SPY,2024-01-02T14:30:00Z,MINUTE,100,101,99,100,1000,alpaca,1Min,RAW\n",
+                encoding="utf-8",
+            )
+            (five_min / "bars.csv").write_text(
+                header + "SPY,2024-01-02T14:30:00Z,MINUTE,200,201,199,200,2000,alpaca,5Min,RAW\n",
+                encoding="utf-8",
+            )
+
+            provider = CSVBarProvider(root)
+            bars = provider.get_history(
+                ["SPY"],
+                "2024-01-02T14:30:00Z",
+                "2024-01-02T14:30:00Z",
+                "MINUTE",
+                bar_interval="1Min",
+            )
+
+        self.assertEqual(len(bars), 1)
+        self.assertEqual(bars[0].bar_interval, "1Min")
+        self.assertEqual(bars[0].close, 100)
+
+    def test_adjustment_mismatch_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bars.csv"
+            path.write_text(
+                "symbol,timestamp,timeframe,open,high,low,close,volume,adjustment\n"
+                "SPY,2024-01-02T14:30:00Z,MINUTE,100,101,99,100,1000,RAW\n",
+                encoding="utf-8",
+            )
+
+            provider = CSVBarProvider(path)
+            with self.assertRaises(DataError):
+                provider.get_history(
+                    ["SPY"],
+                    "2024-01-02T14:30:00Z",
+                    "2024-01-02T14:30:00Z",
+                    "MINUTE",
+                    adjustment="SPLIT_ADJUSTED",
+                )
 
 
 class DataPortalTests(unittest.TestCase):

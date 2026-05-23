@@ -1,8 +1,8 @@
 # Function: Default local backtest runtime configuration.
 # Used by: scripts/run_backtest.py --config configs/backtest.yaml and
 #          python -m qts.cli --config configs/backtest.yaml.
-# Notes: Strategy snippet files under configs/strategies are examples/templates;
-#        this file's inline `strategies` section is what the backtest actually uses.
+# Notes: This active runtime config imports reusable strategy and risk snippets,
+#        then applies explicit local overrides below.
 
 # Inherit common defaults from configs/base.yaml. Options: a relative YAML path or
 # remove this key to make the file self-contained.
@@ -33,6 +33,9 @@ market_data:
   path: data/alpaca
   # Options: RAW, SPLIT_ADJUSTED, DIVIDEND_ADJUSTED, TOTAL_RETURN.
   adjustment: RAW
+  # Exact source interval filter for partitioned datasets.
+  # Options for Alpaca downloads: 1Min, 5Min, 15Min, 1Hour, 1Day.
+  bar_interval: 1Min
 
 # Simulated broker and fill assumptions.
 broker:
@@ -57,32 +60,24 @@ portfolio:
   # Reporting and account currency.
   currency: USD
 
-# Enabled trading strategies. These are loaded directly; external strategy YAML
-# files are not imported automatically.
+# Enabled trading strategies. config_ref paths are relative to this config file.
 strategies:
-  # Unique strategy id used in signals, orders, fills, and reports.
-  - strategy_id: sma_cross_v1
-    # Options implemented by the strategy factory: sma_crossover, sma_cross,
-    # rsi_mean_reversion, rsi_reversion, ml_signal, ml_directional, ml_direction.
-    strategy_type: sma_crossover
-    # Symbols traded by this strategy. Must exist in market data.
-    symbols: [SPY]
-    # false keeps the strategy in config but skips signal generation.
-    enabled: true
+  # Reusable SMA profile.
+  - config_ref: strategies/sma_crossover.yaml
     # Strategy-specific parameters. SMA crossover generates BUY/SELL signals when
-    # the fast SMA crosses the slow SMA.
+    # the fast SMA crosses the slow SMA. These override the referenced profile.
     parameters:
       # Fast moving-average window in bars.
       fast_window: 20
       # Slow moving-average window in bars. Usually greater than fast_window.
       slow_window: 40
 
+# Reusable risk profile. Paths are relative to this config file.
+risk_ref: risk/base.yaml
+
 # Risk and sizing settings applied after strategy signals.
 risk:
-  # Options: fixed_quantity, fixed_notional, fixed_dollar, percent_equity,
-  # percent_of_equity.
-  sizing_method: fixed_notional
-  # Required keys depend on sizing_method.
+  # Override selected fields from configs/risk/base.yaml.
   sizing_parameters:
     # Used by fixed_notional/fixed_dollar; dollar notional per new trade.
     notional_per_trade: 5000

@@ -20,7 +20,7 @@ market_data:
   # Request end timestamp. Alpaca is queried for the full interval before local
   # session filtering removes bars outside regular trading hours.
   end: 2026-05-22T20:00:00Z
-  # Options: sip for paid SIP feed, iex for free IEX feed if your account uses it.
+  # Supported option: sip. The downloader currently validates SIP-only.
   feed: sip
   # Alpaca adjustment option. Common values: raw, split, dividend, all.
   adjustment: raw

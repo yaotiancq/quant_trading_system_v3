@@ -6,7 +6,15 @@ from collections.abc import Sequence
 from datetime import datetime
 
 from qts.core import DataError
-from qts.domain import Bar, BarTimeframe, FeatureFrame, Quote, normalize_symbol, normalize_timestamp
+from qts.domain import (
+    Bar,
+    BarTimeframe,
+    DataAdjustment,
+    FeatureFrame,
+    Quote,
+    normalize_symbol,
+    normalize_timestamp,
+)
 from qts.features import FeaturePipeline
 
 from .interfaces import MarketDataProvider
@@ -23,6 +31,8 @@ class DefaultDataPortal:
         start: datetime | str,
         end: datetime | str,
         timeframe: BarTimeframe | str = BarTimeframe.MINUTE,
+        adjustment: DataAdjustment | str = DataAdjustment.RAW,
+        bar_interval: str | None = None,
         feature_pipeline: FeaturePipeline | None = None,
         enforce_replay_bounds: bool = False,
     ) -> None:
@@ -31,9 +41,18 @@ class DefaultDataPortal:
         self.start = normalize_timestamp(start, assume_utc_for_naive=True)
         self.end = normalize_timestamp(end, end_of_day=True, assume_utc_for_naive=True)
         self.timeframe = timeframe
+        self.adjustment = adjustment
+        self.bar_interval = bar_interval
         self.feature_pipeline = feature_pipeline
         self.enforce_replay_bounds = bool(enforce_replay_bounds)
-        self._history = provider.get_history(self.symbols, self.start, self.end, timeframe)
+        self._history = provider.get_history(
+            self.symbols,
+            self.start,
+            self.end,
+            timeframe,
+            adjustment=adjustment,
+            bar_interval=bar_interval,
+        )
         self._current_bars: dict[str, Bar] = {}
         self._current_quotes: dict[str, Quote] = {}
         self._visible_until: datetime | None = None

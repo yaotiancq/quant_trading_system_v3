@@ -8,6 +8,53 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Post-Review Config Hardening] - 2026-05-23
+
+### Added
+
+- Added runtime `config_ref` support for reusable strategy profiles.
+- Added runtime `risk_ref` support for reusable risk profiles.
+- Added multiple-file `extends` support with circular inheritance detection.
+- Added generic `${VAR}` and `${VAR:-default}` environment interpolation for
+  runtime configs.
+- Added `qts config validate`, `qts config dump`, `qts config explain`, and
+  `qts config list-snippets`.
+- Added exact `bar_interval` metadata/filtering for local historical bars.
+- Added data-adjustment metadata/filtering for local historical bars.
+
+### Changed
+
+- Runtime config loading now resolves paths relative to the discovered project
+  root and records config metadata/source files in the effective config.
+- Runtime configs now import the shared SMA strategy and risk profiles instead
+  of duplicating complete strategy/risk blocks.
+- Local CSV/Parquet providers now filter by exact bar interval when configured.
+- Backtest replay now passes configured adjustment and exact interval settings
+  through the data provider and data portal.
+- Download and ML scripts now use layered config loading and deterministic path
+  resolution.
+- Documentation now describes resolved config inspection and SIP-only Alpaca
+  historical downloads.
+
+### Fixed
+
+- Fixed stale informational `required_features` fields in rule-strategy snippets
+  by removing unused metadata.
+- Fixed misleading Alpaca feed comments that advertised unsupported IEX mode.
+- Fixed late risk-sizing failures by validating sizing parameters during config
+  load.
+- Fixed the risk of accidentally mixing 1-minute, 5-minute, and 15-minute bars
+  when backtesting against a shared dataset root.
+- Fixed exposure rules so risk-reducing sells and buy-to-cover orders are
+  evaluated against projected post-trade exposure instead of proposed order
+  notional alone.
+
+### Removed
+
+- None.
+
+---
+
 ## [Phase 10] - 2026-05-22
 
 ### Added

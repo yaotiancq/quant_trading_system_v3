@@ -37,6 +37,12 @@ focused tests. It also includes a dependency-free IBKR Web API client boundary,
 IBKR payload mapping, `IBKRBrokerage`, a mock IBKR client, an IBKR paper
 configuration template, and mocked IBKR tests.
 
+Post-review config hardening has added reusable strategy `config_ref` imports,
+`risk_ref` imports, multiple-base `extends`, circular include detection, strict
+runtime config validation, deterministic path resolution, effective-config CLI
+inspection commands, exact `bar_interval` filtering, and data-adjustment
+validation for local historical bars.
+
 Real live broker order submission remains disabled by default. Phase 8 provides
 guarded dry-run initialization and safety validation only.
 

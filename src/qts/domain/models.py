@@ -9,6 +9,7 @@ from typing import Any, TypeVar
 
 from .enums import (
     BarTimeframe,
+    DataAdjustment,
     OrderSide,
     OrderStatus,
     OrderType,
@@ -178,6 +179,8 @@ class Bar(DomainModel):
     vwap: float | None = None
     trade_count: int | None = None
     source: str | None = None
+    bar_interval: str | None = None
+    adjustment: DataAdjustment | str = DataAdjustment.RAW
 
     def __post_init__(self) -> None:
         self.symbol = normalize_symbol(self.symbol)
@@ -188,6 +191,8 @@ class Bar(DomainModel):
         _non_negative(self.vwap, "vwap")
         _non_negative(self.trade_count, "trade_count")
         self.source = _optional_text(self.source)
+        self.bar_interval = _optional_text(self.bar_interval)
+        self.adjustment = coerce_enum(DataAdjustment, self.adjustment)
         if self.high < max(self.open, self.close, self.low):
             raise ValueError("high must be greater than or equal to open, close, and low")
         if self.low > min(self.open, self.close, self.high):
@@ -658,6 +663,7 @@ class RiskConfig(DomainModel):
     blocked_symbols: list[str] | None = None
     cooldown_seconds: int | None = None
     session_rules: dict[str, Any] | None = None
+    disabled_until_configured: bool = False
 
     def __post_init__(self) -> None:
         self.sizing_method = _require_text(self.sizing_method, "sizing_method")
@@ -670,6 +676,7 @@ class RiskConfig(DomainModel):
         self.blocked_symbols = normalize_symbols(self.blocked_symbols) if self.blocked_symbols else None
         _non_negative(self.cooldown_seconds, "cooldown_seconds")
         self.session_rules = _dict(self.session_rules)
+        self.disabled_until_configured = bool(self.disabled_until_configured)
 
 
 @dataclass
@@ -709,6 +716,7 @@ class RuntimeConfig(DomainModel):
     execution: dict[str, Any]
     start: datetime | date | str | None = None
     end: datetime | date | str | None = None
+    bar_interval: str | None = None
     reporting: dict[str, Any] = field(default_factory=dict)
     monitoring: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -718,6 +726,7 @@ class RuntimeConfig(DomainModel):
         self.runtime_mode = coerce_enum(RuntimeMode, self.runtime_mode)
         self.symbols = normalize_symbols(self.symbols)
         self.timeframe = coerce_enum(BarTimeframe, self.timeframe)
+        self.bar_interval = _optional_text(self.bar_interval)
         self.market_data = _dict(self.market_data)
         if not self.market_data:
             raise ValueError("market_data must be non-empty")

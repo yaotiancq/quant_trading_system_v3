@@ -8,7 +8,15 @@ from pathlib import Path
 from typing import Any
 
 from qts.core import DataError
-from qts.domain import Bar, BarTimeframe, DataAdjustment, Quote, coerce_enum, normalize_symbol
+from qts.domain import (
+    Bar,
+    BarTimeframe,
+    DataAdjustment,
+    Quote,
+    coerce_enum,
+    normalize_symbol,
+    normalize_timestamp,
+)
 
 from .normalization import filter_bars, read_csv_rows, rows_to_bars
 
@@ -27,10 +35,32 @@ class BaseHistoricalBarProvider:
         end: datetime | str,
         timeframe: BarTimeframe | str,
         adjustment: DataAdjustment | str = DataAdjustment.RAW,
+        bar_interval: str | None = None,
     ) -> list[Bar]:
-        if coerce_enum(DataAdjustment, adjustment) != DataAdjustment.RAW:
-            raise DataError("only RAW data adjustment is supported in Phase 2")
-        return filter_bars(self._bars, symbols=symbols, start=start, end=end, timeframe=timeframe)
+        wanted_adjustment = coerce_enum(DataAdjustment, adjustment)
+        bars = filter_bars(
+            self._bars,
+            symbols=symbols,
+            start=start,
+            end=end,
+            timeframe=timeframe,
+            adjustment=wanted_adjustment,
+            bar_interval=bar_interval,
+        )
+        if not bars and _has_matching_bars_with_other_adjustment(
+            self._bars,
+            symbols=symbols,
+            start=start,
+            end=end,
+            timeframe=timeframe,
+            adjustment=wanted_adjustment,
+            bar_interval=bar_interval,
+        ):
+            raise DataError(
+                f"requested {wanted_adjustment.value} data, but matching local bars use a "
+                "different adjustment"
+            )
+        return bars
 
     def iter_replay(
         self,
@@ -38,8 +68,17 @@ class BaseHistoricalBarProvider:
         start: datetime | str,
         end: datetime | str,
         timeframe: BarTimeframe | str,
+        adjustment: DataAdjustment | str = DataAdjustment.RAW,
+        bar_interval: str | None = None,
     ) -> Iterator[Bar]:
-        for bar in self.get_history(symbols, start, end, timeframe):
+        for bar in self.get_history(
+            symbols,
+            start,
+            end,
+            timeframe,
+            adjustment=adjustment,
+            bar_interval=bar_interval,
+        ):
             self._latest_by_symbol[bar.symbol] = bar
             yield bar
 
@@ -125,6 +164,40 @@ def _read_csv_dataset_rows(path: Path) -> list[dict[str, Any]]:
             rows.extend(read_csv_rows(csv_path))
         return rows
     return read_csv_rows(path)
+
+
+def _has_matching_bars_with_other_adjustment(
+    bars: Sequence[Bar],
+    *,
+    symbols: Sequence[str],
+    start: datetime | str,
+    end: datetime | str,
+    timeframe: BarTimeframe | str,
+    adjustment: DataAdjustment,
+    bar_interval: str | None,
+) -> bool:
+    wanted_symbols = {normalize_symbol(symbol) for symbol in symbols}
+    start_ts = normalize_timestamp(start, assume_utc_for_naive=True)
+    end_ts = normalize_timestamp(end, end_of_day=True, assume_utc_for_naive=True)
+    wanted_timeframe = coerce_enum(BarTimeframe, timeframe)
+    wanted_interval = _normalize_interval(bar_interval)
+    for bar in bars:
+        if bar.symbol not in wanted_symbols or bar.timeframe != wanted_timeframe:
+            continue
+        if wanted_interval is not None and _normalize_interval(bar.bar_interval) != wanted_interval:
+            continue
+        if not start_ts <= bar.timestamp <= end_ts:
+            continue
+        if bar.adjustment != adjustment:
+            return True
+    return False
+
+
+def _normalize_interval(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text.lower().replace(" ", "").replace("_", "") if text else None
 
 
 def _read_parquet_file_rows(path: Path) -> list[dict[str, Any]]:

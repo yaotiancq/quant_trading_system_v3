@@ -72,28 +72,39 @@ class MaxPositionNotionalRule:
         limit = risk_config.max_position_notional
         if limit is None:
             return _approve(self.name, "max_position_notional_not_configured")
-        notional = estimate_notional(trade_intent, market_context)
-        if notional is None:
+        exposure = projected_symbol_exposure(trade_intent, portfolio_snapshot, market_context)
+        if exposure is None:
             return _reject(self.name, "notional_unavailable_for_position_limit")
-        if notional <= limit:
-            return _approve(self.name, "within_position_notional_limit", {"notional": notional})
+        current, projected = exposure
+        if projected <= limit:
+            return _approve(
+                self.name,
+                "within_position_notional_limit",
+                {"current": current, "projected": projected},
+            )
+        if projected <= current:
+            return _approve(
+                self.name,
+                "position_exposure_reduced",
+                {"current": current, "projected": projected, "limit": limit},
+            )
 
         price = market_price(trade_intent, market_context)
-        if trade_intent.notional is not None:
+        if current == 0 and trade_intent.notional is not None:
             modified = replace(trade_intent, notional=limit)
-        elif trade_intent.quantity is not None and price:
+        elif current == 0 and trade_intent.quantity is not None and price:
             modified = replace(trade_intent, quantity=limit / price)
         else:
             return _reject(
                 self.name,
                 "position_notional_exceeds_limit",
-                {"notional": notional, "limit": limit},
+                {"current": current, "projected": projected, "limit": limit},
             )
         return _modify(
             self.name,
             "position_notional_reduced_to_limit",
             modified,
-            {"original_notional": notional, "limit": limit},
+            {"original_notional": projected, "limit": limit},
         )
 
 
@@ -112,15 +123,33 @@ class MaxGrossExposureRule:
         limit = risk_config.max_gross_exposure
         if limit is None:
             return _approve(self.name, "max_gross_exposure_not_configured")
-        notional = estimate_notional(trade_intent, market_context)
-        if notional is None:
+        exposure = projected_symbol_exposure(trade_intent, portfolio_snapshot, market_context)
+        if exposure is None:
             return _reject(self.name, "notional_unavailable_for_gross_exposure")
-        projected = portfolio_snapshot.gross_exposure + abs(notional)
+        current_symbol_exposure, projected_symbol = exposure
+        projected = max(
+            0.0,
+            portfolio_snapshot.gross_exposure - current_symbol_exposure + projected_symbol,
+        )
         if projected > limit:
+            if projected <= portfolio_snapshot.gross_exposure:
+                return _approve(
+                    self.name,
+                    "gross_exposure_reduced",
+                    {
+                        "current": portfolio_snapshot.gross_exposure,
+                        "projected": projected,
+                        "limit": limit,
+                    },
+                )
             return _reject(
                 self.name,
                 "gross_exposure_limit_exceeded",
-                {"current": portfolio_snapshot.gross_exposure, "notional": notional, "limit": limit},
+                {
+                    "current": portfolio_snapshot.gross_exposure,
+                    "projected": projected,
+                    "limit": limit,
+                },
             )
         return _approve(self.name, "within_gross_exposure_limit", {"projected": projected})
 
@@ -169,11 +198,18 @@ class MaxSymbolWeightRule:
             return _approve(self.name, "max_symbol_weight_not_configured")
         if portfolio_snapshot.equity <= 0:
             return _reject(self.name, "non_positive_equity_for_symbol_weight")
-        notional = estimate_notional(trade_intent, market_context)
-        if notional is None:
+        exposure = projected_symbol_exposure(trade_intent, portfolio_snapshot, market_context)
+        if exposure is None:
             return _reject(self.name, "notional_unavailable_for_symbol_weight")
-        weight = abs(notional) / portfolio_snapshot.equity
+        current, projected = exposure
+        weight = projected / portfolio_snapshot.equity
         if weight > limit:
+            if projected <= current:
+                return _approve(
+                    self.name,
+                    "symbol_weight_reduced",
+                    {"current": current, "projected": projected, "weight": weight, "limit": limit},
+                )
             return _reject(
                 self.name,
                 "symbol_weight_limit_exceeded",
@@ -301,6 +337,26 @@ def estimate_notional(trade_intent: TradeIntent, market_context: Mapping) -> flo
     return abs(float(trade_intent.quantity) * price)
 
 
+def projected_symbol_exposure(
+    trade_intent: TradeIntent,
+    portfolio_snapshot: PortfolioSnapshot,
+    market_context: Mapping,
+) -> tuple[float, float] | None:
+    price = market_price(trade_intent, market_context)
+    current_exposure = _current_position_exposure(portfolio_snapshot, trade_intent.symbol, price)
+    if price is None and trade_intent.notional is not None:
+        projected = current_exposure + float(trade_intent.notional)
+        return current_exposure, projected
+    if price is None:
+        return None
+    delta_quantity = _intent_delta_quantity(trade_intent, price)
+    if delta_quantity is None:
+        return None
+    current_quantity = _current_position_quantity(portfolio_snapshot, trade_intent.symbol)
+    projected_exposure = abs((current_quantity + delta_quantity) * price)
+    return current_exposure, projected_exposure
+
+
 def market_price(trade_intent: TradeIntent, market_context: Mapping) -> float | None:
     for key in ("price", "latest_price"):
         if market_context.get(key) is not None:
@@ -315,6 +371,47 @@ def market_price(trade_intent: TradeIntent, market_context: Mapping) -> float | 
         if getattr(bar, "symbol", None) == trade_intent.symbol and getattr(bar, "close", None) is not None:
             return float(bar.close)
     return None
+
+
+def _intent_delta_quantity(trade_intent: TradeIntent, price: float) -> float | None:
+    if trade_intent.quantity is not None:
+        quantity = float(trade_intent.quantity)
+    elif trade_intent.notional is not None:
+        quantity = float(trade_intent.notional) / price
+    else:
+        return None
+    return quantity if trade_intent.side == OrderSide.BUY else -quantity
+
+
+def _current_position_quantity(
+    portfolio_snapshot: PortfolioSnapshot,
+    symbol: str,
+) -> float:
+    wanted_symbol = normalize_symbol(symbol)
+    return sum(
+        float(position.quantity)
+        for position in portfolio_snapshot.positions
+        if position.symbol == wanted_symbol
+    )
+
+
+def _current_position_exposure(
+    portfolio_snapshot: PortfolioSnapshot,
+    symbol: str,
+    price: float | None,
+) -> float:
+    wanted_symbol = normalize_symbol(symbol)
+    exposure = 0.0
+    for position in portfolio_snapshot.positions:
+        if position.symbol != wanted_symbol:
+            continue
+        if price is not None:
+            exposure += abs(float(position.quantity) * price)
+        elif position.market_value is not None:
+            exposure += float(position.market_value)
+        elif position.market_price is not None:
+            exposure += abs(float(position.quantity) * position.market_price)
+    return exposure
 
 
 def _approve(name: str, reason: str, details: dict | None = None) -> RuleResult:
@@ -363,4 +460,5 @@ __all__ = [
     "default_risk_rules",
     "estimate_notional",
     "market_price",
+    "projected_symbol_exposure",
 ]

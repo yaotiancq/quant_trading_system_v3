@@ -173,10 +173,12 @@ Supported K-line levels:
 | `1hour` | `1Hour` | `HOUR` |
 | `1day` | `1Day` | `DAY` |
 
-The exact Alpaca aggregation is also written to the output as
-`alpaca_timeframe`.
+The exact Alpaca aggregation is also written to the output as `bar_interval`
+and `alpaca_timeframe`.
 For example, a 5-minute download has `timeframe=MINUTE` for compatibility with
-the current domain enum and `alpaca_timeframe=5Min` for auditability.
+the current domain enum and `bar_interval=5Min` for filtering/auditability.
+Backtest configs should set `market_data.bar_interval` when reading a dataset
+root that may contain multiple minute aggregations.
 
 The config file owns user settings:
 
@@ -187,6 +189,7 @@ market_data:
   timeframe: 1min
   start: 2024-01-02T14:30:00Z
   end: 2024-01-02T21:00:00Z
+  # Current downloader support is SIP-only.
   feed: sip
   adjustment: raw
   limit: 10000
@@ -212,7 +215,7 @@ output:
   # data/alpaca/timeframe=1Min/symbol=SPY/date=2024-01-02/
   partition_by: [timeframe, symbol, date]
   # Available placeholders: {feed}, {symbols}, {symbol}, {timeframe}, {start},
-  # {end}, {date}, {adjustment}, {format}.
+  # {end}, {date}, {adjustment}, {format}, {alpaca_timeframe}, {source}.
   filename_template: bars_{start}_{end}.{format}
 ```
 

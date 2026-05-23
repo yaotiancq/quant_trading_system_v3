@@ -6,8 +6,18 @@ from __future__ import annotations
 import argparse
 import os
 from collections.abc import Sequence
+from pathlib import Path
+from typing import Any
 
-from qts.core import ConfigurationError, DataError, deep_merge, load_env_file, load_mapping_file
+from qts.core import (
+    ConfigurationError,
+    DataError,
+    deep_merge,
+    find_project_root,
+    load_env_file,
+    load_layered_mapping,
+    resolve_project_path,
+)
 from qts.market_data import AlpacaBarDownloadConfig, download_alpaca_bars
 
 
@@ -37,10 +47,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        raw = load_mapping_file(args.config)
+        config_path = Path(args.config)
+        raw = load_layered_mapping(config_path)
         overrides = _cli_overrides(args)
         if overrides:
             raw = deep_merge(raw, overrides)
+        raw = _resolve_download_paths(raw, find_project_root(config_path))
         env_values = {**load_env_file(args.env), **os.environ}
         config = AlpacaBarDownloadConfig.from_mapping(raw, env_values=env_values)
         result = download_alpaca_bars(config)
@@ -88,6 +100,17 @@ def _cli_overrides(args: argparse.Namespace) -> dict[str, object]:
     if output:
         overrides["output"] = output
     return overrides
+
+
+def _resolve_download_paths(raw: dict[str, Any], project_root: Path) -> dict[str, Any]:
+    output = dict(raw.get("output") or {})
+    for key in ("path", "directory"):
+        if output.get(key):
+            output[key] = str(resolve_project_path(output[key], project_root=project_root))
+    if output:
+        raw = dict(raw)
+        raw["output"] = output
+    return raw
 
 
 if __name__ == "__main__":

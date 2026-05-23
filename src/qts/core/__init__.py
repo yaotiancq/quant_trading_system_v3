@@ -6,6 +6,8 @@ from .clocks import Clock, RealClock, ReplayClock
 from .config import (
     build_runtime_config,
     deep_merge,
+    find_project_root,
+    interpolate_env_values,
     load_backtest_config,
     load_env_file,
     load_layered_mapping,
@@ -13,6 +15,11 @@ from .config import (
     load_runtime_config,
     parse_yaml_mapping,
     require_env_value,
+    resolve_config_reference,
+    resolve_project_path,
+    resolve_runtime_paths,
+    resolve_runtime_references,
+    validate_runtime_mapping,
 )
 from .exceptions import (
     BrokerError,
@@ -49,6 +56,8 @@ __all__ = [
     "build_runtime_config",
     "configure_logging",
     "deep_merge",
+    "find_project_root",
+    "interpolate_env_values",
     "load_backtest_config",
     "load_env_file",
     "load_layered_mapping",
@@ -56,4 +65,9 @@ __all__ = [
     "load_runtime_config",
     "parse_yaml_mapping",
     "require_env_value",
+    "resolve_config_reference",
+    "resolve_project_path",
+    "resolve_runtime_paths",
+    "resolve_runtime_references",
+    "validate_runtime_mapping",
 ]

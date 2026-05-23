@@ -1,7 +1,6 @@
 # Function: Reusable risk-management template.
-# Used by: copy these keys under the `risk:` section of runtime configs such as
-#          configs/backtest.yaml, configs/paper_alpaca.yaml, or configs/live_alpaca.yaml.
-# Notes: This file is a reference snippet; it is not auto-loaded by runtime configs.
+# Used by: runtime configs can import this file with `risk_ref: risk/base.yaml`.
+# Notes: Inline `risk:` fields in the runtime config override this profile.
 
 # Position sizing method applied to unsized strategy signals.
 # Options: fixed_quantity, fixed_notional, fixed_dollar, percent_equity,

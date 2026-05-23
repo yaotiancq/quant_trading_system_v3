@@ -59,27 +59,18 @@ portfolio:
 
 # Strategies loaded by the live engine.
 strategies:
-  - strategy_id: sma_cross_v1
-    # Options: sma_crossover, sma_cross, rsi_mean_reversion, rsi_reversion,
-    # ml_signal, ml_directional, ml_direction.
-    strategy_type: sma_crossover
-    # Must also be permitted by broker.safety.allowed_symbols.
-    symbols: [SPY]
-    # false disables strategy signal generation.
-    enabled: true
-    # SMA crossover parameters in bars.
-    parameters:
-      # Fast SMA window.
-      fast_window: 20
-      # Slow SMA window.
-      slow_window: 50
+  # Reusable strategy profile. Symbols must also be permitted by
+  # broker.safety.allowed_symbols.
+  - config_ref: strategies/sma_crossover.yaml
+
+# Reusable risk profile. Paths are relative to this config file.
+risk_ref: risk/base.yaml
 
 # Live template risk sizing. Notional is zero by default to avoid accidental
 # order sizing if safety gates are changed without updating risk intentionally.
 risk:
-  # Options: fixed_quantity, fixed_notional, fixed_dollar, percent_equity,
-  # percent_of_equity.
-  sizing_method: fixed_notional
+  # Explicitly marks this live template as not ready for order sizing.
+  disabled_until_configured: true
   sizing_parameters:
     # Must be positive before fixed_notional sizing can approve trades.
     notional_per_trade: 0

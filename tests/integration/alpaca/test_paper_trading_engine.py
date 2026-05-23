@@ -155,16 +155,12 @@ class PaperTradingEngineIntegrationTests(unittest.TestCase):
         self.assertEqual(status["reconciliation"]["status"], "matched")
 
     def test_paper_engine_rejects_unimplemented_market_data_provider(self) -> None:
-        config = load_paper_config(market_data={"provider": "alpaca"})
-
         with self.assertRaises(ConfigurationError):
-            PaperTradingEngine(config).initialize()
+            load_paper_config(market_data={"provider": "alpaca"})
 
     def test_paper_engine_rejects_unsupported_broker_type(self) -> None:
-        config = load_paper_config(broker={"broker_type": "backtest", "paper": True})
-
         with self.assertRaises(ConfigurationError):
-            PaperTradingEngine(config).initialize()
+            load_paper_config(broker={"broker_type": "backtest", "paper": True})
 
     def test_paper_engine_uses_shared_execution_path_for_market_event(self) -> None:
         config = load_paper_config()

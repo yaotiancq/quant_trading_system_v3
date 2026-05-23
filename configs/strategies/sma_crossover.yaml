@@ -1,7 +1,7 @@
-# Function: Standalone SMA crossover strategy snippet/template.
-# Used by: copy this mapping into a runtime config's `strategies:` list.
-# Notes: Runtime configs do not auto-import this file. In configs/backtest.yaml,
-#        the inline strategy parameters win because they are the only loaded values.
+# Function: Reusable SMA crossover strategy profile.
+# Used by: runtime configs can import this file with
+#          `strategies: [{config_ref: strategies/sma_crossover.yaml}]`.
+# Notes: Inline fields in the runtime config override this profile.
 
 # Unique strategy id used in signals, orders, fills, and reports.
 strategy_id: sma_cross_v1
@@ -20,12 +20,6 @@ enabled: true
 # SMA; a SELL/EXIT signal occurs when it crosses below.
 parameters:
   # Fast moving-average window in bars.
-  fast_window: 5
+  fast_window: 20
   # Slow moving-average window in bars. Usually greater than fast_window.
-  slow_window: 10
-
-# Optional feature metadata. The runtime derives SMA features from fast_window and
-# slow_window unless explicit `specs` are provided here.
-feature_config:
-  # Informational list for humans/tools; not used by the current runtime loader.
-  required_features: [sma_5, sma_10]
+  slow_window: 50

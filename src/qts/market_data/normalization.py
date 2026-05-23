@@ -9,11 +9,26 @@ from pathlib import Path
 from typing import Any
 
 from qts.core import DataError
-from qts.domain import Bar, BarTimeframe, coerce_enum, normalize_symbol, normalize_timestamp
+from qts.domain import (
+    Bar,
+    BarTimeframe,
+    DataAdjustment,
+    coerce_enum,
+    normalize_symbol,
+    normalize_timestamp,
+)
 
 
 REQUIRED_BAR_COLUMNS = {"symbol", "timestamp", "open", "high", "low", "close", "volume"}
-OPTIONAL_BAR_COLUMNS = {"timeframe", "vwap", "trade_count", "source"}
+OPTIONAL_BAR_COLUMNS = {
+    "timeframe",
+    "vwap",
+    "trade_count",
+    "source",
+    "bar_interval",
+    "alpaca_timeframe",
+    "adjustment",
+}
 
 
 def read_csv_rows(path: str | Path) -> list[dict[str, str]]:
@@ -35,15 +50,16 @@ def rows_to_bars(
     source: str | None = None,
 ) -> list[Bar]:
     bars: list[Bar] = []
-    seen: set[tuple[str, datetime, BarTimeframe]] = set()
+    seen: set[tuple[str, datetime, BarTimeframe, str | None]] = set()
     for row_index, row in enumerate(rows, start=1):
         validate_bar_columns(row, row_index=row_index)
         bar = row_to_bar(row, default_timeframe=default_timeframe, source=source)
-        key = (bar.symbol, bar.timestamp, bar.timeframe)
+        key = (bar.symbol, bar.timestamp, bar.timeframe, _normalize_bar_interval(bar.bar_interval))
         if key in seen:
+            interval = f" and interval {bar.bar_interval}" if bar.bar_interval else ""
             raise DataError(
                 f"duplicate bar for {bar.symbol} at {bar.timestamp.isoformat()} "
-                f"with timeframe {bar.timeframe.value}"
+                f"with timeframe {bar.timeframe.value}{interval}"
             )
         seen.add(key)
         bars.append(bar)
@@ -57,6 +73,8 @@ def row_to_bar(
     source: str | None = None,
 ) -> Bar:
     timeframe = row.get("timeframe") or default_timeframe
+    bar_interval = row.get("bar_interval") or row.get("alpaca_timeframe")
+    adjustment = _normalize_adjustment(row.get("adjustment"))
     try:
         return Bar(
             symbol=str(row["symbol"]),
@@ -70,6 +88,8 @@ def row_to_bar(
             vwap=_optional_float(row.get("vwap"), "vwap"),
             trade_count=_optional_int(row.get("trade_count"), "trade_count"),
             source=str(row.get("source") or source or "local"),
+            bar_interval=str(bar_interval).strip() if bar_interval else None,
+            adjustment=adjustment,
         )
     except (TypeError, ValueError, KeyError) as exc:
         raise DataError(f"invalid bar row for {row.get('symbol', '<unknown>')}: {exc}") from exc
@@ -89,6 +109,8 @@ def filter_bars(
     start: datetime | str,
     end: datetime | str,
     timeframe: BarTimeframe | str,
+    bar_interval: str | None = None,
+    adjustment: DataAdjustment | str = DataAdjustment.RAW,
 ) -> list[Bar]:
     wanted_symbols = {normalize_symbol(symbol) for symbol in symbols}
     if not wanted_symbols:
@@ -96,6 +118,8 @@ def filter_bars(
     start_ts = normalize_timestamp(start, assume_utc_for_naive=True)
     end_ts = normalize_timestamp(end, end_of_day=True, assume_utc_for_naive=True)
     wanted_timeframe = coerce_enum(BarTimeframe, timeframe)
+    wanted_interval = _normalize_bar_interval(bar_interval)
+    wanted_adjustment = _normalize_adjustment(adjustment)
     if end_ts < start_ts:
         raise DataError("end must be greater than or equal to start")
 
@@ -104,9 +128,38 @@ def filter_bars(
         for bar in bars
         if bar.symbol in wanted_symbols
         and bar.timeframe == wanted_timeframe
+        and (wanted_interval is None or _normalize_bar_interval(bar.bar_interval) == wanted_interval)
+        and bar.adjustment == wanted_adjustment
         and start_ts <= bar.timestamp <= end_ts
     ]
     return sorted(filtered, key=lambda bar: (bar.timestamp, bar.symbol))
+
+
+def _normalize_bar_interval(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return text.lower().replace(" ", "").replace("_", "")
+
+
+def _normalize_adjustment(value: Any) -> DataAdjustment:
+    if value is None or value == "":
+        return DataAdjustment.RAW
+    text = str(value).strip().lower().replace("-", "_")
+    aliases = {
+        "raw": DataAdjustment.RAW,
+        "split": DataAdjustment.SPLIT_ADJUSTED,
+        "split_adjusted": DataAdjustment.SPLIT_ADJUSTED,
+        "dividend": DataAdjustment.DIVIDEND_ADJUSTED,
+        "dividend_adjusted": DataAdjustment.DIVIDEND_ADJUSTED,
+        "total_return": DataAdjustment.TOTAL_RETURN,
+        "all": DataAdjustment.TOTAL_RETURN,
+    }
+    if text in aliases:
+        return aliases[text]
+    return coerce_enum(DataAdjustment, value)
 
 
 def _to_float(value: Any, field_name: str) -> float:

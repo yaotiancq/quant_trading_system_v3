@@ -19,6 +19,7 @@ class MarketDataProvider(Protocol):
         end: datetime | str,
         timeframe: BarTimeframe | str,
         adjustment: DataAdjustment | str = DataAdjustment.RAW,
+        bar_interval: str | None = None,
     ) -> list[Bar]:
         """Return normalized historical bars."""
 
@@ -28,6 +29,8 @@ class MarketDataProvider(Protocol):
         start: datetime | str,
         end: datetime | str,
         timeframe: BarTimeframe | str,
+        adjustment: DataAdjustment | str = DataAdjustment.RAW,
+        bar_interval: str | None = None,
     ) -> Iterator[Bar]:
         """Yield normalized market data events in deterministic order."""
 

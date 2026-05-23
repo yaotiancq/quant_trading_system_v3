@@ -146,6 +146,15 @@ Validate a runtime config through the CLI:
 PYTHONPATH=src .venv/bin/python -m qts.cli --config configs/backtest.yaml
 ```
 
+Inspect the resolved effective config, including referenced strategy/risk
+profiles and resolved paths:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m qts.cli config validate --config configs/backtest.yaml
+PYTHONPATH=src .venv/bin/python -m qts.cli config explain --config configs/backtest.yaml
+PYTHONPATH=src .venv/bin/python -m qts.cli config dump --config configs/backtest.yaml --format json
+```
+
 Download Alpaca SIP historical K-line bars to CSV or Parquet:
 
 ```bash
@@ -156,8 +165,10 @@ The downloader supports `1min`, `5min`, `15min`, `1hour`, and `1day` levels.
 The default config writes a partitioned dataset under `data/alpaca` using
 `timeframe`, `symbol`, and `date` partitions. Alpaca is requested for the full
 configured interval, then rows are filtered locally to regular US equity
-session starts `[09:30, 16:00)` in `America/New_York`. Use CLI overrides for
-quick experiments:
+session starts `[09:30, 16:00)` in `America/New_York`. The downloader is
+currently SIP-only. Backtests that read a mixed partitioned dataset should set
+`market_data.bar_interval` such as `1Min` or `5Min` to avoid mixing minute
+aggregations. Use CLI overrides for quick experiments:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/download_data.py \

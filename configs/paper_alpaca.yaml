@@ -42,26 +42,15 @@ portfolio:
 
 # Strategies loaded by the paper engine.
 strategies:
-  - strategy_id: sma_cross_v1
-    # Options: sma_crossover, sma_cross, rsi_mean_reversion, rsi_reversion,
-    # ml_signal, ml_directional, ml_direction.
-    strategy_type: sma_crossover
-    # Symbols traded by this strategy.
-    symbols: [SPY]
-    # false keeps config but disables strategy.
-    enabled: true
-    # SMA crossover parameters in bars.
-    parameters:
-      # Fast SMA window.
-      fast_window: 20
-      # Slow SMA window.
-      slow_window: 50
+  # Reusable strategy profile. Paths are relative to this config file.
+  - config_ref: strategies/sma_crossover.yaml
+
+# Reusable risk profile. Paths are relative to this config file.
+risk_ref: risk/base.yaml
 
 # Risk sizing for paper orders.
 risk:
-  # Options: fixed_quantity, fixed_notional, fixed_dollar, percent_equity,
-  # percent_of_equity.
-  sizing_method: fixed_notional
+  # Override selected fields from configs/risk/base.yaml.
   sizing_parameters:
     # Used by fixed_notional/fixed_dollar.
     notional_per_trade: 1000

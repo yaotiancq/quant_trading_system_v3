@@ -1,6 +1,7 @@
-# Function: Standalone RSI mean-reversion strategy snippet/template.
-# Used by: copy this mapping into a runtime config's `strategies:` list.
-# Notes: Runtime configs do not auto-import this file.
+# Function: Reusable RSI mean-reversion strategy profile.
+# Used by: runtime configs can import this file with
+#          `strategies: [{config_ref: strategies/rsi_mean_reversion.yaml}]`.
+# Notes: Inline fields in the runtime config override this profile.
 
 # Unique strategy id used in signals, orders, fills, and reports.
 strategy_id: rsi_mean_reversion_v1
@@ -22,9 +23,3 @@ parameters:
   oversold: 30
   # SELL/EXIT threshold; RSI crossing above/below this level can create exit signals.
   overbought: 70
-
-# Optional feature metadata. The runtime derives RSI features from `window` unless
-# explicit `specs` are provided.
-feature_config:
-  # Informational list for humans/tools; not used by the current runtime loader.
-  required_features: [rsi_14]

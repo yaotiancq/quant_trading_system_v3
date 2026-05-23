@@ -52,17 +52,10 @@ portfolio:
   # Reporting/account currency.
   currency: USD
 
-# Inline strategy list used by the fixture.
+# Strategy list used by the fixture. config_ref paths are relative to this config file.
 strategies:
-  # Unique strategy id used in signals and reports.
-  - strategy_id: sma_cross_v1
-    # Options: sma_crossover, sma_cross, rsi_mean_reversion, rsi_reversion,
-    # ml_signal, ml_directional, ml_direction.
-    strategy_type: sma_crossover
-    # Fixture symbols present in the CSV.
-    symbols: [SPY]
-    # false disables this strategy without removing it.
-    enabled: true
+  # Reusable profile with fixture-specific parameter overrides.
+  - config_ref: strategies/sma_crossover.yaml
     # Small windows make the fixture cross quickly.
     parameters:
       # Fast SMA window in bars.
@@ -70,12 +63,12 @@ strategies:
       # Slow SMA window in bars.
       slow_window: 3
 
+# Reusable risk profile with fixture-specific sizing overrides.
+risk_ref: risk/base.yaml
+
 # Risk sizing used to make expected fills deterministic.
 risk:
-  # Options: fixed_quantity, fixed_notional, fixed_dollar, percent_equity,
-  # percent_of_equity.
   sizing_method: fixed_quantity
-  # Required keys depend on sizing_method.
   sizing_parameters:
     # Used by fixed_quantity.
     quantity: 10

@@ -54,7 +54,9 @@ BAR_FIELDNAMES = [
     "vwap",
     "trade_count",
     "source",
+    "bar_interval",
     "alpaca_timeframe",
+    "adjustment",
 ]
 
 
@@ -578,7 +580,9 @@ def _bar_to_row(symbol: Any, bar: Any, config: AlpacaBarDownloadConfig) -> dict[
         "vwap": _optional_number(bar.get("vw")),
         "trade_count": _optional_int(bar.get("n")),
         "source": f"alpaca_{config.feed}_{config.timeframe}",
+        "bar_interval": config.timeframe,
         "alpaca_timeframe": config.timeframe,
+        "adjustment": _domain_adjustment(config.adjustment),
     }
 
 
@@ -668,6 +672,19 @@ def _domain_timeframe(alpaca_timeframe: str) -> str:
     if alpaca_timeframe.endswith("Hour"):
         return "HOUR"
     return "DAY"
+
+
+def _domain_adjustment(alpaca_adjustment: str) -> str:
+    normalized = str(alpaca_adjustment).strip().lower().replace("-", "_")
+    if normalized == "raw":
+        return "RAW"
+    if normalized in {"split", "split_adjusted"}:
+        return "SPLIT_ADJUSTED"
+    if normalized in {"dividend", "dividend_adjusted"}:
+        return "DIVIDEND_ADJUSTED"
+    if normalized in {"all", "total_return"}:
+        return "TOTAL_RETURN"
+    return normalized.upper()
 
 
 def _configured_output_layout(output: Mapping[str, Any]) -> str:

@@ -71,6 +71,8 @@ class BacktestEngine:
             start=self.config.start,
             end=self.config.end,
             timeframe=self.config.timeframe,
+            adjustment=self.config.market_data.get("adjustment", "RAW"),
+            bar_interval=self.config.bar_interval,
             feature_pipeline=self.feature_pipeline,
             enforce_replay_bounds=True,
         )
@@ -123,6 +125,8 @@ class BacktestEngine:
             self.config.start,
             self.config.end,
             self.config.timeframe,
+            adjustment=self.config.market_data.get("adjustment", "RAW"),
+            bar_interval=self.config.bar_interval,
         ):
             self.step(bar)
         for strategy in self.strategies:

@@ -126,17 +126,17 @@ generated egg-info metadata are not part of the source contract.
 | File | Purpose |
 |---|---|
 | `configs/base.yaml` | Shared defaults: project name, runtime timezone, symbols, paths, logging. |
-| `configs/backtest.yaml` | Generic partitioned local CSV backtest template using `data/alpaca`. |
-| `configs/backtest_fixture.yaml` | Fully runnable CSV fixture backtest. |
+| `configs/backtest.yaml` | Generic partitioned local CSV backtest template using `data/alpaca`, `risk_ref`, and a strategy `config_ref`. |
+| `configs/backtest_fixture.yaml` | Fully runnable CSV fixture backtest with referenced snippets and fixture overrides. |
 | `configs/data/alpaca_sip_bars.yaml` | User-configurable Alpaca SIP historical bar download settings. |
 | `configs/paper_alpaca.yaml` | Alpaca paper runtime template using external market events. |
 | `configs/paper_ibkr.yaml` | IBKR paper runtime template using external market events and `symbol_conids`. |
 | `configs/live_alpaca.yaml` | Guarded live dry-run template. Real live submission remains disabled. |
 | `configs/ml/directional_baseline.yaml` | Offline ML fixture training configuration. |
-| `configs/risk/base.yaml` | Reusable risk sizing and rule defaults. |
-| `configs/strategies/sma_crossover.yaml` | Standalone SMA crossover strategy config snippet. |
-| `configs/strategies/rsi_mean_reversion.yaml` | Standalone RSI mean-reversion strategy config snippet. |
-| `configs/strategies/ml_directional.yaml` | Runtime ML strategy config snippet matching fixture model schema. |
+| `configs/risk/base.yaml` | Reusable risk sizing and rule defaults imported with `risk_ref`. |
+| `configs/strategies/sma_crossover.yaml` | Reusable SMA crossover strategy profile imported with `config_ref`. |
+| `configs/strategies/rsi_mean_reversion.yaml` | Reusable RSI mean-reversion strategy profile imported with `config_ref`. |
+| `configs/strategies/ml_directional.yaml` | Runtime ML strategy profile matching fixture model schema. |
 
 ### Scripts
 

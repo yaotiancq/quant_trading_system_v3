@@ -7,6 +7,7 @@ from qts.domain import (
     Fill,
     OrderSide,
     PortfolioSnapshot,
+    Position,
     RiskConfig,
     RiskDecisionStatus,
     Signal,
@@ -25,8 +26,10 @@ def snapshot(
     cash: float = 10000.0,
     equity: float = 10000.0,
     gross_exposure: float = 0.0,
+    positions_value: float | None = None,
     realized_pnl: float = 0.0,
     buying_power: float | None = None,
+    positions: list[Position] | None = None,
 ) -> PortfolioSnapshot:
     metadata = {}
     if buying_power is not None:
@@ -35,11 +38,12 @@ def snapshot(
         timestamp=NOW,
         cash=cash,
         equity=equity,
-        positions_value=gross_exposure,
+        positions_value=gross_exposure if positions_value is None else positions_value,
         realized_pnl=realized_pnl,
         unrealized_pnl=0.0,
         gross_exposure=gross_exposure,
         net_exposure=gross_exposure,
+        positions=list(positions or []),
         metadata=metadata,
     )
 
@@ -127,6 +131,73 @@ class RiskEngineTests(unittest.TestCase):
 
         self.assertEqual(decision.status, RiskDecisionStatus.REJECTED)
         self.assertIn("gross_exposure_limit_exceeded", decision.reasons)
+
+    def test_risk_reducing_sell_is_not_rejected_as_new_gross_exposure(self) -> None:
+        engine = RiskEngine(
+            risk_config(
+                max_position_notional=1400,
+                max_gross_exposure=1400,
+                max_symbol_weight=0.14,
+            )
+        )
+        intent = TradeIntent(
+            intent_id="reduce-long",
+            strategy_id="strategy-1",
+            symbol="SPY",
+            timestamp=NOW,
+            side=OrderSide.SELL,
+            quantity=5,
+        )
+        current_position = Position(
+            symbol="SPY",
+            quantity=20,
+            average_cost=100,
+            market_price=100,
+            updated_at=NOW,
+        )
+
+        decision = engine.evaluate(
+            intent,
+            snapshot(
+                equity=10000,
+                gross_exposure=2000,
+                positions_value=2000,
+                positions=[current_position],
+            ),
+            {"timestamp": NOW, "price": 100},
+        )
+
+        self.assertEqual(decision.status, RiskDecisionStatus.APPROVED)
+        self.assertIn("position_exposure_reduced", decision.reasons)
+        self.assertIn("gross_exposure_reduced", decision.reasons)
+
+    def test_buy_to_cover_short_reduces_projected_exposure(self) -> None:
+        engine = RiskEngine(risk_config(max_position_notional=1200, max_gross_exposure=1200))
+        intent = TradeIntent(
+            intent_id="cover-short",
+            strategy_id="strategy-1",
+            symbol="SPY",
+            timestamp=NOW,
+            side=OrderSide.BUY,
+            quantity=5,
+        )
+        current_position = Position(
+            symbol="SPY",
+            quantity=-20,
+            average_cost=100,
+            market_price=100,
+            updated_at=NOW,
+        )
+
+        decision = engine.evaluate(
+            intent,
+            snapshot(gross_exposure=2000, positions_value=2000, positions=[current_position]),
+            {"timestamp": NOW, "price": 100},
+        )
+
+        self.assertEqual(decision.status, RiskDecisionStatus.APPROVED)
+        self.assertIn("position_exposure_reduced", decision.reasons)
+        self.assertIn("gross_exposure_reduced", decision.reasons)
 
     def test_buying_power_rule_uses_snapshot_metadata_when_present(self) -> None:
         engine = RiskEngine(risk_config(sizing_parameters={"notional_per_trade": 5000}))
