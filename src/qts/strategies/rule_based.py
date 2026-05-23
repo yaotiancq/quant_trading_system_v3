@@ -9,7 +9,6 @@ from qts.domain import (
     Bar,
     FeatureFrame,
     FeatureRecord,
-    Fill,
     PortfolioSnapshot,
     Signal,
     SignalDirection,

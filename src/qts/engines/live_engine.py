@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
 
 from qts.brokers import Brokerage
 from qts.core import ConfigurationError, LiveSafetyError, RealClock, ReconciliationError

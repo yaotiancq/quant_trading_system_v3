@@ -95,7 +95,7 @@ Secondary users:
 | Compare strategies | Run multiple strategies under the same data, cost, slippage, and risk assumptions. |
 | Train ML models | Build datasets, labels, splits, leakage checks, train models, and register artifacts. |
 | Run ML strategy inference | Load a registered model, compute runtime features, predict, and convert predictions into normalized trade intents. |
-| Paper trade through Alpaca | Use live/near-real-time data and Alpaca paper brokerage while reusing the same strategy, risk, execution, and portfolio logic. |
+| Paper trade through broker adapters | Use live/near-real-time data with Alpaca or IBKR paper brokerage while reusing the same strategy, risk, execution, and portfolio logic. |
 | Prepare for live trading | Add reconciliation, health checks, alerts, recovery behavior, and explicit safety gates before live mode is enabled. |
 
 ## 6. High-Level Architecture
@@ -120,7 +120,7 @@ Secondary users:
        │                                  OrderRequest / Order
        │                                  ┌───────▼────────┐
        └─────────────────────────────────▶│ Brokerage      │
- Current bar/quote for fill simulation    │ Backtest/Alpaca│
+ Current bar/quote for fill simulation    │ Backtest/Alpaca/IBKR│
                                           └───────┬────────┘
                                                   │ Fill
                                           ┌───────▼────────┐
@@ -297,7 +297,8 @@ Owns normalized brokerage interface and broker implementations:
 
 - `Brokerage` interface,
 - `brokers/backtest/BacktestBrokerage`,
-- `brokers/alpaca/AlpacaBrokerage`.
+- `brokers/alpaca/AlpacaBrokerage`,
+- `brokers/ibkr/IBKRBrokerage`.
 
 Rules:
 
@@ -310,6 +311,7 @@ Rules:
 Owns low-level vendor clients:
 
 - Alpaca trading client,
+- IBKR Web API client,
 - Alpaca market data client,
 - Alpaca stream client,
 - Futu client,
@@ -407,6 +409,7 @@ quant-trading-system/
     base.yaml
     backtest.yaml
     paper_alpaca.yaml
+    paper_ibkr.yaml
     live_alpaca.yaml
     data/
     brokers/
@@ -427,8 +430,10 @@ quant-trading-system/
       brokers/
         backtest/
         alpaca/
+        ibkr/
       integrations/
         alpaca/
+        ibkr/
         futu/
         polygon/
       portfolio/
@@ -570,7 +575,7 @@ Runtime components:
 - same strategy interface,
 - same risk engine,
 - same execution engine,
-- `AlpacaBrokerage` configured for paper trading,
+- `AlpacaBrokerage` or `IBKRBrokerage` configured for paper trading,
 - portfolio,
 - monitoring and reconciliation.
 
@@ -578,13 +583,13 @@ Flow:
 
 1. Load paper trading configuration.
 2. Initialize live data stream/provider.
-3. Initialize Alpaca paper brokerage adapter.
+3. Initialize the configured paper brokerage adapter.
 4. Load or initialize portfolio state.
 5. Receive market data events.
 6. Update online features.
 7. Generate strategy output.
 8. Evaluate risk and sizing.
-9. Route approved order requests to Alpaca paper brokerage.
+9. Route approved order requests to the configured paper brokerage.
 10. Consume broker order/fill updates.
 11. Update portfolio from real broker fills.
 12. Periodically reconcile internal portfolio with broker account and positions.
@@ -614,6 +619,7 @@ Configuration files are layered:
 2. mode-specific file:
    - `configs/backtest.yaml`
    - `configs/paper_alpaca.yaml`
+   - `configs/paper_ibkr.yaml`
    - `configs/live_alpaca.yaml`
 3. optional environment variables and `.env`
 4. optional CLI overrides.

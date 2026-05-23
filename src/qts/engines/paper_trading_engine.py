@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Any
 
-from qts.brokers.alpaca import AlpacaBrokerage
+from qts.brokers import AlpacaBrokerage, Brokerage, IBKRBrokerage
 from qts.core import ConfigurationError, RealClock
 from qts.domain import (
     Bar,
@@ -31,13 +30,13 @@ from .market_data import resolve_event_market_data_provider
 
 
 class PaperTradingEngine:
-    """Wire Alpaca paper brokerage into the shared strategy/risk/execution path."""
+    """Wire paper brokerage into the shared strategy/risk/execution path."""
 
     def __init__(
         self,
         runtime_config: RuntimeConfig,
         *,
-        brokerage: AlpacaBrokerage | None = None,
+        brokerage: Brokerage | None = None,
         feature_pipeline: FeaturePipeline | None = None,
         strategies: Sequence[BaseStrategy] | None = None,
         clock: RealClock | None = None,
@@ -84,7 +83,7 @@ class PaperTradingEngine:
         self.portfolio = DefaultPortfolio(
             broker_account.cash,
             currency=broker_account.currency,
-            account_id=broker_account.account_id or "alpaca-paper",
+            account_id=broker_account.account_id or f"{self.config.broker.broker_type}-account",
             timestamp=broker_account.timestamp,
         )
         self._last_reconciliation = self.portfolio.reconcile(broker_account, broker_positions)
@@ -290,13 +289,17 @@ def _event_price(market_event: Bar | Quote) -> float:
     return market_event.close
 
 
-def _paper_brokerage_from_config(config: RuntimeConfig) -> AlpacaBrokerage:
+def _paper_brokerage_from_config(config: RuntimeConfig) -> Brokerage:
     broker_type = config.broker.broker_type.lower()
-    if broker_type != "alpaca_paper" or config.broker.paper is False:
-        raise ConfigurationError(
-            "PaperTradingEngine currently supports broker.broker_type=alpaca_paper only"
-        )
-    return AlpacaBrokerage(config.broker)
+    if config.broker.paper is False:
+        raise ConfigurationError("PaperTradingEngine requires a paper broker configuration")
+    if broker_type == "alpaca_paper":
+        return AlpacaBrokerage(config.broker)
+    if broker_type == "ibkr_paper":
+        return IBKRBrokerage(config.broker)
+    raise ConfigurationError(
+        "PaperTradingEngine currently supports broker.broker_type=alpaca_paper or ibkr_paper"
+    )
 
 
 __all__ = ["PaperTradingEngine"]

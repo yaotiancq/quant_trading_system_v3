@@ -753,3 +753,79 @@ Live trading may remain disabled by default. Safety takes priority over feature 
 - Update `CHANGELOG.md`.
 - Update `DECISIONS.md`.
 - Update runbooks and interface docs if behavior changes.
+
+---
+
+## Phase 9: IBKR Paper Brokerage Foundation
+
+### Objective
+
+Add an Interactive Brokers paper brokerage adapter while preserving the existing
+brokerage interface and keeping live trading fail-closed.
+
+### Scope
+
+- Implement low-level IBKR Web API client boundaries under `integrations/ibkr/`.
+- Implement `IBKRBrokerage` under `brokers/ibkr/`.
+- Add IBKR paper configuration.
+- Reuse the existing paper trading runner and `PaperTradingEngine`.
+- Implement mocked IBKR client support for credential-free dry runs.
+- Add order, account, position, and fill mapping tests.
+
+### Out of Scope
+
+- IBKR live order submission.
+- Automatic confirmation of IBKR reply prompts.
+- IBKR market data integration.
+- Multi-broker smart routing.
+
+### Expected Files or Modules
+
+- `src/qts/integrations/ibkr/`
+- `src/qts/brokers/ibkr/`
+- `configs/paper_ibkr.yaml`
+- `tests/unit/integrations/ibkr/`
+- `tests/unit/brokers/ibkr/`
+- `tests/integration/ibkr/`
+
+### Functional Requirements
+
+- IBKR API details are isolated from strategy, risk, execution, and portfolio
+  modules.
+- IBKR orders are converted from/to internal domain models.
+- IBKR paper mode uses the same `Brokerage` interface as backtest and Alpaca.
+- Credentials and endpoint overrides come from environment variables.
+- IBKR order replies requiring manual confirmation fail closed.
+
+### Testing Requirements
+
+- Mocked IBKR client tests.
+- Order conversion tests.
+- Broker error and safety tests.
+- Mock paper engine initialization test.
+
+### Acceptance Criteria
+
+- `PaperTradingEngine` can initialize with `configs/paper_ibkr.yaml` in mock
+  mode without credentials.
+- `IBKRBrokerage` can submit normalized paper orders through the mocked client.
+- IBKR live configuration is rejected.
+- Tests pass.
+
+### Expected Deliverables
+
+- Second paper brokerage adapter.
+- IBKR paper runtime initialization path.
+
+### Notes for Coding Agent
+
+Do not couple IBKR market data into brokerage. Do not auto-confirm IBKR order
+reply prompts.
+
+### Required Updates
+
+- Update `PROJECT_STATE.md`.
+- Update `CHANGELOG.md`.
+- Update `DECISIONS.md`.
+- Update `INTERFACES.md` and `DATA_MODELS.md` if contract documentation needs to
+  mention IBKR-specific configuration.

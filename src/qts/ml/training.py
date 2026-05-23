@@ -9,12 +9,11 @@ from typing import Any
 from qts.domain import Bar
 from qts.features import FeaturePipeline, FeatureSpec
 
-from .dataset import MLDataset, build_ml_dataset
+from .dataset import build_ml_dataset
 from .leakage import validate_split_no_leakage
 from .models import DirectionalModel, evaluate_directional_model, train_directional_model
 from .registry import FileModelRegistry
 from .splits import chronological_split
-from .types import DatasetSplit
 
 
 def train_directional_pipeline(

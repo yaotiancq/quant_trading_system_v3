@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Initialize the Alpaca paper trading runtime."""
+"""Initialize a configured paper trading runtime."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--mock",
         action="store_true",
-        help="use an in-memory Alpaca client and do not require credentials",
+        help="use an in-memory paper broker client and do not require credentials",
     )
     parser.add_argument(
         "--dry-run",

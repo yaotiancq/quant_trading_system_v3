@@ -1,0 +1,43 @@
+extends: base.yaml
+
+runtime:
+  mode: PAPER
+
+market_data:
+  provider: external_events
+
+broker:
+  broker_type: ibkr_paper
+  paper: true
+  account_id: DU123456
+  base_url_env: IBKR_BASE_URL
+  credential_env_keys:
+    access_token: IBKR_ACCESS_TOKEN
+  safety:
+    mock_mode: false
+    require_paper: true
+    symbol_conids:
+      SPY: 756733
+
+portfolio:
+  currency: USD
+
+strategies:
+  - strategy_id: sma_cross_v1
+    strategy_type: sma_crossover
+    symbols: [SPY]
+    enabled: true
+    parameters:
+      fast_window: 20
+      slow_window: 50
+
+risk:
+  sizing_method: fixed_quantity
+  sizing_parameters:
+    quantity: 10
+
+execution:
+  allow_fractional: false
+
+monitoring:
+  enabled: false

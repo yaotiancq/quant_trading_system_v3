@@ -40,8 +40,10 @@ class ScaffoldSmokeTests(unittest.TestCase):
             "qts.brokers",
             "qts.brokers.backtest",
             "qts.brokers.alpaca",
+            "qts.brokers.ibkr",
             "qts.integrations",
             "qts.integrations.alpaca",
+            "qts.integrations.ibkr",
             "qts.integrations.futu",
             "qts.integrations.polygon",
             "qts.portfolio",
@@ -55,7 +57,13 @@ class ScaffoldSmokeTests(unittest.TestCase):
                 importlib.import_module(module_name)
 
     def test_config_templates_exist(self) -> None:
-        for name in ("base.yaml", "backtest.yaml", "paper_alpaca.yaml", "live_alpaca.yaml"):
+        for name in (
+            "base.yaml",
+            "backtest.yaml",
+            "paper_alpaca.yaml",
+            "paper_ibkr.yaml",
+            "live_alpaca.yaml",
+        ):
             self.assertTrue((ROOT / "configs" / name).is_file(), name)
 
     def test_pyproject_declares_src_package(self) -> None:

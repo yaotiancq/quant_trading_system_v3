@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from qts.core import FeatureError
-from qts.domain import Bar, FeatureFrame, FeatureRecord, normalize_symbol
+from qts.domain import Bar, FeatureFrame, FeatureRecord
 
 from .indicators import compute_indicator, output_names_for
 

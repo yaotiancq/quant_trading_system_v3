@@ -14,7 +14,7 @@ The architecture documents in the project root are the source of truth:
 
 ## Current Status
 
-Phase 8 is complete. The repository now includes the package layout, validated
+Phase 9 is complete. The repository now includes the package layout, validated
 domain models and enums, core configuration loading, clocks, common exceptions,
 logging setup, local market data providers, deterministic replay, reusable batch
 indicators, feature schemas, feature pipelines, broker-agnostic example
@@ -26,10 +26,11 @@ brokerage adapter, a paper trading engine initialization path, configuration
 templates, an offline ML workflow, a filesystem model registry, runtime ML
 inference, an ML signal strategy adapter, monitoring and alert helpers,
 reconciliation health checks, guarded live safety gates, dry-run `LiveEngine`
-scaffolding, operational runbooks, and tests.
+scaffolding, a dependency-free IBKR paper brokerage foundation, operational
+runbooks, and tests.
 
 Real live broker order submission remains disabled by default. The documented
-phase plan is complete through Phase 8; future work should be captured in a new
+phase plan is complete through Phase 9; future work should be captured in a new
 phase or backlog before implementation.
 
 ## Layout
@@ -46,7 +47,7 @@ src/qts/strategies/
 src/qts/risk/     Position sizing, risk rules, and risk engine
 src/qts/execution/
                   Order requests, manager, router, fill handler, engine
-src/qts/brokers/  Brokerage protocol, BacktestBrokerage, AlpacaBrokerage
+src/qts/brokers/  Brokerage protocol, BacktestBrokerage, AlpacaBrokerage, IBKRBrokerage
 src/qts/integrations/
                   Low-level vendor clients and mapping adapters
 src/qts/portfolio/
@@ -59,7 +60,7 @@ src/qts/monitoring/
                   Health checks, metrics, alerts, recovery, safety gates
 scripts/          Local backtest, report, paper, ML, and live dry-run commands
 docs/             Operational runbooks
-tests/            Smoke, unit, and integration tests through Phase 8
+tests/            Smoke, unit, and integration tests through Phase 9
 data/             Local data placeholder, ignored by git
 artifacts/        Runtime output placeholder, ignored by git
 ```
@@ -111,6 +112,7 @@ Configuration templates live under `configs/`:
 - `backtest_fixture.yaml`
 - `paper_alpaca.yaml`
 - `live_alpaca.yaml`
+- `paper_ibkr.yaml`
 - `ml/directional_baseline.yaml`
 - `strategies/sma_crossover.yaml`
 - `strategies/rsi_mean_reversion.yaml`
@@ -118,7 +120,8 @@ Configuration templates live under `configs/`:
 - `risk/base.yaml`
 
 Secrets must not be stored in YAML files. Copy `.env.example` to `.env` for
-local Alpaca paper credentials when using the real paper API.
+local Alpaca paper credentials or IBKR Web API overrides when using real broker
+APIs.
 
 Paper/live templates use `market_data.provider: external_events` because the
 current paper and live scaffolds consume externally supplied `Bar`/`Quote`
@@ -176,6 +179,17 @@ paper API:
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/run_paper_trading.py --config configs/paper_alpaca.yaml --dry-run
 ```
+
+Initialize the Phase 9 IBKR paper runtime in credential-free mock mode:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_paper_trading.py --config configs/paper_ibkr.yaml --mock --dry-run
+```
+
+IBKR order tickets require `broker.account_id` and a
+`broker.safety.symbol_conids` mapping. IBKR order responses that require a
+manual reply confirmation fail closed; automatic reply confirmation is not
+enabled.
 
 Train the Phase 7 fixture directional model into a local model registry:
 

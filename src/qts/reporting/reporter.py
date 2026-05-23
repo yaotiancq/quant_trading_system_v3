@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from qts.domain import BacktestResult, CashLedgerEntry, PortfolioSnapshot, TradeLedgerEntry
+from qts.domain import BacktestResult, PortfolioSnapshot, TradeLedgerEntry
 
 from .metrics import calculate_metrics, equity_curve
 

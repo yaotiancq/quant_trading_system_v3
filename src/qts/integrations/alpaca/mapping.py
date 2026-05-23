@@ -15,7 +15,6 @@ from qts.domain import (
     OrderStatus,
     OrderType,
     Position,
-    TimeInForce,
     normalize_symbol,
     normalize_timestamp,
 )

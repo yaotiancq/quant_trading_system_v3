@@ -8,6 +8,48 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Phase 9] - 2026-05-22
+
+### Added
+
+- Implemented a dependency-free IBKR Web API client boundary under
+  `integrations/ibkr/`.
+- Added IBKR payload mapping for order requests, normalized orders, fill deltas,
+  account summaries, and positions.
+- Implemented `IBKRBrokerage` for paper trading through the normalized
+  `Brokerage` interface.
+- Added an in-memory IBKR client for credential-free mock paper runs.
+- Added `configs/paper_ibkr.yaml` with IBKR account and symbol `conid` mapping
+  settings.
+- Added mocked IBKR tests for mapping, brokerage behavior, fail-closed reply
+  prompts, live-mode rejection, and paper engine initialization.
+
+### Changed
+
+- Updated `PaperTradingEngine` to select either `alpaca_paper` or `ibkr_paper`
+  from configuration.
+- Updated `scripts/run_paper_trading.py` wording so the runner is broker-neutral.
+- Updated README, system design, interface, data model, project state, phase
+  plan, and environment-example documentation for IBKR paper support.
+- Added ADR-021 documenting the IBKR adapter boundary and manual-reply safety
+  policy.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+### Notes
+
+- IBKR live order submission remains disabled.
+- IBKR order responses that require manual reply confirmation fail closed; the
+  adapter does not auto-confirm those prompts.
+
+---
+
 ## [Post-Phase 8 Design Review Fixes] - 2026-05-22
 
 ### Changed

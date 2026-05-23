@@ -673,3 +673,51 @@ alerts, metrics, and recovery behavior.
 - Treat dry-run mode as equivalent to paper trading.
 - Put safety checks inside each broker adapter instead of central live
   monitoring/safety helpers.
+
+---
+
+## ADR-021: Add IBKR Through the Existing Brokerage Boundary
+
+### Context
+
+The project needs a second broker target without changing strategy, risk,
+execution, or portfolio contracts. Interactive Brokers exposes order, account,
+and position operations through Web API style endpoints, and order submission
+can return reply prompts that require explicit confirmation.
+
+### Decision
+
+Implement IBKR as a new `IBKRBrokerage` under `brokers/ibkr/` backed by a
+dependency-free low-level client and mapping layer under `integrations/ibkr/`.
+IBKR uses the same normalized `Brokerage` interface as backtest and Alpaca
+paper trading.
+
+IBKR paper order submission requires `broker.account_id` and a
+`broker.safety.symbol_conids` mapping from internal symbols to IBKR contract
+IDs. Notional-only order requests are rejected by the adapter until explicit
+IBKR notional semantics are designed. IBKR order responses requiring manual
+reply confirmation fail closed; the adapter does not automatically confirm
+those replies.
+
+### Rationale
+
+This preserves the vendor-boundary rule from ADR-006 and the configuration
+switching rule from ADR-007. It also makes IBKR testable without credentials or
+network access through an in-memory client while avoiding unsafe automatic order
+confirmation behavior.
+
+### Consequences
+
+- `PaperTradingEngine` can select either `alpaca_paper` or `ibkr_paper` from
+  configuration.
+- IBKR market data remains separate future work.
+- IBKR live order submission remains disabled by the adapter and by live safety
+  gates.
+- Users must maintain symbol-to-`conid` mappings in broker safety config or
+  attach a `conid`/`ibkr_conid` to individual order request metadata.
+
+### Alternatives Considered
+
+- Add IBKR behavior directly to the paper engine.
+- Require the official IBKR SDK or a third-party wrapper immediately.
+- Automatically confirm IBKR reply prompts after order submission.

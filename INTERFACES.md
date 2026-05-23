@@ -30,7 +30,7 @@ General conventions:
 | `ExecutionEngine` | `execution/` | default execution engine | engines |
 | `OrderManager` | `execution/` | default order manager | execution engine |
 | `OrderRouter` | `execution/` | default order router | execution engine |
-| `Brokerage` | `brokers/` | backtest, Alpaca | order router, engines |
+| `Brokerage` | `brokers/` | backtest, Alpaca, IBKR | order router, engines |
 | `BacktestBrokerage` | `brokers/backtest/` | backtest implementation | backtest engine |
 | `Portfolio` | `portfolio/` | default portfolio | engines, risk, reporting |
 | `BacktestEngine` | `engines/` | default backtest engine | scripts, CLI |
@@ -303,7 +303,7 @@ Route normalized order requests to the configured brokerage implementation.
 ### Ownership Rules
 
 - Router only depends on `Brokerage` interface.
-- Router must not know Alpaca-specific details.
+- Router must not know Alpaca-, IBKR-, or other vendor-specific details.
 
 ## 15. Brokerage
 
@@ -331,6 +331,16 @@ Normalize broker behavior across backtesting, paper trading, and live trading.
 - Broker rejections return rejected `Order` or raise controlled broker rejection error.
 - Connection failures raise broker connection error.
 - Vendor exceptions must be converted to internal error types.
+- Vendor-specific order confirmation prompts that require manual approval must
+  fail closed unless a future phase explicitly designs and tests confirmation
+  behavior.
+
+### Implementations
+
+- `BacktestBrokerage` simulates broker behavior for backtests.
+- `AlpacaBrokerage` supports Alpaca paper trading.
+- `IBKRBrokerage` supports IBKR paper trading and requires an account ID plus
+  symbol-to-`conid` mapping for order submission.
 
 ## 16. BacktestBrokerage
 

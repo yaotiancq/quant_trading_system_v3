@@ -1045,7 +1045,7 @@ Configuration for broker implementation.
 
 | Field | Type | Required | Validation |
 |---|---|---:|---|
-| `broker_type` | string | yes | `backtest`, `alpaca_paper`, `alpaca_live` |
+| `broker_type` | string | yes | `backtest`, `alpaca_paper`, `alpaca_live`, `ibkr_paper`, `ibkr_live` |
 | `account_id` | string | no | optional |
 | `paper` | bool | no | true for paper mode |
 | `base_url` | string | no | vendor-specific |
@@ -1053,7 +1053,7 @@ Configuration for broker implementation.
 | `commission_model` | dict | no | backtest cost config |
 | `slippage_model` | dict | no | backtest slippage config |
 | `fill_policy` | string | no | backtest fill policy |
-| `safety` | dict | no | live safety settings |
+| `safety` | dict | no | live safety settings and adapter-specific safe defaults, e.g. IBKR `symbol_conids` |
 
 ### Example
 
