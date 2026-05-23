@@ -21,7 +21,7 @@ Each layer owns a small responsibility:
 |---|---|---|
 | `domain` | Stable data models and enums | I/O, broker calls, strategy logic |
 | `core` | Config, clocks, exceptions, logging | Concrete trading behavior |
-| `market_data` | Historical data, replay, strategy data portal | Brokerage state |
+| `market_data` | Historical data downloads/loading, replay, strategy data portal | Brokerage state |
 | `features` | Reusable indicators and schemas | Strategy-specific decisions |
 | `strategies` | Signal generation | Order submission, account mutation |
 | `risk` | Sizing and risk approval | Broker API details |
@@ -49,6 +49,16 @@ Each layer owns a small responsibility:
 9. `BacktestBrokerage` simulates fills on market events.
 10. `DefaultPortfolio` applies fills and records ledgers.
 11. `BacktestReporter` writes metrics and artifacts.
+
+### Data Download Flow
+
+1. `scripts/download_data.py` loads `configs/data/alpaca_sip_bars.yaml`.
+2. `AlpacaBarDownloadConfig` validates symbols, date range, K-line timeframe,
+   output format, and either a fixed output path or directory/filename template.
+3. `AlpacaMarketDataClient` requests paginated Alpaca stock bars.
+4. `download_alpaca_bars` normalizes bars into CSV or Parquet rows.
+5. The resulting file can be consumed by `CSVBarProvider` or
+   `LocalParquetProvider`.
 
 ### Paper Flow
 
@@ -112,6 +122,7 @@ generated egg-info metadata are not part of the source contract.
 | `configs/base.yaml` | Shared defaults: project name, runtime timezone, symbols, paths, logging. |
 | `configs/backtest.yaml` | Generic Parquet-backed backtest template. |
 | `configs/backtest_fixture.yaml` | Fully runnable CSV fixture backtest. |
+| `configs/data/alpaca_sip_bars.yaml` | User-configurable Alpaca SIP historical bar download settings. |
 | `configs/paper_alpaca.yaml` | Alpaca paper runtime template using external market events. |
 | `configs/paper_ibkr.yaml` | IBKR paper runtime template using external market events and `symbol_conids`. |
 | `configs/live_alpaca.yaml` | Guarded live dry-run template. Real live submission remains disabled. |
@@ -126,6 +137,7 @@ generated egg-info metadata are not part of the source contract.
 | File | Purpose |
 |---|---|
 | `scripts/run_backtest.py` | Loads a runtime config, runs `BacktestEngine`, prints fill count and return. |
+| `scripts/download_data.py` | Downloads Alpaca SIP historical stock bars to normalized CSV or Parquet. |
 | `scripts/generate_report.py` | Runs a backtest and prints generated report artifact paths. |
 | `scripts/run_paper_trading.py` | Initializes configured paper runtime, supports broker mock mode. |
 | `scripts/run_live_trading.py` | Initializes guarded live dry-run runtime with explicit safety confirmation. |
@@ -168,6 +180,7 @@ installed. Keep config templates simple unless PyYAML becomes a hard dependency.
 | File | Purpose |
 |---|---|
 | `src/qts/market_data/interfaces.py` | `MarketDataProvider` and `DataPortal` protocols. |
+| `src/qts/market_data/alpaca.py` | Config-driven Alpaca SIP historical stock bar downloader and client. |
 | `src/qts/market_data/normalization.py` | CSV reading, bar schema validation, timestamp/symbol normalization, filtering. |
 | `src/qts/market_data/providers.py` | CSV provider, optional Parquet provider, replay provider. |
 | `src/qts/market_data/portal.py` | Default data portal with replay-bounded reads. |
@@ -383,6 +396,7 @@ Detailed test file index:
 | `tests/unit/core/test_config.py` | Tests config loading, env parsing, YAML parsing, and invalid config failures. |
 | `tests/unit/core/test_logging.py` | Tests structured logging setup. |
 | `tests/unit/market_data/__init__.py` | Market data test package marker. |
+| `tests/unit/market_data/test_alpaca_downloader.py` | Tests Alpaca SIP timeframe normalization, pagination, CSV/Parquet writing, and config loading. |
 | `tests/unit/market_data/test_csv_provider.py` | Tests CSV provider, normalization errors, replay ordering, and data portal behavior. |
 | `tests/unit/features/__init__.py` | Feature test package marker. |
 | `tests/unit/features/test_indicators.py` | Known-value tests for indicators. |

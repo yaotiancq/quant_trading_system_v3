@@ -32,6 +32,7 @@ class ScaffoldSmokeTests(unittest.TestCase):
             "qts.core",
             "qts.domain",
             "qts.market_data",
+            "qts.market_data.alpaca",
             "qts.features",
             "qts.strategies",
             "qts.ml",
@@ -63,6 +64,7 @@ class ScaffoldSmokeTests(unittest.TestCase):
             "paper_alpaca.yaml",
             "paper_ibkr.yaml",
             "live_alpaca.yaml",
+            "data/alpaca_sip_bars.yaml",
         ):
             self.assertTrue((ROOT / "configs" / name).is_file(), name)
 

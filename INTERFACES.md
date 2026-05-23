@@ -54,6 +54,13 @@ Provide normalized market data without exposing vendor-specific APIs.
 | `subscribe` | symbols, data types, callback | subscription handle | Optional for live providers. |
 | `close` | none | none | Release resources. |
 
+### Historical Download Helpers
+
+Config-driven download helpers may live under `market_data/` when they produce
+normalized local data for providers to consume. The Alpaca SIP downloader writes
+CSV or Parquet rows compatible with `CSVBarProvider` and `LocalParquetProvider`;
+it does not submit orders and does not share code with broker adapters.
+
 ### Error Behavior
 
 - Missing required columns: raise data validation error.

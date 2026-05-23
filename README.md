@@ -14,23 +14,23 @@ The architecture documents in the project root are the source of truth:
 
 ## Current Status
 
-Phase 9 is complete. The repository now includes the package layout, validated
+Phase 10 is complete. The repository now includes the package layout, validated
 domain models and enums, core configuration loading, clocks, common exceptions,
-logging setup, local market data providers, deterministic replay, reusable batch
-indicators, feature schemas, feature pipelines, broker-agnostic example
-strategies, a risk engine with position sizing and basic rules, an execution
-engine, order manager/router, normalized brokerage protocol, simulated
-BacktestBrokerage, internal portfolio accounting, a deterministic backtest
-engine, reporting metrics and artifacts, a dependency-free Alpaca paper
-brokerage adapter, a paper trading engine initialization path, configuration
-templates, an offline ML workflow, a filesystem model registry, runtime ML
-inference, an ML signal strategy adapter, monitoring and alert helpers,
-reconciliation health checks, guarded live safety gates, dry-run `LiveEngine`
-scaffolding, a dependency-free IBKR paper brokerage foundation, operational
-runbooks, and tests.
+logging setup, local market data providers, a config-driven Alpaca SIP
+historical bar downloader, deterministic replay, reusable batch indicators,
+feature schemas, feature pipelines, broker-agnostic example strategies, a risk
+engine with position sizing and basic rules, an execution engine, order
+manager/router, normalized brokerage protocol, simulated BacktestBrokerage,
+internal portfolio accounting, a deterministic backtest engine, reporting
+metrics and artifacts, a dependency-free Alpaca paper brokerage adapter, a paper
+trading engine initialization path, configuration templates, an offline ML
+workflow, a filesystem model registry, runtime ML inference, an ML signal
+strategy adapter, monitoring and alert helpers, reconciliation health checks,
+guarded live safety gates, dry-run `LiveEngine` scaffolding, a dependency-free
+IBKR paper brokerage foundation, operational runbooks, and tests.
 
 Real live broker order submission remains disabled by default. The documented
-phase plan is complete through Phase 9; future work should be captured in a new
+phase plan is complete through Phase 10; future work should be captured in a new
 phase or backlog before implementation.
 
 ## Layout
@@ -40,7 +40,7 @@ configs/          Runtime configuration templates
 src/qts/domain/   Stable domain models and enums
 src/qts/core/     Config loading, clocks, exceptions, and logging setup
 src/qts/market_data/
-                  Local historical data loading, normalization, replay, portal
+                  Local data loading, Alpaca SIP downloads, normalization, replay, portal
 src/qts/features/ Reusable batch indicators and feature pipelines
 src/qts/strategies/
                   Strategy interface, SMA crossover, RSI mean reversion
@@ -58,9 +58,9 @@ src/qts/reporting/
 src/qts/ml/       Offline datasets, labels, splits, training, registry, inference
 src/qts/monitoring/
                   Health checks, metrics, alerts, recovery, safety gates
-scripts/          Local backtest, report, paper, ML, and live dry-run commands
+scripts/          Local data download, backtest, report, paper, ML, and live dry-run commands
 docs/             User manual, system handbook, and operational runbooks
-tests/            Smoke, unit, and integration tests through Phase 9
+tests/            Smoke, unit, and integration tests through Phase 10
 data/             Local data placeholder, ignored by git
 artifacts/        Runtime output placeholder, ignored by git
 ```
@@ -120,6 +120,7 @@ Configuration templates live under `configs/`:
 - `base.yaml`
 - `backtest.yaml`
 - `backtest_fixture.yaml`
+- `data/alpaca_sip_bars.yaml`
 - `paper_alpaca.yaml`
 - `live_alpaca.yaml`
 - `paper_ibkr.yaml`
@@ -135,13 +136,33 @@ APIs.
 
 Paper/live templates use `market_data.provider: external_events` because the
 current paper and live scaffolds consume externally supplied `Bar`/`Quote`
-events. Alpaca market data integration remains future work; Alpaca is currently
-used only as a broker adapter.
+events. Alpaca historical SIP downloads are available through
+`scripts/download_data.py`; real-time Alpaca market data streams remain future
+work.
 
 Validate a runtime config through the CLI:
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m qts.cli --config configs/backtest.yaml
+```
+
+Download Alpaca SIP historical K-line bars to CSV or Parquet:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/download_data.py --config configs/data/alpaca_sip_bars.yaml
+```
+
+The downloader supports `1min`, `5min`, `15min`, `1hour`, and `1day` levels.
+The default config generates filenames from symbols, timeframe, date range, and
+`output.format`. Use CLI overrides for quick experiments:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/download_data.py \
+  --config configs/data/alpaca_sip_bars.yaml \
+  --symbols SPY,QQQ \
+  --timeframe 5min \
+  --format parquet \
+  --output data/alpaca/sip_bars_5min.parquet
 ```
 
 The Phase 2 CSV fixture provider can be exercised from Python:

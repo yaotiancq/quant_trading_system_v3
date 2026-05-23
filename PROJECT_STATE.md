@@ -9,12 +9,13 @@ Phase 1 core foundation, Phase 2 market data/feature layer, Phase 3
 strategy/risk layer, Phase 4 execution/backtest brokerage layer, Phase 5
 backtest engine/reporting layer, Phase 6 Alpaca paper trading integration,
 Phase 7 ML workflow, Phase 8 monitoring/live-trading readiness, and Phase 9
-IBKR paper brokerage foundation.
+IBKR paper brokerage foundation, and Phase 10 Alpaca SIP historical data download.
 
 The Python package now includes stable domain enums and data models, core config
 loading and validation, clocks, common exceptions, logging setup, local
-historical bar providers, data normalization, deterministic replay, a default
-data portal, reusable batch indicators, feature schemas, feature pipelines,
+historical bar providers, config-driven Alpaca SIP historical bar download,
+data normalization, deterministic replay, a default data portal, reusable batch
+indicators, feature schemas, feature pipelines,
 broker-agnostic strategy interfaces, SMA crossover and RSI mean-reversion
 example strategies, normalized signal-to-intent conversion, position sizing, a
 default risk engine, basic risk rules, an execution engine, order request
@@ -58,9 +59,10 @@ validation.
   - Phase 7 - ML Workflow
   - Phase 8 - Monitoring, Reconciliation, and Live-Trading Readiness
   - Phase 9 - IBKR Paper Brokerage Foundation
+  - Phase 10 - Alpaca SIP Historical Data Download
 - **In-progress phase:** None
 - **Next recommended task:** Define the next documented phase or backlog before
-  adding functionality beyond Phase 9.
+  adding functionality beyond Phase 10.
 
 ## 2. Completed Phases
 
@@ -76,6 +78,7 @@ validation.
 | Phase 7 | Complete | Implemented ML dataset building, forward-return labeling, time-aware splits, leakage checks, dependency-free directional model training/evaluation, filesystem registry, runtime inference, ML signal strategy adapter, fixture configs, training script, and tests. |
 | Phase 8 | Complete | Implemented monitoring health checks, metrics, alerts, recovery behavior, broker reconciliation checks, live safety gates, guarded dry-run LiveEngine scaffolding, live runner script, runbooks, and tests. |
 | Phase 9 | Complete | Implemented dependency-free IBKR client/mapping, IBKRBrokerage, mock paper mode, IBKR paper config, paper engine factory support, and mocked tests. |
+| Phase 10 | Complete | Implemented config-driven Alpaca SIP historical bar downloader, CSV/Parquet output, download script, data config template, docs, and tests. |
 
 ## 3. Pending Phases
 
@@ -102,6 +105,7 @@ Repository scaffold exists:
 - `.env.example`
 - `.gitignore`
 - `configs/base.yaml`
+- `configs/data/alpaca_sip_bars.yaml`
 - `configs/backtest.yaml`
 - `configs/backtest_fixture.yaml`
 - `configs/paper_alpaca.yaml`
@@ -138,6 +142,7 @@ Core infrastructure implemented:
 Market data layer implemented:
 
 - `src/qts/market_data/interfaces.py`
+- `src/qts/market_data/alpaca.py`
 - `src/qts/market_data/normalization.py`
 - `src/qts/market_data/providers.py`
 - `src/qts/market_data/portal.py`
@@ -240,6 +245,7 @@ Monitoring and live-readiness layer implemented:
 Scripts implemented:
 
 - `scripts/run_backtest.py`
+- `scripts/download_data.py`
 - `scripts/generate_report.py`
 - `scripts/run_paper_trading.py`
 - `scripts/train_model.py`
@@ -300,9 +306,10 @@ Future functionality outside the current phase plan remains missing:
 - `PaperTradingEngine` does not yet own a continuous live market-data stream;
   it handles externally supplied `Bar`/`Quote` events and dry-run
   initialization.
-- Alpaca market data provider support is not implemented in Phase 6. Paper and
-  live scaffolds currently validate `market_data.provider: external_events` and
-  consume externally supplied `Bar`/`Quote` events.
+- Live Alpaca market data provider support is not implemented. Phase 10 adds
+  historical SIP downloads only; paper and live scaffolds still validate
+  `market_data.provider: external_events` and consume externally supplied
+  `Bar`/`Quote` events.
 - Alpaca and IBKR order/fill updates currently use polling and filled-quantity
   deltas; streaming trade updates remain future operational-readiness work.
 - IBKR paper order submission requires `broker.account_id` and
@@ -329,6 +336,10 @@ Future functionality outside the current phase plan remains missing:
 - Second-level data support should be preserved architecturally but not overbuilt early.
 - Alpaca is the first real broker target and now has a paper adapter.
 - IBKR is the second broker target and now has a paper adapter foundation.
+- Alpaca SIP is the first remote historical data download target and writes
+  normalized CSV or Parquet for the existing local provider/backtest path. The
+  sample config now derives filenames from a template so the extension follows
+  `output.format`.
 - Local Parquet is the first historical data source.
 - Backtest brokerage must not own historical data loading.
 - Buying-power checks use `PortfolioSnapshot.metadata["buying_power"]` when
@@ -337,7 +348,7 @@ Future functionality outside the current phase plan remains missing:
 ## 7. Next Recommended Task
 
 Define the next documented phase or backlog item before adding functionality
-beyond Phase 9.
+beyond Phase 10.
 
 The next AI coding agent should:
 
@@ -352,7 +363,8 @@ The next AI coding agent should:
    market-data/feature layer, Phase 3 strategy/risk layer, Phase 4
    execution/brokerage layer, Phase 5 backtest/reporting layer, Phase 6
    Alpaca paper integration, Phase 7 ML workflow, Phase 8 monitoring/live
-   readiness layer, and Phase 9 IBKR paper brokerage foundation.
+   readiness layer, Phase 9 IBKR paper brokerage foundation, and Phase 10
+   Alpaca SIP historical data download.
 3. Check whether `PHASE_PLAN.md` has been extended with a new phase. If not,
    update the planning documents before implementing new functional scope.
 4. Preserve the Phase 8 live-safety guardrails unless a future phase explicitly

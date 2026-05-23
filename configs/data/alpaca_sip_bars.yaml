@@ -1,0 +1,24 @@
+market_data:
+  provider: alpaca_sip
+  asset_class: stocks
+  symbols: [SPY, AAPL, MSFT]
+  timeframe: 1min
+  start: 2026-05-22T13:30:00Z
+  end: 2026-05-22T20:00:00Z
+  feed: sip
+  adjustment: raw
+  sort: asc
+  limit: 10000
+  base_url_env: ALPACA_DATA_BASE_URL
+
+credentials:
+  api_key_id_env: ALPACA_API_KEY_ID
+  secret_key_env: ALPACA_SECRET_KEY
+
+output:
+  # Supported values: csv, parquet.
+  format: csv
+  directory: data/alpaca
+  # Available placeholders: {feed}, {symbols}, {timeframe}, {start}, {end},
+  # {adjustment}, {format}.
+  filename_template: alpaca_{feed}_{symbols}_{timeframe}_{start}_{end}.{format}

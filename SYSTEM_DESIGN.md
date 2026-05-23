@@ -91,6 +91,7 @@ Secondary users:
 | Use Case | Description |
 |---|---|
 | Run local research | Load local historical data, compute indicators, inspect features, and test strategy ideas. |
+| Download historical bars | Download Alpaca SIP historical K-line data into normalized local CSV or Parquet files. |
 | Run standardized backtest | Execute a strategy through the same signal → risk → execution → brokerage → portfolio path used by paper/live modes. |
 | Compare strategies | Run multiple strategies under the same data, cost, slippage, and risk assumptions. |
 | Train ML models | Build datasets, labels, splits, leakage checks, train models, and register artifacts. |
@@ -186,6 +187,7 @@ Owns market data interfaces and implementations:
 - `MarketDataProvider`,
 - `DataPortal`,
 - local Parquet/CSV providers,
+- Alpaca SIP historical bar downloader,
 - historical data loaders,
 - replay data provider,
 - live data provider abstractions,
@@ -408,6 +410,8 @@ quant-trading-system/
   configs/
     base.yaml
     backtest.yaml
+    data/
+      alpaca_sip_bars.yaml
     paper_alpaca.yaml
     paper_ibkr.yaml
     live_alpaca.yaml
@@ -617,7 +621,8 @@ Configuration files are layered:
 
 1. `configs/base.yaml`
 2. mode-specific file:
-   - `configs/backtest.yaml`
+  - `configs/backtest.yaml`
+   - `configs/data/alpaca_sip_bars.yaml`
    - `configs/paper_alpaca.yaml`
    - `configs/paper_ibkr.yaml`
    - `configs/live_alpaca.yaml`

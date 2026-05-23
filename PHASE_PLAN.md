@@ -829,3 +829,89 @@ reply prompts.
 - Update `DECISIONS.md`.
 - Update `INTERFACES.md` and `DATA_MODELS.md` if contract documentation needs to
   mention IBKR-specific configuration.
+
+---
+
+## Phase 10: Alpaca SIP Historical Data Download
+
+### Objective
+
+Add a user-configurable script for downloading Alpaca SIP historical stock
+K-line data into normalized CSV or Parquet files that existing local providers
+can read.
+
+### Scope
+
+- Implement a dependency-free Alpaca market data client boundary under
+  `market_data/`.
+- Implement a config-driven download script.
+- Add a download config template.
+- Support K-line levels:
+  - `1min`,
+  - `5min`,
+  - `15min`,
+  - `1hour`,
+  - `1day`.
+- Write normalized CSV output compatible with `CSVBarProvider` and normalized
+  Parquet output compatible with `LocalParquetProvider`.
+- Add tests for timeframe validation, pagination, CSV/Parquet writing, and
+  config/env loading.
+
+### Out of Scope
+
+- Streaming market data.
+- Paper/live market data event loops.
+- Non-stock asset classes.
+- Automatic subscription management.
+- Database export.
+
+### Expected Files or Modules
+
+- `src/qts/market_data/alpaca.py`
+- `scripts/download_data.py`
+- `configs/data/alpaca_sip_bars.yaml`
+- `tests/unit/market_data/test_alpaca_downloader.py`
+
+### Functional Requirements
+
+- User settings are owned by a config file.
+- Credentials are loaded from environment variables or `.env`.
+- The default output path is derived from a filename template, not a fixed
+  extension.
+- The downloader requests Alpaca stock bars with `feed=sip`.
+- Pagination via `next_page_token` is supported.
+- Output includes normalized OHLCV columns and the exact Alpaca timeframe.
+- Output can be loaded by `CSVBarProvider` or `LocalParquetProvider`.
+
+### Testing Requirements
+
+- No-network unit tests with a fake transport.
+- Timeframe alias tests.
+- Paginated response tests.
+- Config/env loading tests.
+- CSV and Parquet compatibility tests.
+
+### Acceptance Criteria
+
+- `scripts/download_data.py --config configs/data/alpaca_sip_bars.yaml` provides
+  a real download command when credentials are present.
+- Supported K-line levels are accepted and normalized.
+- Tests pass without network access.
+
+### Expected Deliverables
+
+- Configurable Alpaca SIP data downloader.
+- Normalized CSV or Parquet output path for backtests.
+- Updated user and system documentation.
+
+### Notes for Coding Agent
+
+Keep market data separate from Alpaca brokerage. Do not route downloaded data
+through broker adapters.
+
+### Required Updates
+
+- Update `PROJECT_STATE.md`.
+- Update `CHANGELOG.md`.
+- Update `README.md`, user manual, and system handbook.
+- Add an ADR for the market-data boundary decision.

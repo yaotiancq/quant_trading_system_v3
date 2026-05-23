@@ -8,6 +8,39 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Phase 10] - 2026-05-22
+
+### Added
+
+- Added a config-driven Alpaca SIP historical stock bar downloader under
+  `qts.market_data.alpaca`.
+- Added `scripts/download_data.py` for downloading historical K-line bars to
+  normalized CSV or Parquet.
+- Added `configs/data/alpaca_sip_bars.yaml` for user-managed download settings.
+- Added support for user levels `1min`, `5min`, `15min`, `1hour`, and `1day`.
+- Added unit tests for timeframe normalization, paginated responses, CSV/Parquet
+  output, and config/env loading.
+
+### Changed
+
+- Exported Alpaca downloader helpers from `qts.market_data`.
+- Added config and CLI support for `output.format: csv` or `parquet`.
+- Replaced the sample fixed data-download filename with
+  `output.directory`/`output.filename_template`, including a `{format}`
+  placeholder so CSV and Parquet extensions stay in sync.
+- Updated `.env.example`, README, user manual, system handbook, project state,
+  system design, phase plan, and decisions docs for the new data download path.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+---
+
 ## [Documentation Additions] - 2026-05-22
 
 ### Added

@@ -12,10 +12,11 @@ documents, which remain the source of truth for design decisions:
 - `PROJECT_STATE.md`
 - `CHANGELOG.md`
 
-The current implementation is complete through Phase 9. It supports local
-backtests, report generation, mocked paper initialization for Alpaca and IBKR,
-an offline ML baseline workflow, and guarded live dry-run initialization. Real
-live broker order submission is intentionally disabled.
+The current implementation is complete through Phase 10. It supports Alpaca SIP
+historical bar downloads, local backtests, report generation, mocked paper
+initialization for Alpaca and IBKR, an offline ML baseline workflow, and guarded
+live dry-run initialization. Real live broker order submission is intentionally
+disabled.
 
 ## 1. Safety Model
 
@@ -90,6 +91,7 @@ Supported variables:
 | `ALPACA_SECRET_KEY` | Alpaca adapter | Alpaca API secret. |
 | `ALPACA_PAPER_BASE_URL` | `configs/paper_alpaca.yaml` | Alpaca paper endpoint override. |
 | `ALPACA_LIVE_BASE_URL` | `configs/live_alpaca.yaml` | Alpaca live endpoint override. Live submission remains disabled. |
+| `ALPACA_DATA_BASE_URL` | `configs/data/alpaca_sip_bars.yaml` | Alpaca market data endpoint override. |
 | `IBKR_ACCESS_TOKEN` | IBKR adapter | Optional IBKR bearer token if using a real Web API endpoint. |
 | `IBKR_BASE_URL` | `configs/paper_ibkr.yaml` | IBKR Web API endpoint override. |
 
@@ -146,7 +148,124 @@ Validate a config without running a full workflow:
 PYTHONPATH=src .venv/bin/python -m qts.cli --config configs/backtest_fixture.yaml
 ```
 
-## 6. Backtesting
+## 6. Download Alpaca SIP Historical K-Line Data
+
+Use `scripts/download_data.py` to download historical US stock bars from Alpaca
+SIP into a normalized CSV or Parquet file. CSV output is compatible with
+`CSVBarProvider`; Parquet output is compatible with `LocalParquetProvider` when
+the optional data dependencies are installed. Both formats can be used by
+backtest configs.
+
+Default command:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/download_data.py \
+  --config configs/data/alpaca_sip_bars.yaml
+```
+
+Supported K-line levels:
+
+| User Value | Alpaca Timeframe | Domain `timeframe` |
+|---|---|---|
+| `1min` | `1Min` | `MINUTE` |
+| `5min` | `5Min` | `MINUTE` |
+| `15min` | `15Min` | `MINUTE` |
+| `1hour` | `1Hour` | `HOUR` |
+| `1day` | `1Day` | `DAY` |
+
+The exact Alpaca aggregation is also written to the output as
+`alpaca_timeframe`.
+For example, a 5-minute download has `timeframe=MINUTE` for compatibility with
+the current domain enum and `alpaca_timeframe=5Min` for auditability.
+
+The config file owns user settings:
+
+```yaml
+market_data:
+  provider: alpaca_sip
+  symbols: [SPY]
+  timeframe: 1min
+  start: 2024-01-02T14:30:00Z
+  end: 2024-01-02T21:00:00Z
+  feed: sip
+  adjustment: raw
+  limit: 10000
+  base_url_env: ALPACA_DATA_BASE_URL
+
+credentials:
+  api_key_id_env: ALPACA_API_KEY_ID
+  secret_key_env: ALPACA_SECRET_KEY
+
+output:
+  # Supported values: csv, parquet.
+  format: csv
+  directory: data/alpaca
+  # Available placeholders: {feed}, {symbols}, {timeframe}, {start}, {end},
+  # {adjustment}, {format}.
+  filename_template: alpaca_{feed}_{symbols}_{timeframe}_{start}_{end}.{format}
+```
+
+With this template, changing `format` automatically changes the generated file
+extension. To write Parquet, install the data extra and set:
+
+```yaml
+output:
+  format: parquet
+  directory: data/alpaca
+  filename_template: alpaca_{feed}_{symbols}_{timeframe}_{start}_{end}.{format}
+```
+
+You can still use a fixed `output.path`, but if it ends with `.csv` or
+`.parquet`, the extension must match `output.format`.
+
+Quick CLI overrides are available:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/download_data.py \
+  --config configs/data/alpaca_sip_bars.yaml \
+  --symbols SPY,QQQ \
+  --timeframe 15min \
+  --format parquet \
+  --start 2024-01-02T14:30:00Z \
+  --end 2024-01-31T21:00:00Z \
+  --output data/alpaca/sip_spy_qqq_15min.parquet
+```
+
+Output columns in both formats:
+
+| Column | Meaning |
+|---|---|
+| `symbol` | Stock symbol. |
+| `timestamp` | UTC bar timestamp. |
+| `timeframe` | Broad system timeframe: `MINUTE`, `HOUR`, or `DAY`. |
+| `open`, `high`, `low`, `close` | OHLC values. |
+| `volume` | Bar volume. |
+| `vwap` | Alpaca VWAP value when present. |
+| `trade_count` | Alpaca trade count when present. |
+| `source` | Source label such as `alpaca_sip_5Min`. |
+| `alpaca_timeframe` | Exact Alpaca aggregation, such as `5Min`. |
+
+To backtest downloaded CSV data, point a backtest config at the file:
+
+```yaml
+market_data:
+  provider: local_csv
+  path: data/alpaca/sip_spy_qqq_15min.csv
+  adjustment: RAW
+
+timeframe: MINUTE
+```
+
+For Parquet data, set `market_data.provider: local_parquet` and use the
+`.parquet` output path.
+
+Notes:
+
+- Alpaca SIP access depends on your account subscription and permissions.
+- The script uses paginated requests and writes all returned rows to one output file.
+- If Alpaca returns request IDs, the script prints them for support/debugging.
+
+## 7. Backtesting
 
 The quickest runnable backtest uses the fixture config:
 
@@ -192,7 +311,7 @@ CSV and Parquet bar data should include:
 | `trade_count` | no | Optional non-negative integer. |
 | `source` | no | Provider label. |
 
-## 7. Report Generation
+## 8. Report Generation
 
 Generate report artifacts by running:
 
@@ -217,7 +336,7 @@ PYTHONPATH=src .venv/bin/python scripts/generate_report.py \
   --output-dir artifacts/reports/manual-check
 ```
 
-## 8. Alpaca Paper Runtime
+## 9. Alpaca Paper Runtime
 
 Mock mode initializes the Alpaca paper path without credentials:
 
@@ -238,12 +357,13 @@ PYTHONPATH=src .venv/bin/python scripts/run_paper_trading.py \
 
 Current limitations:
 
-- Alpaca is used only as a broker adapter.
-- Alpaca market data is not implemented.
+- In the paper runtime, Alpaca is used only as a broker adapter.
+- Alpaca live market data streams are not implemented; historical SIP downloads
+  are available through `scripts/download_data.py`.
 - Paper events are expected to be externally supplied to `PaperTradingEngine`.
 - Fill updates are derived from polling filled-quantity deltas.
 
-## 9. IBKR Paper Runtime
+## 10. IBKR Paper Runtime
 
 Mock mode initializes the IBKR paper path without credentials:
 
@@ -279,7 +399,7 @@ Current limitations:
 - Notional-only IBKR order requests are rejected.
 - IBKR order responses requiring manual reply confirmation fail closed.
 
-## 10. ML Workflow
+## 11. ML Workflow
 
 Train the dependency-free directional baseline model:
 
@@ -307,7 +427,7 @@ PYTHONPATH=src .venv/bin/python scripts/train_model.py \
 The runtime ML strategy adapter lives in `qts.strategies.ml_strategy` and loads
 registered models through `qts.ml.inference`.
 
-## 11. Live Dry-Run Runtime
+## 12. Live Dry-Run Runtime
 
 Initialize guarded live dry-run mode:
 
@@ -334,7 +454,7 @@ It does not submit live broker orders.
 Without `--confirm-live-safety`, the live engine should fail closed. That is
 expected.
 
-## 12. Common Configuration Changes
+## 13. Common Configuration Changes
 
 ### Change Strategy Windows
 
@@ -400,7 +520,7 @@ broker:
   fill_policy: next_bar_open
 ```
 
-## 13. Troubleshooting
+## 14. Troubleshooting
 
 | Symptom | Likely Cause | Fix |
 |---|---|---|
@@ -408,13 +528,15 @@ broker:
 | Config says no enabled strategies | Every strategy has `enabled: false` or list is empty. | Enable at least one strategy. |
 | Backtest config requires start and end | `runtime.mode` is `BACKTEST` but date range missing. | Add `date_range.start` and `date_range.end`. |
 | CSV data validation error | Missing or invalid bar columns. | Check required columns and timestamp format. |
+| Alpaca data download returns 403 | Missing credentials, invalid credentials, or SIP permission issue. | Check `.env`, Alpaca account permissions, and subscription. |
+| Alpaca download level rejected | Unsupported K-line level. | Use `1min`, `5min`, `15min`, `1hour`, or `1day`. |
 | Paper engine rejects market data provider | Paper/live currently require `external_events`. | Set `market_data.provider: external_events`. |
 | Alpaca paper fails without credentials | Real adapter selected without env vars. | Use `--mock` or populate `.env`. |
 | IBKR requires conid | No IBKR contract mapping for symbol. | Add `broker.safety.symbol_conids`. |
 | IBKR rejects notional orders | Adapter currently supports quantity orders only. | Use fixed quantity sizing. |
 | Live engine fails safety validation | Missing explicit safety confirmation. | Use dry-run command with `--confirm-live-safety`; do not bypass for real trading. |
 
-## 14. Recommended Operator Checklist
+## 15. Recommended Operator Checklist
 
 Before running any non-mock broker workflow:
 
@@ -437,7 +559,7 @@ Before adding real live submission in a future phase:
 4. Keep live order validation centralized in monitoring/safety.
 5. Preserve broker adapter fail-closed behavior.
 
-## 15. Glossary
+## 16. Glossary
 
 | Term | Meaning |
 |---|---|

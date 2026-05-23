@@ -721,3 +721,61 @@ confirmation behavior.
 - Add IBKR behavior directly to the paper engine.
 - Require the official IBKR SDK or a third-party wrapper immediately.
 - Automatically confirm IBKR reply prompts after order submission.
+
+---
+
+## ADR-022: Add Alpaca SIP Data Download Under Market Data
+
+### Context
+
+The project needs a way to fetch historical stock K-line data for research and
+backtests. Alpaca provides historical stock bars through the Market Data API,
+including SIP feed selection and configurable bar timeframes. The project
+already has CSV and Parquet historical providers, so downloaded data can enter
+the system through the existing local data path.
+
+### Decision
+
+Implement Alpaca SIP historical data download under `qts.market_data`, not under
+broker adapters. Add a config-driven script that requests Alpaca stock bars and
+writes normalized CSV or Parquet files compatible with `CSVBarProvider` and
+`LocalParquetProvider`.
+The template config resolves filenames from user settings and includes
+`{format}` in the filename template so the file extension follows the selected
+output format.
+
+The supported user-facing K-line levels are:
+
+- `1min`,
+- `5min`,
+- `15min`,
+- `1hour`,
+- `1day`.
+
+The current domain model stores broad bar timeframes (`MINUTE`, `HOUR`, `DAY`),
+so downloaded output uses the broad domain `timeframe` column and preserves the
+exact Alpaca aggregation in `alpaca_timeframe` and `source`.
+
+### Rationale
+
+This keeps market data separate from brokerage per ADR-001 and avoids adding a
+new storage backend before it is needed. CSV and Parquet output can be
+immediately reused by existing backtest tooling and tests can run without
+network access by mocking the HTTP transport.
+
+### Consequences
+
+- Alpaca credentials are reused for data API calls but remain loaded from
+  environment variables or `.env`.
+- Historical data download is available before live market data streaming.
+- Exact sub-hour aggregation is retained in output metadata rather than by
+  expanding the stable domain enum.
+- Future database or partitioned dataset export can be added behind the same
+  downloader contract.
+
+### Alternatives Considered
+
+- Put Alpaca data download inside `AlpacaBrokerage`.
+- Require Alpaca's Python SDK.
+- Change the public `BarTimeframe` enum to add `5Min` and `15Min` immediately.
+- Write directly to a database instead of normalized local files.
