@@ -8,6 +8,30 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Documentation Additions] - 2026-05-22
+
+### Added
+
+- Added `docs/user_manual.md` with detailed setup, configuration, execution,
+  broker, ML, live dry-run, safety, and troubleshooting guidance.
+- Added `docs/system_handbook.md` with architecture explanations, runtime
+  flows, file-by-file system reference, extension workflows, and debugging maps.
+
+### Changed
+
+- Linked the new manuals from `README.md`.
+- Updated `PROJECT_STATE.md` to list the new maintained documentation files.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+---
+
 ## [Phase 9] - 2026-05-22
 
 ### Added

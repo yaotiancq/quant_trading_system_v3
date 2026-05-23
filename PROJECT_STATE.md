@@ -115,6 +115,8 @@ Repository scaffold exists:
 - `src/qts/`
 - `tests/`
 - `docs/runbooks.md`
+- `docs/user_manual.md`
+- `docs/system_handbook.md`
 - `data/.gitkeep`
 - `artifacts/.gitkeep`
 

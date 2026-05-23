@@ -59,11 +59,21 @@ src/qts/ml/       Offline datasets, labels, splits, training, registry, inferenc
 src/qts/monitoring/
                   Health checks, metrics, alerts, recovery, safety gates
 scripts/          Local backtest, report, paper, ML, and live dry-run commands
-docs/             Operational runbooks
+docs/             User manual, system handbook, and operational runbooks
 tests/            Smoke, unit, and integration tests through Phase 9
 data/             Local data placeholder, ignored by git
 artifacts/        Runtime output placeholder, ignored by git
 ```
+
+## Documentation
+
+- `docs/user_manual.md` is the detailed operator manual for setup, configs,
+  test commands, backtests, reports, paper brokers, ML training, live dry-run,
+  and troubleshooting.
+- `docs/system_handbook.md` is the engineering handbook: architecture map,
+  runtime flows, file-by-file reference, and guidance for extending the system.
+- `docs/runbooks.md` contains operational procedures for live-readiness and
+  incident-style workflows.
 
 ## Local Setup
 
