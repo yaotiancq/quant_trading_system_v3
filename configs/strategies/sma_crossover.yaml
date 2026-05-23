@@ -3,7 +3,7 @@ strategy_type: sma_crossover
 symbols: [SPY]
 enabled: true
 parameters:
-  fast_window: 20
-  slow_window: 50
+  fast_window: 5
+  slow_window: 10
 feature_config:
   required_features: [sma_20, sma_50]

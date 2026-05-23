@@ -20,6 +20,8 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.symbols, ["SPY"])
         self.assertEqual(config.broker.broker_type, "backtest")
         self.assertEqual(config.broker.fill_policy, "next_bar_open")
+        self.assertEqual(config.market_data["provider"], "local_csv")
+        self.assertEqual(config.market_data["path"], "data/alpaca")
         self.assertEqual(config.metadata["timezone"], "UTC")
         self.assertEqual(config.strategies[0].strategy_id, "sma_cross_v1")
 

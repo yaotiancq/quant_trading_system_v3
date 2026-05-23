@@ -30,6 +30,8 @@ The format follows a simplified Keep a Changelog style.
 - Added explicit local regular-session filtering after Alpaca downloads so the
   API request can cover the full configured interval while stored intraday bars
   keep `[09:30, 16:00)` America/New_York start times.
+- Updated `configs/backtest.yaml` to default to the partitioned CSV dataset
+  produced under `data/alpaca`.
 - Updated CSV and Parquet local providers to read partitioned dataset
   directories recursively.
 - Replaced the sample fixed data-download filename with partitioned

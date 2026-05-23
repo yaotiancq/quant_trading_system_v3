@@ -126,7 +126,7 @@ generated egg-info metadata are not part of the source contract.
 | File | Purpose |
 |---|---|
 | `configs/base.yaml` | Shared defaults: project name, runtime timezone, symbols, paths, logging. |
-| `configs/backtest.yaml` | Generic Parquet-backed backtest template. |
+| `configs/backtest.yaml` | Generic partitioned local CSV backtest template using `data/alpaca`. |
 | `configs/backtest_fixture.yaml` | Fully runnable CSV fixture backtest. |
 | `configs/data/alpaca_sip_bars.yaml` | User-configurable Alpaca SIP historical bar download settings. |
 | `configs/paper_alpaca.yaml` | Alpaca paper runtime template using external market events. |

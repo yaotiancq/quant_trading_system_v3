@@ -315,6 +315,8 @@ The fixture config uses:
 - output under `artifacts/reports/`.
 
 Run a custom historical backtest by editing or copying `configs/backtest.yaml`.
+By default, that template reads the partitioned CSV dataset under `data/alpaca`,
+which is the output location used by `configs/data/alpaca_sip_bars.yaml`.
 For Parquet input, install the data extra and point `market_data.path` to a
 Parquet file with normalized bar columns.
 
