@@ -21,6 +21,7 @@ from qts.domain import (
 )
 from qts.execution import (
     ExecutionEngine,
+    InMemoryBrokerEventSource,
     OrderManager,
     OrderRouter,
     broker_event_from_fill,
@@ -281,6 +282,24 @@ class ExecutionTests(unittest.TestCase):
 
         tracked_order = engine.order_manager.get_order(order.order_id)
         self.assertEqual(tracked_order.status, OrderStatus.SUBMITTED)
+
+    def test_in_memory_broker_event_source_yields_normalized_events(self) -> None:
+        broker = BacktestBrokerage(starting_cash=10000)
+        broker.connect()
+        order = broker.submit_order(build_order_request(approved_decision()))
+        fill = broker.on_market_event(bar(1, open_price=100))[0]
+        source = InMemoryBrokerEventSource(
+            [
+                broker_event_from_order(order),
+                broker_event_from_fill(fill),
+            ]
+        )
+
+        events = list(source.iter_events())
+        source.close()
+
+        self.assertEqual([event.event_type for event in events], [BrokerEventType.ORDER_UPDATE, BrokerEventType.FILL])
+        self.assertTrue(source.closed)
 
 
 if __name__ == "__main__":

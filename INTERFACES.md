@@ -32,6 +32,7 @@ General conventions:
 | `OrderManager` | `execution/` | default order manager | execution engine |
 | `OrderRouter` | `execution/` | default order router | execution engine |
 | `BrokerEvent` helpers | `execution/` | polling/event adapters | execution engine, paper/live engines |
+| `BrokerEventSource` | `execution/` / `integrations/` | Alpaca/IBKR event adapters | future engine synchronization |
 | `Brokerage` | `brokers/` | backtest, Alpaca, IBKR | order router, engines |
 | `BacktestBrokerage` | `brokers/backtest/` | backtest implementation | backtest engine |
 | `Portfolio` | `portfolio/` | default portfolio | engines, risk, reporting |
@@ -403,6 +404,34 @@ Normalize broker behavior across backtesting, paper trading, and live trading.
 - `IBKRBrokerage` supports IBKR paper trading and requires an account ID plus
   symbol-to-`conid` mapping for order submission.
 
+## 15a. BrokerEventSource
+
+### Purpose
+
+Normalize broker push-style lifecycle payloads before they reach execution or
+engines.
+
+### Required Interfaces
+
+| Interface | Inputs | Output | Notes |
+|---|---|---|---|
+| `BrokerEventSource.iter_events` | none | iterator of `BrokerEvent` | Source may be finite, mocked, or future streaming. |
+| `BrokerEventSource.close` | none | none | Releases client resources. |
+| `AlpacaBrokerEventClient.connect` | channels | none | Adapter boundary for Alpaca trade updates. |
+| `AlpacaBrokerEventClient.iter_messages` | none | raw Alpaca-shaped payloads | Must not leak beyond integration adapter. |
+| `AlpacaBrokerEventSource.iter_events` | none | iterator of `BrokerEvent` | Normalizes Alpaca trade updates. |
+| `IBKRBrokerEventClient.connect` | account ID | none | Adapter boundary for IBKR order updates. |
+| `IBKRBrokerEventClient.iter_messages` | none | raw IBKR-shaped payloads | Must not leak beyond integration adapter. |
+| `IBKRBrokerEventSource.iter_events` | none | iterator of `BrokerEvent` | Normalizes IBKR order updates. |
+
+### Validation Contract
+
+- Vendor error payloads fail closed with controlled data errors.
+- Vendor order/fill payloads must be converted to normalized `Order`, `Fill`,
+  and `BrokerEvent` objects before leaving `integrations/`.
+- In-memory clients are the only implemented clients in Phase C2; real network
+  transports must be added behind the same protocols later.
+
 ## 16. BacktestBrokerage
 
 ### Purpose
@@ -500,6 +529,7 @@ through paper/live engine callbacks after safety checks.
 | `AlpacaStreamClient.iter_messages` | none | raw Alpaca payload mappings | Must not leak beyond market data adapter. |
 | `AlpacaStreamEventSource.iter_events` | none | iterator of `Bar`/`Quote` | Normalizes Alpaca stream payloads. |
 | `BrokerEvent` | normalized order/fill/account/position payload | broker lifecycle event | Used by polling fallback and future broker streams. |
+| `BrokerEventSource` | none | iterator of `BrokerEvent` | Used by mockable broker push adapters. |
 
 ### Validation Contract
 

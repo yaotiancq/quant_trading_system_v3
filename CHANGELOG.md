@@ -8,6 +8,39 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Major Architecture Phase C2] - 2026-05-24
+
+### Added
+
+- Added a generic `BrokerEventSource` protocol and deterministic
+  `InMemoryBrokerEventSource`.
+- Added Alpaca broker trade-update event adapter boundary with
+  `AlpacaBrokerEventClient`, `InMemoryAlpacaBrokerEventClient`, and
+  `AlpacaBrokerEventSource`.
+- Added IBKR broker order-update event adapter boundary with
+  `IBKRBrokerEventClient`, `InMemoryIBKRBrokerEventClient`, and
+  `IBKRBrokerEventSource`.
+- Added tests for Alpaca/IBKR-shaped push-event payload normalization,
+  incremental fill deltas, in-memory client subscription behavior, and
+  fail-closed error payloads.
+
+### Changed
+
+- Alpaca and IBKR integration packages now export their broker-event adapter
+  boundary types and normalization helpers.
+- Phase C planning now marks C2 complete and points to C3 lifecycle
+  synchronization hardening as the next task.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+---
+
 ## [Major Architecture Phase C1] - 2026-05-24
 
 ### Added

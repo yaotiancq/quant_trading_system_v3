@@ -1273,6 +1273,8 @@ payload; vendor-specific payloads must be mapped before this model is created.
 ### Producers
 
 - execution polling fallback,
+- Alpaca broker event stream adapter,
+- IBKR broker event stream adapter,
 - future broker event stream adapters.
 
 ### Consumers

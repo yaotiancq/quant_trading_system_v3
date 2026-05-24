@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from .engine import ExecutionEngine
 from .events import (
+    BrokerEventSource,
+    InMemoryBrokerEventSource,
     broker_event_from_account,
     broker_event_from_fill,
     broker_event_from_order,
@@ -18,6 +20,8 @@ from .router import OrderRouter
 __all__ = [
     "ExecutionEngine",
     "FillHandler",
+    "BrokerEventSource",
+    "InMemoryBrokerEventSource",
     "OPEN_ORDER_STATUSES",
     "OrderManager",
     "OrderRouter",

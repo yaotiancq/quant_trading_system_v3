@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from datetime import datetime
+from typing import Protocol
 
 from qts.domain import (
     Account,
@@ -14,6 +15,30 @@ from qts.domain import (
     Position,
     normalize_timestamp,
 )
+
+
+class BrokerEventSource(Protocol):
+    """Finite or streaming source of normalized broker lifecycle events."""
+
+    def iter_events(self) -> Iterator[BrokerEvent]:
+        """Yield normalized broker events."""
+
+    def close(self) -> None:
+        """Release event-source resources."""
+
+
+class InMemoryBrokerEventSource:
+    """Deterministic broker-event source for tests and local smoke workflows."""
+
+    def __init__(self, events: Iterable[BrokerEvent]) -> None:
+        self.events = list(events)
+        self.closed = False
+
+    def iter_events(self) -> Iterator[BrokerEvent]:
+        yield from self.events
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def broker_event_from_order(order: Order, *, source: str = "broker_poll") -> BrokerEvent:
@@ -104,6 +129,8 @@ def _event_priority(event: BrokerEvent) -> int:
 
 
 __all__ = [
+    "BrokerEventSource",
+    "InMemoryBrokerEventSource",
     "broker_event_from_account",
     "broker_event_from_fill",
     "broker_event_from_order",

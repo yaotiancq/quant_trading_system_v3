@@ -11,6 +11,12 @@ from .client import (
     UrllibIBKRTransport,
     create_ibkr_web_api_client,
 )
+from .events import (
+    IBKRBrokerEventClient,
+    IBKRBrokerEventSource,
+    InMemoryIBKRBrokerEventClient,
+    ibkr_order_update_to_broker_events,
+)
 from .mapping import (
     first_order_ack,
     ibkr_account_to_domain,
@@ -25,15 +31,19 @@ from .mock import InMemoryIBKRClient
 
 __all__ = [
     "IBKRAPIError",
+    "IBKRBrokerEventClient",
+    "IBKRBrokerEventSource",
     "IBKRClient",
     "IBKRCredentials",
     "IBKRTransport",
     "IBKRWebAPIClient",
     "InMemoryIBKRClient",
+    "InMemoryIBKRBrokerEventClient",
     "UrllibIBKRTransport",
     "create_ibkr_web_api_client",
     "first_order_ack",
     "ibkr_account_to_domain",
+    "ibkr_order_update_to_broker_events",
     "ibkr_order_to_domain",
     "ibkr_order_to_fill_delta",
     "ibkr_position_to_domain",

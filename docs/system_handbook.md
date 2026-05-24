@@ -84,6 +84,8 @@ Each layer owns a small responsibility:
    heartbeat/data-gap, source-run, and stopped-reason counters.
 8. Broker order/fill polling is normalized into `BrokerEvent` lifecycle events
    before execution and portfolio state are synchronized.
+9. Alpaca/IBKR push-style broker payloads can be normalized through in-memory
+   adapter clients for deterministic boundary tests.
 
 ### Live Dry-Run Flow
 
@@ -291,10 +293,12 @@ call `integrations/` clients, but upstream layers should not.
 | File | Purpose |
 |---|---|
 | `src/qts/integrations/alpaca/client.py` | Dependency-free Alpaca Trading API REST client boundary. |
+| `src/qts/integrations/alpaca/events.py` | Alpaca trade-update broker event adapter boundary and in-memory event client. |
 | `src/qts/integrations/alpaca/mapping.py` | Alpaca payload to/from domain model mapping. |
 | `src/qts/integrations/alpaca/mock.py` | In-memory Alpaca-like client for tests and mock paper mode. |
 | `src/qts/integrations/alpaca/__init__.py` | Alpaca integration exports. |
 | `src/qts/integrations/ibkr/client.py` | Dependency-free IBKR Web API client boundary. |
+| `src/qts/integrations/ibkr/events.py` | IBKR order-update broker event adapter boundary and in-memory event client. |
 | `src/qts/integrations/ibkr/mapping.py` | IBKR payload to/from domain model mapping and reply-prompt detection. |
 | `src/qts/integrations/ibkr/mock.py` | In-memory IBKR-like client for tests and mock paper mode. |
 | `src/qts/integrations/ibkr/__init__.py` | IBKR integration exports. |
@@ -454,8 +458,10 @@ Detailed test file index:
 | `tests/unit/brokers/ibkr/test_ibkr_brokerage.py` | Tests IBKR brokerage conversion, polling fills, reply prompt rejection, live rejection, and missing `conid` handling. |
 | `tests/unit/integrations/__init__.py` | Integration test package marker. |
 | `tests/unit/integrations/alpaca/__init__.py` | Alpaca integration test package marker. |
+| `tests/unit/integrations/alpaca/test_broker_events.py` | Tests Alpaca trade-update broker event normalization and in-memory event client behavior. |
 | `tests/unit/integrations/alpaca/test_mapping.py` | Tests Alpaca order/account/position/fill mapping. |
 | `tests/unit/integrations/ibkr/__init__.py` | IBKR integration test package marker. |
+| `tests/unit/integrations/ibkr/test_broker_events.py` | Tests IBKR order-update broker event normalization and in-memory event client behavior. |
 | `tests/unit/integrations/ibkr/test_mapping.py` | Tests IBKR order/account/position/fill mapping and reply prompt detection. |
 | `tests/unit/portfolio/__init__.py` | Portfolio test package marker. |
 | `tests/unit/portfolio/test_accounting.py` | Tests fill application, cash ledger, position accounting, and mark-to-market. |

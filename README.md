@@ -14,25 +14,26 @@ The architecture documents in the project root are the source of truth:
 
 ## Current Status
 
-Major Architecture Phase C1 is complete. The repository now includes the package
+Major Architecture Phase C2 is complete. The repository now includes the package
 layout, validated domain models and enums, core configuration loading, clocks,
 common exceptions, logging setup, local market data providers, a config-driven
 Alpaca SIP historical bar downloader, a shared US equity calendar/session
 service, deterministic replay, reusable batch indicators, feature schemas,
 feature pipelines, broker-agnostic example strategies, a risk engine with
 position sizing and basic rules, an execution engine, order manager/router,
-normalized broker lifecycle events, normalized brokerage protocol, simulated
-BacktestBrokerage, internal portfolio accounting, a deterministic backtest
-engine, reporting metrics and artifacts, a dependency-free Alpaca paper
-brokerage adapter, a paper trading engine initialization path, configuration
-templates, an offline ML workflow, a filesystem model registry, runtime ML
-inference, an ML signal strategy adapter, monitoring and alert helpers,
-reconciliation health checks, guarded live safety gates, dry-run `LiveEngine`
-scaffolding, a dependency-free IBKR paper brokerage foundation, operational
-runbooks, and tests.
+normalized broker lifecycle events, mockable Alpaca/IBKR broker push-event
+adapter boundaries, normalized brokerage protocol, simulated BacktestBrokerage,
+internal portfolio accounting, a deterministic backtest engine, reporting
+metrics and artifacts, a dependency-free Alpaca paper brokerage adapter, a paper
+trading engine initialization path, configuration templates, an offline ML
+workflow, a filesystem model registry, runtime ML inference, an ML signal
+strategy adapter, monitoring and alert helpers, reconciliation health checks,
+guarded live safety gates, dry-run `LiveEngine` scaffolding, a dependency-free
+IBKR paper brokerage foundation, operational runbooks, and tests.
 
 Real live broker order submission remains disabled by default. The next planned
-work is Major Architecture Phase C2 for vendor broker push adapter boundaries.
+work is Major Architecture Phase C3 for engine lifecycle synchronization
+hardening.
 
 ## Layout
 
@@ -62,7 +63,7 @@ src/qts/monitoring/
                   Health checks, metrics, alerts, recovery, safety gates
 scripts/          Local data download, backtest, report, paper, ML, and live dry-run commands
 docs/             User manual, system handbook, and operational runbooks
-tests/            Smoke, unit, and integration tests through Phase C1
+tests/            Smoke, unit, and integration tests through Phase C2
 data/             Local data placeholder, ignored by git
 artifacts/        Runtime output placeholder, ignored by git
 ```
@@ -166,6 +167,9 @@ then stop before broker submission.
 Paper broker order/fill polling is normalized into `BrokerEvent` lifecycle
 updates before the execution and portfolio layers apply state changes. Duplicate
 fill events and stale order updates are ignored by the synchronization path.
+Alpaca and IBKR push-style broker payloads can also be normalized through
+in-memory adapter clients for deterministic tests; real broker stream transports
+remain future work.
 
 Validate a runtime config through the CLI:
 

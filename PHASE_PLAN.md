@@ -1006,7 +1006,7 @@ time after Phase A is stable:
 | Phase B2b1 - Runtime Reconnect and Heartbeat Policy | Complete | Added bounded reconnect policy, heartbeat/data-gap counters, config plumbing, and deterministic tests. |
 | Phase B2b2 - Guarded Live Decision Preview | Complete | Added live dry-run strategy/risk/order-request previews without broker submission. |
 | Phase C1 - Normalized Broker Events and Polling Sync | Complete | Added broker event model/helpers, idempotent execution updates, and paper polling fallback. |
-| Phase C2 - Vendor Broker Push Adapter Boundaries | Planned | Add mockable broker order/fill event stream adapter boundaries without real live submission. |
+| Phase C2 - Vendor Broker Push Adapter Boundaries | Complete | Added mockable Alpaca/IBKR broker order/fill event adapter boundaries without real live submission. |
 | Phase C3 - Engine Lifecycle Synchronization Hardening | Planned | Add recovery/reconciliation behavior around stream gaps, missed broker events, and restart state. |
 | Phase D - Production Live-Trading Enablement | Blocked until A-C complete | Enable real live submission only behind strict fail-closed safety gates. |
 | Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned | Add optional static chart artifacts for backtest reports. |
@@ -1210,6 +1210,24 @@ fill updates without opening real network streams in tests.
 - Add in-memory vendor-shaped broker event clients.
 - Normalize vendor order/fill update payloads into `BrokerEvent`.
 - Keep real live submission and real network stream ownership out of scope.
+
+### Out of Scope
+
+- Real Alpaca or IBKR websocket/SSE clients.
+- Broker stream reconnect/checkpoint orchestration.
+- Live broker order submission.
+- Persistent event audit storage.
+
+### Acceptance Criteria
+
+- Alpaca-shaped trade update payloads normalize into `BrokerEvent` order and
+  incremental fill events.
+- IBKR-shaped order update payloads normalize into `BrokerEvent` order and
+  incremental fill events.
+- In-memory vendor broker-event clients can drive deterministic tests without
+  credentials or network access.
+- Error payloads fail closed through controlled data errors.
+- Tests remain deterministic and network-free.
 
 ## Major Architecture Phase C3 - Engine Lifecycle Synchronization Hardening
 

@@ -80,8 +80,14 @@ If paper portfolio state looks wrong after polling:
 3. Confirm order updates have monotonic `updated_at` values and nondecreasing
    `filled_quantity`.
 4. Re-run reconciliation before sending more paper orders.
-5. Treat missing vendor push-stream updates as expected until Phase C2 adds
-   broker event stream adapter boundaries.
+5. Treat missing real vendor push-stream updates as expected until a later
+   phase adds broker event stream transports.
+
+Phase C2 adds mockable Alpaca/IBKR broker event adapter boundaries. These
+in-memory clients are useful for tests and local development, but they are not
+real websocket/SSE transports. Operators should continue relying on polling and
+reconciliation for real paper broker state until a later phase adds live broker
+stream ownership.
 
 ## Reconciliation Mismatch
 

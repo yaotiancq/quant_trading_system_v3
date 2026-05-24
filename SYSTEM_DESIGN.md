@@ -335,6 +335,8 @@ Owns low-level vendor clients:
 - IBKR Web API client,
 - Alpaca market data client,
 - Alpaca stream client,
+- Alpaca broker trade-update event client boundary,
+- IBKR broker order-update event client boundary,
 - Futu client,
 - Polygon client.
 
@@ -342,6 +344,8 @@ Rules:
 
 - Vendor API models must be converted into internal domain models before leaving adapter boundaries.
 - Strategy, risk, execution, and portfolio modules must not import vendor SDKs directly.
+- Broker push-style order/fill payloads must normalize to `BrokerEvent` before
+  they are consumed by execution or engines.
 
 ### `portfolio/`
 

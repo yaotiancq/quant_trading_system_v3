@@ -1094,3 +1094,49 @@ double-application risk from repeated fill polling.
 - Keep fill polling as a list of `Fill` objects only.
 - Let each engine define its own broker update callback payloads.
 - Pass raw Alpaca or IBKR event payloads into runtime engines.
+
+---
+
+## ADR-030: Keep Broker Push Streams Behind Mockable Adapter Boundaries
+
+### Context
+
+After normalized broker events were introduced, the next architectural step was
+to prepare for broker push streams without adding network-dependent websocket or
+SSE clients. Alpaca and IBKR expose different order/fill update payload shapes,
+and those vendor payloads must not leak into engines or execution state.
+
+### Decision
+
+Add vendor-specific broker event adapter boundaries under `integrations/`:
+
+- Alpaca trade updates are consumed through `AlpacaBrokerEventClient` and
+  normalized by `AlpacaBrokerEventSource`.
+- IBKR order updates are consumed through `IBKRBrokerEventClient` and
+  normalized by `IBKRBrokerEventSource`.
+
+The implemented clients are in-memory deterministic clients for tests. The
+sources emit normalized `BrokerEvent` order and incremental fill events. Real
+network transports, reconnect orchestration, persistent checkpoints, and live
+broker submission remain out of scope.
+
+### Rationale
+
+This proves the vendor boundary and keeps test coverage network-free. It also
+ensures future real transports will plug into an existing normalized
+`BrokerEvent` contract instead of requiring changes to strategy, risk,
+execution, or engine code.
+
+### Consequences
+
+- Alpaca and IBKR push-style payloads can be tested locally without credentials.
+- Integration modules own vendor payload parsing; engines consume only
+  normalized broker events.
+- Real broker stream clients must be added behind these protocols in a later
+  phase.
+
+### Alternatives Considered
+
+- Add real broker stream transports immediately.
+- Parse vendor push payloads inside `PaperTradingEngine` or `LiveEngine`.
+- Continue relying only on polling until production live trading.
