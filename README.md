@@ -14,7 +14,7 @@ The architecture documents in the project root are the source of truth:
 
 ## Current Status
 
-Major Architecture Phase E is complete. The repository now includes the package
+Major Architecture Phase F1 is complete. The repository now includes the package
 layout, validated domain models and enums, core configuration loading, clocks,
 common exceptions, logging setup, local market data providers, a config-driven
 Alpaca SIP historical bar downloader, a shared US equity calendar/session
@@ -28,7 +28,8 @@ deterministic backtest engine, reporting metrics, artifacts, and optional
 static SVG chart diagnostics, a
 dependency-free Alpaca paper brokerage adapter, a paper trading engine
 initialization path, configuration templates, an offline ML workflow, a
-filesystem model registry, runtime ML inference, an ML signal strategy adapter,
+filesystem model registry with manifest/schema-hash contracts, runtime ML
+inference, an ML signal strategy adapter,
 monitoring and alert helpers, reconciliation health checks, guarded live safety
 gates, dry-run `LiveEngine` scaffolding, a manual live order submission safety
 envelope, gated Alpaca live adapter construction, optional automated live
@@ -38,7 +39,7 @@ tests.
 
 Live order submission remains disabled by default and requires explicit
 non-dry-run production gates. The next planned work is Major Architecture Phase
-F for production ML contracts and model governance.
+F2 for ML approval and stage gates.
 
 ## Layout
 
@@ -63,12 +64,12 @@ src/qts/portfolio/
 src/qts/engines/  BacktestEngine, PaperTradingEngine, and runtime event loop
 src/qts/reporting/
                   Backtest metrics, report artifact export, and optional SVG charts
-src/qts/ml/       Offline datasets, labels, splits, training, registry, inference
+src/qts/ml/       Offline datasets, labels, splits, training, registry, manifests, inference
 src/qts/monitoring/
                   Health checks, metrics, alerts, recovery, safety gates
 scripts/          Local data download, backtest, report, paper, ML, and live dry-run commands
 docs/             User manual, system handbook, and operational runbooks
-tests/            Smoke, unit, and integration tests through Phase E
+tests/            Smoke, unit, and integration tests through Phase F1
 data/             Local data placeholder, ignored by git
 artifacts/        Runtime output placeholder, ignored by git
 ```
@@ -295,11 +296,15 @@ IBKR order tickets require `broker.account_id` and a
 manual reply confirmation fail closed; automatic reply confirmation is not
 enabled.
 
-Train the Phase 7 fixture directional model into a local model registry:
+Train the fixture directional model into a local model registry:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/train_model.py --config configs/ml/directional_baseline.yaml
 ```
+
+The training command writes both `model.json` and `manifest.json`; the manifest
+captures the model stage, feature schema version, ordered feature names, and
+feature-schema hash.
 
 Initialize the guarded live engine in dry-run mode:
 

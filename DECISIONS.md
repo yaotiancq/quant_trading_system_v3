@@ -1400,3 +1400,49 @@ dashboard project.
 - Add matplotlib or another plotting package as a required dependency.
 - Generate HTML dashboards.
 - Keep charting entirely outside the project.
+
+---
+
+## ADR-036: Store Local ML Model Contracts as Portable Manifests
+
+### Context
+
+Phase 7 saved dependency-free model artifacts with enough metadata for basic
+runtime inference. Production-style ML workflows need a clearer artifact
+contract before approval gates, staged promotion, or audit diagnostics can be
+added safely.
+
+### Decision
+
+Each newly saved local ML model registry entry writes:
+
+- `model.json` for the serializable model artifact,
+- `manifest.json` for the model contract.
+
+The manifest includes model identity, model type, artifact filename, feature
+schema version, ordered feature names, deterministic feature-schema hash,
+governance stage, metrics, metadata, and creation timestamp. The registry
+validates manifest fields against the model artifact when a manifest is
+present. Runtime inference exposes the loaded manifest. Legacy model artifacts
+without a manifest remain loadable through a synthesized `legacy` manifest so
+existing local experiments do not break abruptly.
+
+### Rationale
+
+A manifest is a small, inspectable contract that supports reproducibility and
+future approval policy without requiring a remote model registry or a new ML
+framework. Hashing the feature schema makes training-serving compatibility
+checks more precise than a version string alone.
+
+### Consequences
+
+- New local model directories contain both `model.json` and `manifest.json`.
+- Model loads fail closed when a saved manifest contradicts the artifact.
+- Runtime inference can report the model contract it loaded.
+- Approval and stage enforcement are intentionally deferred to Phase F2.
+
+### Alternatives Considered
+
+- Store all governance fields only inside `model.json`.
+- Require a database-backed model registry.
+- Enforce approved-only runtime loading before manifest contracts are stable.

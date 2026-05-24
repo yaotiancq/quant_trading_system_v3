@@ -930,7 +930,42 @@ Runtime output from an ML model before strategy interpretation.
 
 ---
 
-## 20. FeatureFrame / FeatureRecord
+## 20. MLModelManifest
+
+### Purpose
+
+Portable contract for a saved ML model artifact in the local filesystem
+registry.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `manifest_version` | string | yes | current value `ml_model_manifest_v1` |
+| `model_id` | string | yes | non-empty registered model ID |
+| `model_type` | string | yes | supported model type such as `directional_linear_v1` |
+| `model_artifact` | string | yes | model artifact filename such as `model.json` |
+| `feature_schema_version` | string | yes | non-empty |
+| `feature_names` | list[string] | yes | ordered, non-empty |
+| `feature_schema_hash` | string | yes | deterministic hash of schema version and ordered feature names |
+| `stage` | string | yes | `candidate`, `validated`, `approved`, `archived`, or `legacy` |
+| `metrics` | dict | no | serializable training/evaluation metrics |
+| `metadata` | dict | no | serializable training and model metadata |
+| `created_at` | datetime | yes | timezone-aware UTC |
+
+### Producers
+
+- model registry.
+
+### Consumers
+
+- ML inference,
+- runtime strategies,
+- future model approval and audit workflows.
+
+---
+
+## 21. FeatureFrame / FeatureRecord
 
 ### Purpose
 
@@ -984,7 +1019,7 @@ Stores computed features for batch or online use.
 
 ---
 
-## 21. StrategyConfig
+## 22. StrategyConfig
 
 ### Purpose
 
@@ -1035,7 +1070,7 @@ requires an explicit training-serving feature schema.
 
 ---
 
-## 22. RiskConfig
+## 23. RiskConfig
 
 ### Purpose
 
@@ -1090,7 +1125,7 @@ Risk-rule semantics:
 
 ---
 
-## 23. BrokerConfig
+## 24. BrokerConfig
 
 ### Purpose
 
@@ -1134,7 +1169,7 @@ Configuration for broker implementation.
 
 ---
 
-## 24. RuntimeConfig
+## 25. RuntimeConfig
 
 ### Purpose
 
@@ -1210,7 +1245,7 @@ production websocket transport is still a future phase. Optional keys include
 
 ---
 
-## 25. RuntimeEventLoopResult
+## 26. RuntimeEventLoopResult
 
 ### Purpose
 
@@ -1244,7 +1279,7 @@ Summary counters returned by one runtime event-loop run.
 
 ---
 
-## 26. BrokerEvent
+## 27. BrokerEvent
 
 ### Purpose
 
@@ -1288,7 +1323,7 @@ payload; vendor-specific payloads must be mapped before this model is created.
 
 ---
 
-## 27. BrokerEventSyncCheckpoint and BrokerEventSyncResult
+## 28. BrokerEventSyncCheckpoint and BrokerEventSyncResult
 
 ### Purpose
 
@@ -1332,7 +1367,7 @@ health/status output after a sync run.
 
 ---
 
-## 28. LiveDecisionPreview
+## 29. LiveDecisionPreview
 
 ### Purpose
 
@@ -1373,7 +1408,7 @@ record the resulting broker submission.
 
 ---
 
-## 29. LiveOrderSubmissionResult
+## 30. LiveOrderSubmissionResult
 
 ### Purpose
 

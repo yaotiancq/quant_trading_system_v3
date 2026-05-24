@@ -24,6 +24,7 @@ General conventions:
 | `Indicator` | `features/` | indicator classes/functions | feature pipeline |
 | `FeaturePipeline` | `features/` | concrete pipelines | strategies, ML, engines |
 | `Strategy` | `strategies/` | rule-based and ML strategies | engines |
+| `ModelRegistry` | `ml/` | filesystem registry | training, inference, ML strategies |
 | `MLModelInference` | `ml/` | model inference adapters | ML strategies |
 | `RiskRule` | `risk/` | concrete risk rules | risk engine |
 | `RiskEngine` | `risk/` | default risk engine | engines |
@@ -222,12 +223,36 @@ Provide runtime inference for trained ML models.
 | `predict` | `FeatureRecord` or `FeatureFrame` | `ModelPrediction` or list | Runtime prediction. |
 | `get_expected_schema` | none | feature schema | Used before prediction. |
 | `get_model_metadata` | none | metadata | Model version, training range, metrics. |
+| `get_model_manifest` | none | `MLModelManifest` | Loaded model contract with feature-schema hash. |
 
 ### Ownership Rules
 
 - This interface only performs inference.
 - It does not submit orders.
 - It does not decide final position size unless the strategy explicitly interprets prediction that way and risk approves it.
+- It must fail closed when a saved model manifest contradicts the model
+  artifact contract.
+
+## 8a. ModelRegistry
+
+### Purpose
+
+Persist local model artifacts and portable manifests without exposing runtime
+strategies to filesystem details.
+
+### Required Methods
+
+| Method | Inputs | Output | Notes |
+|---|---|---|---|
+| `save_model` | model, optional stage | artifact path | Writes `model.json` and `manifest.json`. |
+| `load_model` | model id or URI | model handle | Validates manifest contract when present. |
+| `load_manifest` | model id or URI | `MLModelManifest` | Reads and validates manifest structure. |
+| `manifest_for_model` | model id or URI | `MLModelManifest` | Returns saved manifest or synthesized legacy manifest. |
+
+### Stability Notes
+
+Stage approval enforcement is a future Phase F2 policy. Phase F1 records stage
+and schema-hash contracts but does not require approved-only model loading.
 
 ## 9. RiskRule
 

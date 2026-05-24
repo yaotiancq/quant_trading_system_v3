@@ -9,7 +9,7 @@ from typing import Any
 
 from qts.domain import FeatureRecord, ModelPrediction, normalize_timestamp
 
-from .types import MLSample, MLWorkflowError
+from .types import MLSample, MLWorkflowError, build_feature_schema_hash
 
 
 @dataclass(frozen=True)
@@ -57,6 +57,10 @@ class DirectionalModel:
             metadata={
                 "decision_threshold": self.decision_threshold,
                 "feature_names": list(self.feature_names),
+                "feature_schema_hash": build_feature_schema_hash(
+                    self.feature_schema_version,
+                    self.feature_names,
+                ),
             },
         )
 
@@ -73,6 +77,10 @@ class DirectionalModel:
             "model_id": self.model_id,
             "feature_names": list(self.feature_names),
             "feature_schema_version": self.feature_schema_version,
+            "feature_schema_hash": build_feature_schema_hash(
+                self.feature_schema_version,
+                self.feature_names,
+            ),
             "weights": dict(self.weights),
             "feature_means": dict(self.feature_means),
             "intercept": self.intercept,
@@ -84,10 +92,18 @@ class DirectionalModel:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "DirectionalModel":
+        feature_names = [str(name) for name in data["feature_names"]]
+        feature_schema_version = str(data["feature_schema_version"])
+        artifact_hash = data.get("feature_schema_hash")
+        if artifact_hash is not None and artifact_hash != build_feature_schema_hash(
+            feature_schema_version,
+            feature_names,
+        ):
+            raise MLWorkflowError("model artifact feature_schema_hash does not match feature schema")
         return cls(
             model_id=str(data["model_id"]),
-            feature_names=[str(name) for name in data["feature_names"]],
-            feature_schema_version=str(data["feature_schema_version"]),
+            feature_names=feature_names,
+            feature_schema_version=feature_schema_version,
             weights={str(key): float(value) for key, value in dict(data["weights"]).items()},
             feature_means={
                 str(key): float(value) for key, value in dict(data["feature_means"]).items()

@@ -264,6 +264,7 @@ Owns offline ML workflows:
 - model training,
 - model evaluation,
 - model registry,
+- model manifests and schema hashes,
 - inference pipeline utilities.
 
 Rules:
@@ -271,6 +272,8 @@ Rules:
 - Training is offline.
 - A trained model is not itself a complete strategy.
 - Runtime ML strategy lives in `strategies/` and uses registered models from `ml/`.
+- Newly saved model artifacts include a local manifest contract so runtime
+  inference can verify feature-schema compatibility before prediction.
 
 ### `risk/`
 

@@ -49,6 +49,8 @@ class MLTrainingPipelineIntegrationTests(unittest.TestCase):
                 registry=FileModelRegistry(tmp),
             )
             artifact = result["artifact_path"]
+            manifest = result["manifest"]
+            manifest_path = result["manifest_path"]
             inference = DefaultMLModelInference("integration-model", registry=FileModelRegistry(tmp))
             prediction = inference.predict(
                 FeatureRecord(
@@ -59,8 +61,11 @@ class MLTrainingPipelineIntegrationTests(unittest.TestCase):
                 )
             )
             self.assertTrue(artifact.is_file())
+            self.assertTrue(manifest_path.is_file())
 
         self.assertEqual(prediction.model_id, "integration-model")
+        self.assertEqual(manifest.model_id, "integration-model")
+        self.assertEqual(manifest.stage, "candidate")
         self.assertIn(prediction.prediction_label, {"UP", "DOWN", "HOLD"})
         self.assertIn("validation", result["metrics"])
 

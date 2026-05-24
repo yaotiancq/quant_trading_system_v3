@@ -1012,7 +1012,9 @@ time after Phase A is stable:
 | Phase D2 - Broker-Specific Live Adapter Enablement | Complete | Enabled Alpaca live adapter construction only behind the D1 submission envelope and adapter-specific tests. |
 | Phase D3 - Automated Live Decision Submission | Complete | Converts approved live previews into optional broker submissions through D1 gates, kill-switch checks, post-submit reconciliation, and fail-stop controls. |
 | Phase E - Chart Reporting and Visual Backtest Diagnostics | Complete | Added optional static SVG chart artifacts for backtest reports. |
-| Phase F - Production ML Contracts and Model Governance | Planned | Add model manifests, schema hashes, approval/stage rules, and runtime ML metadata. |
+| Phase F1 - ML Model Manifests and Schema Hash Contracts | Complete | Added manifest artifacts, feature-schema hashes, and registry/inference contract validation. |
+| Phase F2 - ML Approval and Stage Gates | Planned | Add model approval rules, stage transitions, and runtime loading policy. |
+| Phase F3 - Runtime ML Metadata and Audit Diagnostics | Planned | Add runtime ML metadata capture, prediction diagnostics, and governance report hooks. |
 
 ## Major Architecture Phase B1 - Deterministic Runtime Event Loop and Fake Stream
 
@@ -1420,4 +1422,98 @@ plotting-library dependencies.
 - Chart artifact paths are visible in the generated artifact dictionary.
 - Plot failures are recorded as warnings and do not corrupt non-plot report
   artifacts.
+- Tests remain deterministic and network-free.
+
+## Major Architecture Phase F - Production ML Contracts and Model Governance
+
+### Split Rationale
+
+Production ML governance spans artifact contracts, approval gates, runtime
+policy, and diagnostics. It is split so model artifact manifests and schema
+hashes can become stable before runtime approval/stage enforcement changes how
+models are loaded.
+
+## Major Architecture Phase F1 - ML Model Manifests and Schema Hash Contracts
+
+### Goal
+
+Make every newly saved ML model artifact self-describing and verifiable without
+adding external registry infrastructure.
+
+### Scope
+
+- Add a portable `manifest.json` beside each saved `model.json`.
+- Add deterministic feature-schema hash generation from schema version and
+  ordered feature names.
+- Validate loaded model artifacts against saved manifests when a manifest is
+  present.
+- Expose loaded manifests through runtime inference metadata.
+- Keep legacy model artifacts loadable with a synthesized legacy manifest.
+
+### Out of Scope
+
+- Enforcing approved-only runtime model loading.
+- Stage transition commands or approval workflows.
+- Persistent prediction audit logs.
+- Remote model registries.
+
+### Acceptance Criteria
+
+- `FileModelRegistry.save_model(...)` writes `model.json` and `manifest.json`.
+- Manifest loading rejects malformed contracts and model/manifest mismatches.
+- `DefaultMLModelInference` exposes the loaded model manifest.
+- Existing dependency-free ML training saves and returns the manifest path.
+- Tests remain deterministic and network-free.
+
+## Major Architecture Phase F2 - ML Approval and Stage Gates
+
+### Goal
+
+Add explicit model stage transition and approval policy before runtime engines
+may load production models.
+
+### Scope
+
+- Add stage transition helpers for candidate, validated, approved, and archived
+  models.
+- Add approval metadata fields and validation.
+- Add runtime config policy for allowed model stages.
+- Keep unsafe or unapproved models fail-closed when policy requires approval.
+
+### Out of Scope
+
+- Remote registry integration.
+- Prediction audit persistence.
+
+### Acceptance Criteria
+
+- Runtime inference can be configured to require approved models.
+- Unapproved or archived models fail closed under approval policy.
+- Stage transitions preserve manifest history or metadata.
+- Tests remain deterministic and network-free.
+
+## Major Architecture Phase F3 - Runtime ML Metadata and Audit Diagnostics
+
+### Goal
+
+Make runtime ML decisions auditable by carrying model contract metadata through
+predictions, strategy signals, and report/health diagnostics.
+
+### Scope
+
+- Add prediction metadata fields for manifest id/hash/stage.
+- Add runtime diagnostics for loaded model contract metadata.
+- Add report hooks for ML model identity and schema hash.
+- Add focused tests for prediction/signal metadata propagation.
+
+### Out of Scope
+
+- A production dashboard.
+- Remote metric stores.
+
+### Acceptance Criteria
+
+- ML strategy signals include enough metadata to trace the model manifest and
+  schema hash used for prediction.
+- Backtest/paper diagnostics can expose the loaded model contract.
 - Tests remain deterministic and network-free.

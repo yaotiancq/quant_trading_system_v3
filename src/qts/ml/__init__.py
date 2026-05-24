@@ -10,7 +10,14 @@ from .models import DirectionalModel, evaluate_directional_model, train_directio
 from .registry import FileModelRegistry
 from .splits import chronological_split, walk_forward_splits
 from .training import train_directional_pipeline
-from .types import DatasetSplit, ForwardReturnLabel, MLSample, MLWorkflowError
+from .types import (
+    DatasetSplit,
+    ForwardReturnLabel,
+    MLModelManifest,
+    MLSample,
+    MLWorkflowError,
+    build_feature_schema_hash,
+)
 
 __all__ = [
     "DatasetSplit",
@@ -19,8 +26,10 @@ __all__ = [
     "FileModelRegistry",
     "ForwardReturnLabel",
     "MLDataset",
+    "MLModelManifest",
     "MLSample",
     "MLWorkflowError",
+    "build_feature_schema_hash",
     "build_forward_return_labels",
     "build_ml_dataset",
     "chronological_split",

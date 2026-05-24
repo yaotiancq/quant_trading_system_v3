@@ -50,12 +50,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     model = result["model"]
     metrics = result["metrics"]
     artifact_path = result["artifact_path"]
+    manifest_path = result["manifest_path"]
     validation = metrics["validation"]
     print(
         f"trained model {model.model_id}: "
         f"samples={metrics['train']['sample_count'] + validation['sample_count'] + metrics['test']['sample_count']} "
         f"validation_accuracy={validation['accuracy']} "
-        f"artifact={artifact_path}"
+        f"artifact={artifact_path} "
+        f"manifest={manifest_path}"
     )
     return 0
 
@@ -92,6 +94,7 @@ def train_from_mapping(
         test_fraction=float(split_config.get("test_fraction", 0.2)),
         embargo_bars=int(split_config.get("embargo_bars", 1)),
         decision_threshold=float(model_config.get("decision_threshold", 0.55)),
+        model_stage=str(model_config.get("stage", "candidate")),
         registry=FileModelRegistry(registry_dir),
         metadata={"training_config": dict(raw)},
     )

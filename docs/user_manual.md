@@ -12,16 +12,17 @@ documents, which remain the source of truth for design decisions:
 - `PROJECT_STATE.md`
 - `CHANGELOG.md`
 
-The current implementation is complete through Major Architecture Phase E. It
+The current implementation is complete through Major Architecture Phase F1. It
 supports Alpaca SIP historical bar downloads, local backtests, report
 generation with optional static SVG diagnostics, mocked paper initialization
 for Alpaca and IBKR, normalized broker event polling synchronization, mockable
 Alpaca/IBKR broker push-event adapter boundaries, checkpointed broker-event
-engine synchronization, an offline ML baseline workflow, guarded live dry-run
-initialization, and a manual live order submission safety envelope. Alpaca live
-adapter construction is available only behind explicit production gates.
-Automated live broker order submission is available only for safety-approved
-live previews behind a separate automation gate and kill switch.
+engine synchronization, an offline ML baseline workflow with local model
+manifests and schema hashes, guarded live dry-run initialization, and a manual
+live order submission safety envelope. Alpaca live adapter construction is
+available only behind explicit production gates. Automated live broker order
+submission is available only for safety-approved live previews behind a
+separate automation gate and kill switch.
 
 ## 1. Safety Model
 
@@ -531,7 +532,9 @@ The fixture ML config uses:
 - returns and SMA features,
 - forward-return labels,
 - chronological train/validation/test split,
-- filesystem registry under `artifacts/models/`.
+- filesystem registry under `artifacts/models/`,
+- `manifest.json` beside `model.json` with the model stage, feature schema
+  version, ordered feature names, and feature-schema hash.
 
 Override the model registry output directory:
 
@@ -543,6 +546,9 @@ PYTHONPATH=src .venv/bin/python scripts/train_model.py \
 
 The runtime ML strategy adapter lives in `qts.strategies.ml_strategy` and loads
 registered models through `qts.ml.inference`.
+Runtime inference validates saved manifests against model artifacts when a
+manifest is present. Phase F1 records stages such as `candidate`; approved-only
+runtime loading is reserved for Phase F2.
 
 ## 12. Live Dry-Run Runtime
 

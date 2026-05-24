@@ -9,7 +9,7 @@ from qts.features import FeatureSchema
 
 from .models import DirectionalModel
 from .registry import FileModelRegistry
-from .types import MLWorkflowError
+from .types import MLModelManifest, MLWorkflowError
 
 
 class DefaultMLModelInference:
@@ -23,11 +23,14 @@ class DefaultMLModelInference:
     ) -> None:
         self.registry = registry or FileModelRegistry()
         self.model: DirectionalModel | None = None
+        self.manifest: MLModelManifest | None = None
         if model_uri_or_id is not None:
             self.load_model(model_uri_or_id)
 
     def load_model(self, model_uri_or_id: str) -> DirectionalModel:
         self.model = self.registry.load_model(model_uri_or_id)
+        self.manifest = self.registry.manifest_for_model(model_uri_or_id)
+        self.registry.validate_model_contract(self.model, self.manifest)
         return self.model
 
     def predict(
@@ -64,6 +67,12 @@ class DefaultMLModelInference:
 
     def get_model_metadata(self) -> dict[str, Any]:
         return self._require_model().to_dict()
+
+    def get_model_manifest(self) -> MLModelManifest:
+        self._require_model()
+        if self.manifest is None:
+            raise MLWorkflowError("model manifest must be loaded before inference")
+        return self.manifest
 
     def _require_model(self) -> DirectionalModel:
         if self.model is None:

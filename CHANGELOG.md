@@ -8,6 +8,37 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Major Architecture Phase F1] - 2026-05-24
+
+### Added
+
+- Added `MLModelManifest` and deterministic feature-schema hash generation for
+  local ML model contracts.
+- Added `manifest.json` output beside every newly saved registry `model.json`.
+- Added registry manifest loading and model/manifest contract validation.
+- Added runtime inference access to the loaded model manifest.
+- Added manifest path output from the dependency-free directional training
+  pipeline and training script.
+- Added tests for manifest round trips, schema-hash exposure, corrupted model
+  or manifest rejection, and training-pipeline manifest output.
+
+### Changed
+
+- Directional model artifacts and predictions now include the feature-schema
+  hash in their metadata.
+- The ML training config records the initial model governance stage as
+  `candidate`.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+---
+
 ## [Major Architecture Phase E] - 2026-05-24
 
 ### Added

@@ -361,19 +361,21 @@ Reporting consumes results. It should not change runtime state.
 
 | File | Purpose |
 |---|---|
-| `src/qts/ml/types.py` | ML workflow errors, labels, samples, dataset split models. |
+| `src/qts/ml/types.py` | ML workflow errors, labels, samples, dataset split models, model manifests, and schema hashes. |
 | `src/qts/ml/labels.py` | Forward-return label generation. |
 | `src/qts/ml/dataset.py` | Builds ML samples from bars, features, and labels. |
 | `src/qts/ml/splits.py` | Chronological and walk-forward splitting. |
 | `src/qts/ml/leakage.py` | Temporal leakage validation helpers. |
 | `src/qts/ml/models.py` | Dependency-free directional model training and evaluation. |
-| `src/qts/ml/registry.py` | Filesystem model registry. |
-| `src/qts/ml/inference.py` | Runtime model loading and prediction interface. |
+| `src/qts/ml/registry.py` | Filesystem model registry with `model.json` and `manifest.json` contracts. |
+| `src/qts/ml/inference.py` | Runtime model loading, manifest validation, and prediction interface. |
 | `src/qts/ml/training.py` | End-to-end directional training pipeline. |
 | `src/qts/ml/__init__.py` | ML exports. |
 
 ML training is offline. Runtime trading integration happens through
-`strategies/ml_strategy.py`.
+`strategies/ml_strategy.py`. Newly saved model registry entries include a
+portable manifest and feature-schema hash; approval-stage enforcement is a
+future Phase F2 concern.
 
 ### Monitoring Layer
 
@@ -567,7 +569,7 @@ Do not let execution or strategies import vendor clients.
 
 1. Add model representation and training logic under `src/qts/ml/`.
 2. Keep artifacts serializable through the registry.
-3. Preserve feature schema metadata.
+3. Preserve feature schema metadata and manifest/schema-hash validation.
 4. Add inference support under `src/qts/ml/inference.py` or a parallel adapter.
 5. Keep runtime strategy interpretation in `src/qts/strategies/ml_strategy.py` or a new strategy.
 6. Add tests for registry compatibility and schema validation.

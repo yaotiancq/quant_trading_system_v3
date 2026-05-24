@@ -9,6 +9,10 @@ model:
   model_id: directional_fixture_v1
   # Directory where the trained model artifact is written.
   registry_dir: artifacts/models
+  # Governance stage recorded in manifest.json.
+  # Options in Phase F1: candidate, validated, approved, archived.
+  # Runtime approval enforcement is reserved for Phase F2.
+  stage: candidate
   # Probability threshold used by the trained model wrapper for positive decisions.
   decision_threshold: 0.55
 

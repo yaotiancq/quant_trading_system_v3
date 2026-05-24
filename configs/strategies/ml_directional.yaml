@@ -19,6 +19,7 @@ enabled: true
 # ML strategy parameters.
 parameters:
   # Model id stored in registry_dir.
+  # The registry entry should contain model.json and manifest.json.
   model_id: directional_fixture_v1
   # Directory where FileModelRegistry loads model artifacts.
   registry_dir: artifacts/models

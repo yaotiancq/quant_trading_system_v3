@@ -30,6 +30,7 @@ def train_directional_pipeline(
     test_fraction: float = 0.2,
     embargo_bars: int = 1,
     decision_threshold: float = 0.55,
+    model_stage: str = "candidate",
     registry: FileModelRegistry | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -84,13 +85,16 @@ def train_directional_pipeline(
         trained_at=model.trained_at,
     )
     registry = registry or FileModelRegistry()
-    artifact_path = registry.save_model(model)
+    artifact_path = registry.save_model(model, stage=model_stage)
+    manifest = registry.load_manifest(model.model_id)
     return {
         "dataset": dataset,
         "split": split,
         "model": model,
+        "manifest": manifest,
         "metrics": metrics,
         "artifact_path": Path(artifact_path),
+        "manifest_path": Path(artifact_path).parent / "manifest.json",
     }
 
 
