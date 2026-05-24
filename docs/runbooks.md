@@ -1,8 +1,9 @@
 # Operational Runbooks
 
-These runbooks cover the Phase 8 guarded live-trading foundation. Live trading
-remains disabled by default; dry-run initialization is the supported operational
-readiness path in this phase.
+These runbooks cover the guarded live-trading foundation through Major
+Architecture Phase C3. Live trading remains disabled by default; dry-run
+initialization and deterministic broker-event synchronization are the supported
+operational readiness paths in this phase.
 
 ## Live Safety Gate
 
@@ -17,7 +18,7 @@ Before a `LIVE` runtime can initialize, the config must explicitly set:
 
 Non-dry-run live mode additionally requires
 `broker.safety.confirm_live_trading: true`, but real live brokerage submission is
-still not enabled by Phase 8.
+still not enabled through Phase C3.
 
 Dry-run initialization can be exercised locally:
 
@@ -27,7 +28,7 @@ PYTHONPATH=src .venv/bin/python scripts/run_live_trading.py --config configs/liv
 
 ## Health Checks
 
-The Phase 8 live engine runs:
+The guarded live engine runs:
 
 - broker connectivity checks,
 - shared market-session checks,
@@ -71,7 +72,10 @@ state, and account safety caps before changing any configuration.
 
 Paper order and fill polling is normalized into `BrokerEvent` updates before
 state changes are applied. Duplicate fill IDs are skipped, and stale order
-updates should not regress the tracked lifecycle state.
+updates should not regress the tracked lifecycle state. Phase C3 also adds
+checkpointed broker-event sync with duplicate suppression, out-of-order checks,
+optional timestamp gap fail-closed policy, and reconciliation before and after
+each sync run.
 
 If paper portfolio state looks wrong after polling:
 
@@ -80,14 +84,17 @@ If paper portfolio state looks wrong after polling:
 3. Confirm order updates have monotonic `updated_at` values and nondecreasing
    `filled_quantity`.
 4. Re-run reconciliation before sending more paper orders.
-5. Treat missing real vendor push-stream updates as expected until a later
+5. If using `sync_broker_events(...)`, inspect `duplicate_count`, `gap_count`,
+   `out_of_order_count`, `stopped_reason`, and the before/after reconciliation
+   payload.
+6. Treat missing real vendor push-stream updates as expected until a later
    phase adds broker event stream transports.
 
-Phase C2 adds mockable Alpaca/IBKR broker event adapter boundaries. These
-in-memory clients are useful for tests and local development, but they are not
-real websocket/SSE transports. Operators should continue relying on polling and
-reconciliation for real paper broker state until a later phase adds live broker
-stream ownership.
+Phase C2 adds mockable Alpaca/IBKR broker event adapter boundaries, and Phase C3
+adds engine sync/checkpoint plumbing. The in-memory clients are useful for tests
+and local development, but they are not real websocket/SSE transports.
+Operators should continue relying on polling and reconciliation for real paper
+broker state until a later phase adds live broker stream ownership.
 
 ## Reconciliation Mismatch
 
@@ -103,7 +110,7 @@ When reconciliation reports `mismatch`:
 
 Alerts include severity, source, message, timestamp, and structured details. A
 `CRITICAL` alert means trading must stay disabled until the underlying issue is
-resolved. Phase 8 includes in-memory and logging sinks; production notification
+resolved. The current system includes in-memory and logging sinks; production notification
 channels remain future work.
 
 ## Recovery Behavior

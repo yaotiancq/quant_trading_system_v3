@@ -54,20 +54,23 @@ class ExecutionEngine:
             if order is None:
                 raise ExecutionError(f"unknown order for duplicate fill: {fill.order_id}")
             return order
+        order = self.fill_handler.handle_fill(fill)
         self._processed_fill_ids.add(fill.fill_id)
-        return self.fill_handler.handle_fill(fill)
+        return order
 
     def on_broker_event(self, event: BrokerEvent) -> None:
         """Apply one normalized broker event with idempotent event handling."""
         if event.event_id in self._processed_broker_event_ids:
             return
-        self._processed_broker_event_ids.add(event.event_id)
         if event.event_type == BrokerEventType.ORDER_UPDATE and event.order is not None:
             self.on_order_update(event.order)
+            self._processed_broker_event_ids.add(event.event_id)
             return
         if event.event_type == BrokerEventType.FILL and event.fill is not None:
             self.on_fill(event.fill)
+            self._processed_broker_event_ids.add(event.event_id)
             return
+        self._processed_broker_event_ids.add(event.event_id)
 
     def cancel_order(self, order_id: str) -> Order:
         order = self.order_router.cancel_order(order_id)

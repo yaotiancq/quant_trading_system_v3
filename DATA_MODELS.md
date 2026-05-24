@@ -1285,7 +1285,51 @@ payload; vendor-specific payloads must be mapped before this model is created.
 
 ---
 
-## 27. LiveDecisionPreview
+## 27. BrokerEventSyncCheckpoint and BrokerEventSyncResult
+
+### Purpose
+
+Runtime synchronization state for broker-event streams. The checkpoint is
+kept by paper/live engines during a process run so duplicate broker events are
+not reprocessed after a local restart/resume. The result is exposed in engine
+health/status output after a sync run.
+
+### BrokerEventSyncCheckpoint Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `last_event_timestamp` | datetime | no | timezone-aware UTC when present |
+| `processed_event_ids` | set[string] | yes | stable broker event IDs already applied |
+| `processed_count` | int | yes | non-negative count of processed events |
+
+### BrokerEventSyncResult Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `processed_count` | int | yes | events dispatched to the handler |
+| `skipped_count` | int | yes | duplicates or skipped stale events |
+| `duplicate_count` | int | yes | event IDs already in checkpoint |
+| `gap_count` | int | yes | timestamp gaps detected by policy |
+| `out_of_order_count` | int | yes | events older than checkpoint timestamp |
+| `last_event_timestamp` | datetime | no | latest processed broker event timestamp |
+| `closed` | bool | yes | whether the event source was closed |
+| `stopped_reason` | string | no | `max_events`, `source_exhausted`, or error context |
+| `errors` | list[string] | yes | controlled error messages captured before re-raise |
+
+### Producers
+
+- `BrokerEventSyncLoop`,
+- paper/live engine broker-event sync methods.
+
+### Consumers
+
+- paper/live engine health output,
+- tests,
+- future operational monitoring.
+
+---
+
+## 28. LiveDecisionPreview
 
 ### Purpose
 

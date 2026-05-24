@@ -9,8 +9,10 @@ from qts.core import LiveSafetyError, ReplayClock
 from qts.domain import (
     Bar,
     BarTimeframe,
+    Order,
     OrderRequest,
     OrderSide,
+    OrderStatus,
     OrderType,
     PortfolioSnapshot,
     Quote,
@@ -19,6 +21,7 @@ from qts.domain import (
     TimeInForce,
 )
 from qts.engines import LiveEngine
+from qts.execution import InMemoryBrokerEventSource, broker_event_from_order
 from qts.strategies import BaseStrategy
 
 from scripts.run_live_trading import main as run_live_main
@@ -165,6 +168,34 @@ class LiveEngineSafetyIntegrationTests(unittest.TestCase):
         self.assertEqual(status["decision_previews"], [])
         self.assertEqual(status["decision_preview_count"], 0)
         self.assertEqual(status["last_market_event_symbol"], "SPY")
+
+    def test_live_engine_syncs_broker_event_source_without_submission(self) -> None:
+        engine = LiveEngine(make_live_config())
+        engine.initialize()
+        order = Order(
+            order_id="live-restart-order-1",
+            client_order_id="coid-live-restart-order-1",
+            symbol="SPY",
+            created_at=NOW,
+            updated_at=NOW,
+            side=OrderSide.BUY,
+            filled_quantity=0,
+            order_type=OrderType.MARKET,
+            status=OrderStatus.ACCEPTED,
+            quantity=1,
+            remaining_quantity=1,
+        )
+        source = InMemoryBrokerEventSource([broker_event_from_order(order)])
+
+        result = engine.sync_broker_events(source, max_events=1)
+
+        self.assertEqual(result["processed_count"], 1)
+        self.assertEqual(result["checkpoint"]["processed_event_count"], 1)
+        self.assertEqual(result["reconciliation_before"]["status"], "matched")
+        self.assertEqual(result["reconciliation_after"]["status"], "matched")
+        self.assertEqual(engine.health_check()["broker_event_sync"]["processed_count"], 1)
+        self.assertEqual(engine.brokerage.orders, {})
+        self.assertTrue(source.closed)
 
     def test_live_runner_dry_run_command_initializes(self) -> None:
         with redirect_stdout(StringIO()):

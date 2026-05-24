@@ -4,7 +4,7 @@ import unittest
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
-from qts.core import ExecutionError
+from qts.core import DataError, ExecutionError
 from qts.brokers.backtest import BacktestBrokerage
 from qts.domain import (
     Bar,
@@ -21,6 +21,9 @@ from qts.domain import (
 )
 from qts.execution import (
     ExecutionEngine,
+    BrokerEventSyncCheckpoint,
+    BrokerEventSyncLoop,
+    BrokerEventSyncPolicy,
     InMemoryBrokerEventSource,
     OrderManager,
     OrderRouter,
@@ -250,6 +253,46 @@ class ExecutionTests(unittest.TestCase):
         self.assertEqual(tracked_order.filled_quantity, 10)
         self.assertEqual(tracked_order.status, OrderStatus.FILLED)
 
+    def test_fill_after_cumulative_order_update_does_not_double_count(self) -> None:
+        broker = BacktestBrokerage(starting_cash=10000)
+        broker.connect()
+        engine = ExecutionEngine(OrderRouter(broker))
+        order = engine.submit(approved_decision())
+        fill = broker.on_market_event(bar(1, open_price=100))[0]
+        filled_order_update = replace(
+            order,
+            status=OrderStatus.FILLED,
+            filled_quantity=10,
+            remaining_quantity=0,
+            average_fill_price=100,
+            updated_at=fill.timestamp,
+        )
+
+        engine.on_broker_event(broker_event_from_order(filled_order_update))
+        engine.on_broker_event(broker_event_from_fill(fill))
+
+        tracked_order = engine.order_manager.get_order(order.order_id)
+        self.assertEqual(tracked_order.filled_quantity, 10)
+        self.assertEqual(tracked_order.status, OrderStatus.FILLED)
+
+    def test_failed_broker_fill_event_can_be_retried_after_order_recovery(self) -> None:
+        broker = BacktestBrokerage(starting_cash=10000)
+        broker.connect()
+        engine = ExecutionEngine(OrderRouter(broker))
+        order = broker.submit_order(build_order_request(approved_decision()))
+        fill = broker.on_market_event(bar(1, open_price=100))[0]
+        fill_event = broker_event_from_fill(fill)
+
+        with self.assertRaisesRegex(ExecutionError, "unknown order"):
+            engine.on_broker_event(fill_event)
+
+        engine.on_broker_event(broker_event_from_order(order))
+        engine.on_broker_event(fill_event)
+
+        tracked_order = engine.order_manager.get_order(order.order_id)
+        self.assertEqual(tracked_order.filled_quantity, 10)
+        self.assertEqual(tracked_order.status, OrderStatus.FILLED)
+
     def test_order_router_poll_events_returns_order_updates_and_fills(self) -> None:
         broker = BacktestBrokerage(starting_cash=10000)
         broker.connect()
@@ -300,6 +343,74 @@ class ExecutionTests(unittest.TestCase):
 
         self.assertEqual([event.event_type for event in events], [BrokerEventType.ORDER_UPDATE, BrokerEventType.FILL])
         self.assertTrue(source.closed)
+
+    def test_broker_event_sync_loop_skips_duplicate_checkpoint_events(self) -> None:
+        broker = BacktestBrokerage(starting_cash=10000)
+        broker.connect()
+        order = broker.submit_order(build_order_request(approved_decision()))
+        event = broker_event_from_order(order)
+        source = InMemoryBrokerEventSource([event, event])
+        handled = []
+
+        result = BrokerEventSyncLoop(source, handled.append).run()
+
+        self.assertEqual(handled, [event])
+        self.assertEqual(result.processed_count, 1)
+        self.assertEqual(result.duplicate_count, 1)
+        self.assertEqual(result.skipped_count, 1)
+        self.assertEqual(result.stopped_reason, "source_exhausted")
+        self.assertTrue(result.closed)
+        self.assertTrue(source.closed)
+
+    def test_broker_event_sync_loop_fails_closed_on_gap(self) -> None:
+        broker = BacktestBrokerage(starting_cash=10000)
+        broker.connect()
+        order = broker.submit_order(build_order_request(approved_decision()))
+        first = broker_event_from_order(order)
+        second = broker_event_from_order(
+            replace(order, updated_at=NOW + timedelta(minutes=5))
+        )
+        source = InMemoryBrokerEventSource([first, second])
+        loop = BrokerEventSyncLoop(
+            source,
+            lambda event: None,
+            policy=BrokerEventSyncPolicy(max_gap_seconds=60),
+        )
+
+        with self.assertRaisesRegex(DataError, "broker event gap exceeded"):
+            loop.run()
+
+        self.assertTrue(source.closed)
+
+    def test_broker_event_sync_loop_resumes_from_checkpoint(self) -> None:
+        broker = BacktestBrokerage(starting_cash=10000)
+        broker.connect()
+        order = broker.submit_order(build_order_request(approved_decision()))
+        first = broker_event_from_order(order)
+        second = broker_event_from_order(
+            replace(order, status=OrderStatus.SUBMITTED, updated_at=NOW + timedelta(minutes=1))
+        )
+        checkpoint = BrokerEventSyncCheckpoint()
+        handled = []
+
+        BrokerEventSyncLoop(
+            InMemoryBrokerEventSource([first]),
+            handled.append,
+            checkpoint=checkpoint,
+        ).run()
+        result = BrokerEventSyncLoop(
+            InMemoryBrokerEventSource([first, second]),
+            handled.append,
+            checkpoint=checkpoint,
+        ).run()
+
+        self.assertEqual(handled, [first, second])
+        self.assertEqual(result.processed_count, 1)
+        self.assertEqual(result.duplicate_count, 1)
+        self.assertEqual(result.skipped_count, 1)
+        self.assertEqual(checkpoint.processed_count, 2)
+        self.assertTrue(checkpoint.has_seen(first.event_id))
+        self.assertTrue(checkpoint.has_seen(second.event_id))
 
 
 if __name__ == "__main__":

@@ -1007,8 +1007,8 @@ time after Phase A is stable:
 | Phase B2b2 - Guarded Live Decision Preview | Complete | Added live dry-run strategy/risk/order-request previews without broker submission. |
 | Phase C1 - Normalized Broker Events and Polling Sync | Complete | Added broker event model/helpers, idempotent execution updates, and paper polling fallback. |
 | Phase C2 - Vendor Broker Push Adapter Boundaries | Complete | Added mockable Alpaca/IBKR broker order/fill event adapter boundaries without real live submission. |
-| Phase C3 - Engine Lifecycle Synchronization Hardening | Planned | Add recovery/reconciliation behavior around stream gaps, missed broker events, and restart state. |
-| Phase D - Production Live-Trading Enablement | Blocked until A-C complete | Enable real live submission only behind strict fail-closed safety gates. |
+| Phase C3 - Engine Lifecycle Synchronization Hardening | Complete | Added checkpointed broker-event sync, gap/out-of-order detection, engine reconciliation hooks, and lifecycle double-count protection. |
+| Phase D - Production Live-Trading Enablement | Planned after C3 | Enable real live submission only behind strict fail-closed safety gates. |
 | Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned | Add optional static chart artifacts for backtest reports. |
 | Phase F - Production ML Contracts and Model Governance | Planned | Add model manifests, schema hashes, approval/stage rules, and runtime ML metadata. |
 
@@ -1235,3 +1235,39 @@ fill updates without opening real network streams in tests.
 
 Harden paper/live engine behavior around broker-event gaps, restart
 reconciliation, and lifecycle recovery before Phase D production live trading.
+
+### Scope
+
+- Add a deterministic broker-event synchronization loop with duplicate
+  suppression, restart checkpoints, out-of-order detection, and optional gap
+  fail-closed policy.
+- Add paper/live engine methods for synchronizing a `BrokerEventSource` while
+  reconciling broker and portfolio state before and after the sync run.
+- Expose the latest broker-event sync status in paper/live health output.
+- Preserve real live submission as disabled; live sync records lifecycle events
+  and reconciliation status only.
+- Harden execution lifecycle handling when cumulative broker order updates and
+  incremental fill events arrive in either order.
+- Keep broker events retryable when application fails before the event is
+  successfully processed.
+
+### Out of Scope
+
+- Real broker websocket/SSE transports.
+- Persistent checkpoint storage outside process memory.
+- Live broker order submission.
+- Automatic restart orchestration or sleeping backoff.
+
+### Acceptance Criteria
+
+- Broker-event sync can resume with a checkpoint and skip already processed
+  event IDs.
+- Broker-event sync detects configured timestamp gaps and fails closed when
+  configured to do so.
+- Paper and live engines can run sync with reconciliation before and after the
+  event source is consumed.
+- Matching cumulative order updates and fill events do not double-count filled
+  quantity.
+- A failed broker event can be retried after missing lifecycle state is
+  recovered.
+- Tests remain deterministic and network-free.

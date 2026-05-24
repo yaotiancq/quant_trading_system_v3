@@ -33,6 +33,7 @@ General conventions:
 | `OrderRouter` | `execution/` | default order router | execution engine |
 | `BrokerEvent` helpers | `execution/` | polling/event adapters | execution engine, paper/live engines |
 | `BrokerEventSource` | `execution/` / `integrations/` | Alpaca/IBKR event adapters | future engine synchronization |
+| `BrokerEventSyncLoop` | `execution/` | default sync loop | paper/live engines |
 | `Brokerage` | `brokers/` | backtest, Alpaca, IBKR | order router, engines |
 | `BacktestBrokerage` | `brokers/backtest/` | backtest implementation | backtest engine |
 | `Portfolio` | `portfolio/` | default portfolio | engines, risk, reporting |
@@ -404,12 +405,13 @@ Normalize broker behavior across backtesting, paper trading, and live trading.
 - `IBKRBrokerage` supports IBKR paper trading and requires an account ID plus
   symbol-to-`conid` mapping for order submission.
 
-## 15a. BrokerEventSource
+## 15a. BrokerEventSource and Synchronization
 
 ### Purpose
 
 Normalize broker push-style lifecycle payloads before they reach execution or
-engines.
+engines, then synchronize those events through deterministic idempotency,
+ordering, gap, and restart-checkpoint rules.
 
 ### Required Interfaces
 
@@ -417,6 +419,9 @@ engines.
 |---|---|---|---|
 | `BrokerEventSource.iter_events` | none | iterator of `BrokerEvent` | Source may be finite, mocked, or future streaming. |
 | `BrokerEventSource.close` | none | none | Releases client resources. |
+| `BrokerEventSyncLoop.run` | optional `max_events` | `BrokerEventSyncResult` | Dispatches broker events after duplicate, ordering, and gap checks. |
+| `BrokerEventSyncCheckpoint` | last timestamp, processed event IDs | checkpoint state | Used by engines to resume in-process sync without reprocessing event IDs. |
+| `BrokerEventSyncPolicy` | dedupe/order/gap settings | policy object | Configures fail-closed behavior for sync. |
 | `AlpacaBrokerEventClient.connect` | channels | none | Adapter boundary for Alpaca trade updates. |
 | `AlpacaBrokerEventClient.iter_messages` | none | raw Alpaca-shaped payloads | Must not leak beyond integration adapter. |
 | `AlpacaBrokerEventSource.iter_events` | none | iterator of `BrokerEvent` | Normalizes Alpaca trade updates. |
@@ -429,8 +434,18 @@ engines.
 - Vendor error payloads fail closed with controlled data errors.
 - Vendor order/fill payloads must be converted to normalized `Order`, `Fill`,
   and `BrokerEvent` objects before leaving `integrations/`.
-- In-memory clients are the only implemented clients in Phase C2; real network
-  transports must be added behind the same protocols later.
+- Duplicate broker events are skipped when checkpoint deduplication is enabled.
+- Out-of-order broker events fail closed unless explicitly configured to skip.
+- Optional timestamp gap checks can fail closed before dispatching the next
+  broker event.
+- Event sources must be closed when a sync run ends or fails.
+- Paper/live engine sync methods should reconcile before and after consuming an
+  event source.
+- In-memory clients remain the only implemented broker-event clients through
+  Phase C3; real network transports must be added behind the same protocols
+  later.
+- Phase C3 adds engine sync plumbing, but persistent checkpoints and real
+  network transports remain future work.
 
 ## 16. BacktestBrokerage
 
@@ -562,6 +577,7 @@ Orchestrate paper or live trading runtime.
 | `stop` | reason | none | Graceful shutdown. |
 | `on_market_event` | event | health/status with decision previews | Handle incoming data and guarded dry-run preview. |
 | `on_broker_event` | broker event or order/fill/account event | none | Handle broker updates. |
+| `sync_broker_events` | `BrokerEventSource`, optional limits/policy | sync status dict | Checkpointed broker lifecycle sync with reconciliation before/after. |
 | `health_check` | none | health status | Used by monitoring. |
 
 ### Safety Contract

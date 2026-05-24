@@ -1140,3 +1140,60 @@ execution, or engine code.
 - Add real broker stream transports immediately.
 - Parse vendor push payloads inside `PaperTradingEngine` or `LiveEngine`.
 - Continue relying only on polling until production live trading.
+
+---
+
+## ADR-031: Checkpoint Broker Event Synchronization Before Production Live Submission
+
+### Context
+
+After broker events and vendor push adapter boundaries were added, engines still
+needed a lifecycle synchronization path that could tolerate restarts, duplicate
+events, missing-event gaps, and different event delivery ordering. This is
+especially important before any future phase enables real live order
+submission.
+
+### Decision
+
+Introduce a broker-event synchronization loop in the execution layer:
+
+- `BrokerEventSyncCheckpoint` tracks processed event IDs and the latest event
+  timestamp for in-process restart/resume behavior.
+- `BrokerEventSyncPolicy` controls duplicate suppression, out-of-order
+  fail-closed behavior, and optional timestamp gap checks.
+- `BrokerEventSyncResult` reports processed, skipped, duplicate, gap,
+  out-of-order, stopped-reason, close, and error counters.
+- `PaperTradingEngine.sync_broker_events()` and
+  `LiveEngine.sync_broker_events()` consume a `BrokerEventSource` through the
+  loop and reconcile broker/portfolio state before and after synchronization.
+
+The checkpoint remains in memory for this phase. Real network transports,
+persistent checkpoint storage, and real live order submission remain future
+phase work.
+
+### Rationale
+
+The sync loop gives paper and live engines one deterministic lifecycle recovery
+contract while preserving the existing vendor-independent `BrokerEvent` model.
+It also keeps production live submission blocked until event ordering,
+idempotency, and reconciliation behavior are explicit and tested.
+
+### Consequences
+
+- Engine health payloads can expose the latest broker-event synchronization
+  result.
+- Duplicate broker events are skipped at the sync-loop boundary before reaching
+  engine handlers.
+- Broker event timestamp gaps can fail closed when configured.
+- Execution lifecycle handling must tolerate both fill-first and
+  order-update-first delivery without double-counting filled quantity.
+- Execution must only mark a broker event processed after successful
+  application so recovery can retry failed events.
+- Durable restart checkpoints are still required before production live
+  trading.
+
+### Alternatives Considered
+
+- Let every engine own its own event checkpoint logic.
+- Add persistent checkpoint storage before proving the in-process contract.
+- Defer lifecycle hardening until real live submission.

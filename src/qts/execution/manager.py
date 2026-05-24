@@ -64,6 +64,8 @@ class OrderManager:
 
     def mark_filled(self, order_id: str, fill: Fill) -> Order:
         order = self._require_order(order_id)
+        if _fill_already_reflected(order, fill):
+            return order
         previous_filled = order.filled_quantity
         filled_quantity = previous_filled + fill.quantity
         target_quantity = order.quantity or filled_quantity
@@ -105,6 +107,13 @@ class OrderManager:
 
 def _order_timestamp(order: Order) -> datetime:
     return normalize_timestamp(order.updated_at or order.created_at)
+
+
+def _fill_already_reflected(order: Order, fill: Fill) -> bool:
+    return (
+        _order_timestamp(order) >= fill.timestamp
+        and order.filled_quantity + 1e-9 >= fill.quantity
+    )
 
 
 def _status_rank(status: OrderStatus) -> int:

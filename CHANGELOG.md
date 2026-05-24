@@ -8,6 +8,43 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Major Architecture Phase C3] - 2026-05-24
+
+### Added
+
+- Added `BrokerEventSyncPolicy`, `BrokerEventSyncCheckpoint`,
+  `BrokerEventSyncResult`, and `BrokerEventSyncLoop` for deterministic
+  broker-event synchronization with duplicate, out-of-order, and gap handling.
+- Added `PaperTradingEngine.sync_broker_events()` and
+  `LiveEngine.sync_broker_events()` to run broker-event sources through
+  checkpointed synchronization with reconciliation before and after sync.
+- Added live and paper health output for the latest broker-event sync result.
+- Added tests for checkpoint resume behavior, gap fail-closed behavior,
+  duplicate suppression, paper sync reconciliation, and live dry-run sync.
+
+### Changed
+
+- `LiveEngine.on_broker_event()` now normalizes direct `Order`, `Fill`,
+  `Account`, and `Position` inputs into `BrokerEvent` before recording broker
+  event metrics.
+- Execution fill handling now avoids double-counting a fill when a cumulative
+  broker order update already reflects that fill.
+- Phase C planning now marks C3 complete and points to Phase D as the next
+  planned major architecture phase.
+
+### Fixed
+
+- Prevented broker push-style order-update-first delivery from inflating
+  execution filled quantity when the matching fill event arrives afterward.
+- Prevented failed broker-event application from marking the event processed
+  before recovery can retry it.
+
+### Removed
+
+- None.
+
+---
+
 ## [Major Architecture Phase C2] - 2026-05-24
 
 ### Added

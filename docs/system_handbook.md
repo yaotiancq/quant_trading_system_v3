@@ -86,6 +86,9 @@ Each layer owns a small responsibility:
    before execution and portfolio state are synchronized.
 9. Alpaca/IBKR push-style broker payloads can be normalized through in-memory
    adapter clients for deterministic boundary tests.
+10. `sync_broker_events(...)` can consume any normalized `BrokerEventSource`
+   through duplicate, checkpoint, out-of-order, and gap checks, with
+   reconciliation before and after the run.
 
 ### Live Dry-Run Flow
 
@@ -96,7 +99,8 @@ Each layer owns a small responsibility:
 5. Direct live bar events can produce guarded decision previews through
    feature, strategy, risk, order-request construction, and live safety
    validation.
-6. No live orders are submitted.
+6. Broker-event sync can record lifecycle/reconciliation status, but no live
+   orders are submitted.
 
 ## 3. File-by-File Reference
 

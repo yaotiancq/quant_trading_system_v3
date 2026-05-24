@@ -10,8 +10,9 @@ strategy/risk layer, Phase 4 execution/backtest brokerage layer, Phase 5
 backtest engine/reporting layer, Phase 6 Alpaca paper trading integration,
 Phase 7 ML workflow, Phase 8 monitoring/live-trading readiness, and Phase 9
 IBKR paper brokerage foundation, Phase 10 Alpaca SIP historical data download,
-Major Architecture Phase C1 normalized broker-event polling sync, and Major
-Architecture Phase C2 vendor broker push adapter boundaries.
+Major Architecture Phase C1 normalized broker-event polling sync, Major
+Architecture Phase C2 vendor broker push adapter boundaries, and Major
+Architecture Phase C3 engine lifecycle synchronization hardening.
 
 The Python package now includes stable domain enums and data models, core config
 loading and validation, clocks, common exceptions, logging setup, local
@@ -97,6 +98,14 @@ boundaries. Alpaca-shaped trade updates and IBKR-shaped order updates can now
 be consumed from in-memory event clients and normalized into the same
 `BrokerEvent` order/fill contract without opening real network streams.
 
+Major Architecture Phase C3 has added checkpointed broker-event synchronization
+for paper and live engines. Broker-event sources now run through duplicate
+suppression, restart checkpoints, out-of-order detection, optional gap
+fail-closed checks, and reconciliation before and after sync. Execution fill
+handling also avoids double-counting when a cumulative broker order update
+already reflects the matching fill event, and failed broker-event application
+remains retryable after missing lifecycle state is recovered.
+
 Real live broker order submission remains disabled by default. Phase 8 provides
 guarded dry-run initialization and safety validation only.
 
@@ -107,12 +116,13 @@ paper/live market-data mode explicit through `market_data.provider:
 external_events`; Phase B1 adds paper-only `fake_stream` support, and Phase B2a
 adds paper-only `alpaca_stream` adapter support. Phase B2b1 adds runtime stream
 reliability policy. Phase B2b2 adds guarded dry-run live decision previews.
-Phase C1 adds normalized broker-event polling synchronization, and Phase C2
-adds mockable vendor broker push adapter boundaries. Live remains
+Phase C1 adds normalized broker-event polling synchronization, Phase C2 adds
+mockable vendor broker push adapter boundaries, and Phase C3 adds checkpointed
+engine broker-event synchronization hardening. Live remains
 external-event driven and real live broker submission remains disabled. Runtime
 order validation also enforces `execution.allow_fractional`.
 
-- **Current phase:** Major Architecture Phase C2 complete
+- **Current phase:** Major Architecture Phase C3 complete
 - **Completed phases:**
   - Phase 0 - Documentation and repository scaffold initialization
   - Phase 1 - Project Skeleton and Core Domain Models
@@ -132,9 +142,10 @@ order validation also enforces `execution.allow_fractional`.
   - Major Architecture Phase B2b2 - Guarded Live Decision Preview
   - Major Architecture Phase C1 - Normalized Broker Events and Polling Sync
   - Major Architecture Phase C2 - Vendor Broker Push Adapter Boundaries
+  - Major Architecture Phase C3 - Engine Lifecycle Synchronization Hardening
 - **In-progress phase:** None
-- **Next recommended task:** Major Architecture Phase C3 - Engine Lifecycle
-  Synchronization Hardening.
+- **Next recommended task:** Major Architecture Phase D - Production
+  Live-Trading Enablement.
 
 ## 2. Completed Phases
 
@@ -158,13 +169,13 @@ order validation also enforces `execution.allow_fractional`.
 | Major Architecture Phase B2b2 | Complete | Implemented guarded live dry-run decision previews through feature, strategy, risk, order-request, and live safety validation without broker submission. |
 | Major Architecture Phase C1 | Complete | Implemented normalized broker events, polling fallback event conversion, idempotent execution lifecycle updates, and paper-engine broker polling sync. |
 | Major Architecture Phase C2 | Complete | Implemented mockable Alpaca/IBKR broker push adapter boundaries that normalize vendor-shaped order/fill updates into `BrokerEvent`. |
+| Major Architecture Phase C3 | Complete | Implemented checkpointed broker-event sync loops, paper/live reconciliation hooks, gap/out-of-order handling, and lifecycle double-count protection. |
 
 ## 3. Pending Phases
 
 | Phase | Status |
 |---|---|
-| Major Architecture Phase C3 - Engine Lifecycle Synchronization Hardening | Planned |
-| Major Architecture Phase D - Production Live-Trading Enablement | Blocked until A-C complete |
+| Major Architecture Phase D - Production Live-Trading Enablement | Planned |
 | Major Architecture Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned |
 | Major Architecture Phase F - Production ML Contracts and Model Governance | Planned |
 
@@ -409,7 +420,8 @@ Future functionality outside the current phase plan remains missing:
   `fake_stream` and `alpaca_stream` for finite local runs.
 - Alpaca and IBKR order/fill synchronization currently uses normalized broker
   events built from polling and filled-quantity deltas. Mockable vendor
-  push-event adapter boundaries exist, but real broker stream transports remain
+  push-event adapter boundaries and checkpointed engine sync are implemented,
+  but real broker stream transports and persistent checkpoint storage remain
   future operational-readiness work.
 - IBKR paper order submission requires `broker.account_id` and
   `broker.safety.symbol_conids`; automatic IBKR order reply confirmation is not

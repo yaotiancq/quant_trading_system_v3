@@ -386,6 +386,9 @@ Rules:
 - Runtime market-event loops expose controlled stream disconnect, reconnect,
   and heartbeat/data-gap status without embedding vendor transport details in
   engine code.
+- Paper/live broker-event synchronization must use normalized `BrokerEvent`
+  sources, in-process checkpoints, gap/out-of-order policy checks, and
+  reconciliation before and after sync.
 - Guarded live dry-run event handling may produce decision previews, but it must
   stop before broker submission and validate live safety gates.
 

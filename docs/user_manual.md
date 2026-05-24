@@ -12,12 +12,13 @@ documents, which remain the source of truth for design decisions:
 - `PROJECT_STATE.md`
 - `CHANGELOG.md`
 
-The current implementation is complete through Major Architecture Phase C2. It
+The current implementation is complete through Major Architecture Phase C3. It
 supports Alpaca SIP historical bar downloads, local backtests, report
 generation, mocked paper initialization for Alpaca and IBKR, normalized broker
 event polling synchronization, mockable Alpaca/IBKR broker push-event adapter
-boundaries, an offline ML baseline workflow, and guarded live dry-run
-initialization. Real live broker order submission is intentionally disabled.
+boundaries, checkpointed broker-event engine synchronization, an offline ML
+baseline workflow, and guarded live dry-run initialization. Real live broker
+order submission is intentionally disabled.
 
 ## 1. Safety Model
 
@@ -431,6 +432,9 @@ Current limitations:
   until vendor push streams are added.
 - Alpaca and IBKR push-style broker payload normalization can be tested through
   in-memory clients. Real broker event transports are not implemented yet.
+- Paper and live engines expose `sync_broker_events(...)` for checkpointed
+  broker-event synchronization with duplicate suppression, optional gap
+  fail-closed checks, and reconciliation before and after each sync run.
 
 Run the deterministic fake-stream paper template:
 

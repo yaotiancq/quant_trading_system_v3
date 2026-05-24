@@ -22,7 +22,14 @@ from qts.domain import (
     normalize_symbol,
     normalize_timestamp,
 )
-from qts.execution import ExecutionEngine, OrderRouter
+from qts.execution import (
+    BrokerEventSource,
+    BrokerEventSyncCheckpoint,
+    BrokerEventSyncLoop,
+    BrokerEventSyncPolicy,
+    ExecutionEngine,
+    OrderRouter,
+)
 from qts.execution.events import broker_event_from_fill, broker_event_from_order
 from qts.features import FeaturePipeline
 from qts.market_data import AlpacaStreamClient, alpaca_stream_event_source_from_config
@@ -75,6 +82,8 @@ class PaperTradingEngine:
         self._latest_prices: dict[str, float] = {}
         self._processed_fill_ids: set[str] = set()
         self._last_reconciliation: dict[str, object] | None = None
+        self._broker_event_checkpoint = BrokerEventSyncCheckpoint()
+        self._last_broker_event_sync: dict[str, object] | None = None
         self._running = False
         self._initialized = False
 
@@ -243,6 +252,38 @@ class PaperTradingEngine:
                 self._apply_fill(event.fill)
         return fills
 
+    def sync_broker_events(
+        self,
+        source: BrokerEventSource,
+        *,
+        max_events: int = 0,
+        max_gap_seconds: float | int | None = None,
+        fail_on_gap: bool = True,
+        fail_on_out_of_order: bool = True,
+        reconcile_before: bool = True,
+        reconcile_after: bool = True,
+    ) -> dict[str, object]:
+        """Synchronize a broker-event source through restart-safe checkpoints."""
+        self._require_initialized()
+        reconciliation_before = self.reconcile() if reconcile_before else None
+        loop = BrokerEventSyncLoop(
+            source,
+            self.on_broker_event,
+            checkpoint=self._broker_event_checkpoint,
+            policy=BrokerEventSyncPolicy(
+                max_gap_seconds=None if max_gap_seconds is None else float(max_gap_seconds),
+                fail_on_gap=fail_on_gap,
+                fail_on_out_of_order=fail_on_out_of_order,
+            ),
+        )
+        result = loop.run(max_events=max_events)
+        reconciliation_after = self.reconcile() if reconcile_after else None
+        self._last_broker_event_sync = result.to_dict()
+        self._last_broker_event_sync["checkpoint"] = self._broker_event_checkpoint.to_dict()
+        self._last_broker_event_sync["reconciliation_before"] = reconciliation_before
+        self._last_broker_event_sync["reconciliation_after"] = reconciliation_after
+        return dict(self._last_broker_event_sync)
+
     def reconcile(self) -> dict[str, object]:
         self._require_initialized()
         assert self.portfolio is not None
@@ -276,6 +317,7 @@ class PaperTradingEngine:
             "error": error,
             "market_open": market_open,
             "reconciliation": self._last_reconciliation,
+            "broker_event_sync": self._last_broker_event_sync,
             "mock_mode": bool(self.config.broker.safety.get("mock_mode")),
             "market_data_provider": self.market_data_provider_name,
         }

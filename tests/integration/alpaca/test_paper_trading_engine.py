@@ -7,8 +7,19 @@ from typing import Any
 
 from qts.brokers.alpaca import AlpacaBrokerage
 from qts.core import ConfigurationError, load_runtime_config
-from qts.domain import Bar, BarTimeframe, PortfolioSnapshot, Signal, SignalDirection
+from qts.domain import (
+    Bar,
+    BarTimeframe,
+    Order,
+    OrderSide,
+    OrderStatus,
+    OrderType,
+    PortfolioSnapshot,
+    Signal,
+    SignalDirection,
+)
 from qts.engines import PaperTradingEngine
+from qts.execution import InMemoryBrokerEventSource, broker_event_from_order
 from qts.strategies import BaseStrategy
 
 
@@ -263,6 +274,37 @@ class PaperTradingEngineIntegrationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ConfigurationError, "injected strategy count"):
             engine.initialize()
+
+    def test_paper_engine_syncs_broker_event_source_with_reconciliation(self) -> None:
+        config = load_paper_config()
+        engine = PaperTradingEngine(config)
+        engine.initialize()
+        order = Order(
+            order_id="restart-order-1",
+            client_order_id="coid-restart-order-1",
+            symbol="SPY",
+            created_at=NOW,
+            updated_at=NOW,
+            side=OrderSide.BUY,
+            filled_quantity=0,
+            order_type=OrderType.MARKET,
+            status=OrderStatus.ACCEPTED,
+            quantity=10,
+            remaining_quantity=10,
+        )
+        source = InMemoryBrokerEventSource([broker_event_from_order(order)])
+
+        result = engine.sync_broker_events(source, max_events=1)
+
+        tracked_order = engine.execution_engine.order_manager.get_order("restart-order-1")
+        self.assertEqual(result["processed_count"], 1)
+        self.assertEqual(result["stopped_reason"], "max_events")
+        self.assertEqual(result["checkpoint"]["processed_event_count"], 1)
+        self.assertEqual(result["reconciliation_before"]["status"], "matched")
+        self.assertEqual(result["reconciliation_after"]["status"], "matched")
+        self.assertEqual(tracked_order.status, OrderStatus.ACCEPTED)
+        self.assertEqual(engine.health_check()["broker_event_sync"]["processed_count"], 1)
+        self.assertTrue(source.closed)
 
 
 if __name__ == "__main__":

@@ -26,7 +26,17 @@ from qts.domain import (
     normalize_symbol,
     normalize_timestamp,
 )
-from qts.execution import build_order_request
+from qts.execution import (
+    BrokerEventSource,
+    BrokerEventSyncCheckpoint,
+    BrokerEventSyncLoop,
+    BrokerEventSyncPolicy,
+    broker_event_from_account,
+    broker_event_from_fill,
+    broker_event_from_order,
+    broker_event_from_position,
+    build_order_request,
+)
 from qts.features import FeaturePipeline
 from qts.monitoring import (
     AlertManager,
@@ -90,6 +100,8 @@ class LiveEngine:
         self._last_market_event: Bar | Quote | None = None
         self._latest_prices: dict[str, float] = {}
         self._decision_previews: list[dict[str, object]] = []
+        self._broker_event_checkpoint = BrokerEventSyncCheckpoint()
+        self._last_broker_event_sync: dict[str, object] | None = None
 
     def initialize(self, runtime_config: RuntimeConfig | None = None) -> None:
         if runtime_config is not None:
@@ -205,8 +217,68 @@ class LiveEngine:
 
     def on_broker_event(self, event: BrokerEvent | Order | Fill | Account | Position) -> None:
         self._require_initialized()
+        if isinstance(event, Order):
+            event = broker_event_from_order(event, source="live_external")
+        elif isinstance(event, Fill):
+            event = broker_event_from_fill(event, source="live_external")
+        elif isinstance(event, Account):
+            event = broker_event_from_account(event, source="live_external")
+        elif isinstance(event, Position):
+            event = broker_event_from_position(event, source="live_external")
         event_type = event.event_type.value if isinstance(event, BrokerEvent) else type(event).__name__
         self.metrics_logger.increment("live_broker_events_total", tags={"event_type": event_type})
+
+    def sync_broker_events(
+        self,
+        source: BrokerEventSource,
+        *,
+        max_events: int = 0,
+        max_gap_seconds: float | int | None = None,
+        fail_on_gap: bool = True,
+        fail_on_out_of_order: bool = True,
+        reconcile_before: bool = True,
+        reconcile_after: bool = True,
+    ) -> dict[str, object]:
+        """Synchronize broker lifecycle events without enabling live submission."""
+        self._require_initialized()
+        reconciliation_before = self.reconcile() if reconcile_before else None
+        loop = BrokerEventSyncLoop(
+            source,
+            self.on_broker_event,
+            checkpoint=self._broker_event_checkpoint,
+            policy=BrokerEventSyncPolicy(
+                max_gap_seconds=None if max_gap_seconds is None else float(max_gap_seconds),
+                fail_on_gap=fail_on_gap,
+                fail_on_out_of_order=fail_on_out_of_order,
+            ),
+        )
+        result = loop.run(max_events=max_events)
+        reconciliation_after = self.reconcile() if reconcile_after else None
+        self._last_broker_event_sync = result.to_dict()
+        self._last_broker_event_sync["checkpoint"] = self._broker_event_checkpoint.to_dict()
+        self._last_broker_event_sync["reconciliation_before"] = reconciliation_before
+        self._last_broker_event_sync["reconciliation_after"] = reconciliation_after
+        self.metrics_logger.increment(
+            "live_broker_event_sync_runs_total",
+            tags={"stopped_reason": str(result.stopped_reason)},
+        )
+        return dict(self._last_broker_event_sync)
+
+    def reconcile(self) -> dict[str, object]:
+        self._require_initialized()
+        assert self.portfolio is not None
+        assert self.brokerage is not None
+        check = BrokerReconciliationCheck(self.portfolio, self.brokerage)
+        result = check.run()
+        self._last_reconciliation = dict(result.details)
+        if result.status == HealthStatus.CRITICAL:
+            self.alert_manager.emit(
+                AlertSeverity.CRITICAL,
+                "live_engine",
+                "live reconciliation mismatch",
+                details=result.details,
+            )
+        return self._last_reconciliation
 
     def validate_order_request(
         self,
@@ -241,6 +313,7 @@ class LiveEngine:
                 "dry_run": bool(self.config.broker.safety.get("dry_run")),
                 "market_data_provider": self.market_data_provider_name,
                 "last_reconciliation": self._last_reconciliation,
+                "broker_event_sync": self._last_broker_event_sync,
                 "last_market_event_symbol": (
                     self._last_market_event.symbol if self._last_market_event is not None else None
                 ),
