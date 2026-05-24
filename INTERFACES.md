@@ -522,13 +522,16 @@ Orchestrate paper or live trading runtime.
 | `initialize` | runtime config | none | Wire live dependencies. |
 | `start` | none | none | Start event loop. |
 | `stop` | reason | none | Graceful shutdown. |
-| `on_market_event` | event | none | Handle incoming data. |
+| `on_market_event` | event | health/status with decision previews | Handle incoming data and guarded dry-run preview. |
 | `on_broker_event` | order/fill/account event | none | Handle broker updates. |
 | `health_check` | none | health status | Used by monitoring. |
 
 ### Safety Contract
 
 Live mode must fail initialization unless explicit live-trading safety flags are enabled.
+Dry-run live market events may generate decision previews, but they must not
+call broker order submission. Any would-be order must be represented as a
+serialized `OrderRequest` preview and validated through live safety gates.
 
 ## 21. Reporter
 

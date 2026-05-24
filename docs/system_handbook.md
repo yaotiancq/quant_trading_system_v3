@@ -87,7 +87,10 @@ Each layer owns a small responsibility:
 2. `LiveEngine` validates safety gates.
 3. `_DryRunLiveBrokerage` provides account/position scaffolding.
 4. Monitoring, reconciliation, and health checks run.
-5. No live orders are submitted.
+5. Direct live bar events can produce guarded decision previews through
+   feature, strategy, risk, order-request construction, and live safety
+   validation.
+6. No live orders are submitted.
 
 ## 3. File-by-File Reference
 

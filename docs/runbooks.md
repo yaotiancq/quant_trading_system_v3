@@ -57,6 +57,16 @@ bounded reconnect attempts and fail closed when reconnect is exhausted.
 check in this phase. A miss should be investigated as stale or interrupted
 market data before any paper/live runtime is resumed.
 
+## Live Decision Preview
+
+Dry-run live bar events may produce decision previews. A preview means the
+engine ran feature updates, strategy logic, risk evaluation, order-request
+construction, and live safety validation. It does not mean an order was sent.
+
+Treat `preview_status: safety_rejected` as a blocked would-be order. Inspect the
+preview `error`, risk reasons, order size, symbol allowlist, market-session
+state, and account safety caps before changing any configuration.
+
 ## Reconciliation Mismatch
 
 When reconciliation reports `mismatch`:

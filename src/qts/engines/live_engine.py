@@ -2,24 +2,31 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime, timezone
 
 from qts.brokers import Brokerage
 from qts.calendar import MarketSessionService, build_market_session_service, default_market_session_service
-from qts.core import ConfigurationError, LiveSafetyError, RealClock, ReconciliationError
+from qts.core import ConfigurationError, ExecutionError, LiveSafetyError, RealClock, ReconciliationError
 from qts.domain import (
     Account,
     Bar,
     BrokerConfig,
+    FeatureFrame,
     Fill,
     Order,
     OrderRequest,
     OrderStatus,
     Position,
     Quote,
+    RiskDecisionStatus,
     RuntimeConfig,
     RuntimeMode,
+    normalize_symbol,
+    normalize_timestamp,
 )
+from qts.execution import build_order_request
+from qts.features import FeaturePipeline
 from qts.monitoring import (
     AlertManager,
     AlertSeverity,
@@ -34,7 +41,10 @@ from qts.monitoring import (
     validate_order_request_safety,
 )
 from qts.portfolio import DefaultPortfolio
+from qts.risk import RiskEngine
+from qts.strategies import BaseStrategy, create_strategy
 
+from .features import feature_pipeline_settings_from_strategies
 from .market_data import resolve_event_market_data_provider
 
 
@@ -52,6 +62,8 @@ class LiveEngine:
         *,
         brokerage: Brokerage | None = None,
         portfolio: DefaultPortfolio | None = None,
+        feature_pipeline: FeaturePipeline | None = None,
+        strategies: Sequence[BaseStrategy] | None = None,
         health_monitor: HealthMonitor | None = None,
         alert_manager: AlertManager | None = None,
         metrics_logger: RuntimeMetricsLogger | None = None,
@@ -60,16 +72,23 @@ class LiveEngine:
         self.config = runtime_config
         self.brokerage = brokerage
         self.portfolio = portfolio
+        self.feature_pipeline = feature_pipeline
+        self.strategies = list(strategies or [])
+        self._strategies_injected = strategies is not None
         self.health_monitor = health_monitor
         self.alert_manager = alert_manager or AlertManager()
         self.metrics_logger = metrics_logger or RuntimeMetricsLogger()
         self.clock = clock or RealClock()
         self.session_service: MarketSessionService | None = None
+        self.data_portal = _LiveDataPortal()
+        self.risk_engine: RiskEngine | None = None
         self._running = False
         self._initialized = False
         self.market_data_provider_name: str | None = None
         self._last_reconciliation: dict[str, object] | None = None
         self._last_market_event: Bar | Quote | None = None
+        self._latest_prices: dict[str, float] = {}
+        self._decision_previews: list[dict[str, object]] = []
 
     def initialize(self, runtime_config: RuntimeConfig | None = None) -> None:
         if runtime_config is not None:
@@ -99,6 +118,29 @@ class LiveEngine:
                 account_id=account.account_id or "live",
                 timestamp=account.timestamp,
             )
+        if self.feature_pipeline is None:
+            feature_specs, schema_version = feature_pipeline_settings_from_strategies(
+                self.config.strategies
+            )
+            self.feature_pipeline = FeaturePipeline(feature_specs, schema_version=schema_version)
+        self.data_portal.feature_pipeline = self.feature_pipeline
+        self.risk_engine = RiskEngine(self.config.risk)
+        enabled_strategy_configs = [config for config in self.config.strategies if config.enabled]
+        if self._strategies_injected and len(self.strategies) != len(enabled_strategy_configs):
+            raise ConfigurationError(
+                "injected strategy count does not match enabled strategy config count"
+            )
+        if not self._strategies_injected:
+            self.strategies = [
+                create_strategy(strategy_config)
+                for strategy_config in enabled_strategy_configs
+            ]
+        for strategy, strategy_config in zip(
+            self.strategies,
+            enabled_strategy_configs,
+            strict=True,
+        ):
+            strategy.initialize(strategy_config, self.data_portal, {"runtime_config": self.config})
         reconciliation_check = BrokerReconciliationCheck(self.portfolio, self.brokerage)
         reconciliation = reconciliation_check.run()
         self._last_reconciliation = dict(reconciliation.details)
@@ -149,9 +191,16 @@ class LiveEngine:
 
     def on_market_event(self, event: Bar | Quote) -> dict[str, object]:
         self._require_initialized()
+        assert self.portfolio is not None
         self._last_market_event = event
+        self.data_portal.advance(event)
+        self._latest_prices[event.symbol] = _event_price(event)
+        self.portfolio.mark_to_market(self._latest_prices, event.timestamp)
         self.metrics_logger.increment("live_market_events_total", tags={"symbol": event.symbol})
-        return self.health_check()
+        previews = [] if isinstance(event, Quote) else self._preview_bar_decisions(event)
+        status = self.health_check()
+        status["decision_previews"] = previews
+        return status
 
     def on_broker_event(self, event: Order | Fill | Account | Position) -> None:
         self._require_initialized()
@@ -194,6 +243,10 @@ class LiveEngine:
                 "last_market_event_symbol": (
                     self._last_market_event.symbol if self._last_market_event is not None else None
                 ),
+                "decision_preview_count": len(self._decision_previews),
+                "last_decision_preview": (
+                    self._decision_previews[-1] if self._decision_previews else None
+                ),
             }
         )
         return summary
@@ -201,6 +254,126 @@ class LiveEngine:
     def _require_initialized(self) -> None:
         if not self._initialized:
             raise ConfigurationError("live engine must be initialized first")
+
+    def _preview_bar_decisions(self, event: Bar) -> list[dict[str, object]]:
+        assert self.portfolio is not None
+        assert self.feature_pipeline is not None
+        assert self.risk_engine is not None
+        snapshot = self.portfolio.mark_to_market(self._latest_prices, event.timestamp)
+        features = self.feature_pipeline.update_online(event)
+        previews: list[dict[str, object]] = []
+        for strategy in self.strategies:
+            if event.symbol not in strategy.symbols:
+                continue
+            outputs = strategy.on_data(event, features, snapshot)
+            for output in outputs:
+                decision = self.risk_engine.evaluate(
+                    output,
+                    snapshot,
+                    {
+                        "timestamp": event.timestamp,
+                        "bar": event,
+                        "current_bar": event,
+                        "price": event.close,
+                        "prices": dict(self._latest_prices),
+                    },
+                )
+                preview = self._decision_preview(event, decision)
+                previews.append(preview)
+                self._decision_previews.append(preview)
+                self.metrics_logger.increment(
+                    "live_decision_previews_total",
+                    tags={
+                        "symbol": event.symbol,
+                        "preview_status": str(preview["preview_status"]),
+                    },
+                )
+        return previews
+
+    def _decision_preview(self, event: Bar, decision) -> dict[str, object]:  # type: ignore[no-untyped-def]
+        preview: dict[str, object] = {
+            "preview_id": f"preview-{decision.decision_id}",
+            "timestamp": event.timestamp.isoformat().replace("+00:00", "Z"),
+            "symbol": event.symbol,
+            "risk_decision_id": decision.decision_id,
+            "risk_status": decision.status.value,
+            "preview_status": "risk_rejected",
+            "would_submit": False,
+            "reasons": list(decision.reasons),
+            "order_request": None,
+            "error": None,
+        }
+        if decision.status == RiskDecisionStatus.REJECTED:
+            return preview
+        try:
+            order_request = build_order_request(
+                decision,
+                allow_fractional=bool(self.config.execution.get("allow_fractional", True)),
+                metadata={"live_decision_preview": True},
+            )
+            preview["order_request"] = order_request.to_dict()
+            validate_order_request_safety(self.config, order_request, price=event.close)
+        except (ExecutionError, LiveSafetyError) as exc:
+            preview["preview_status"] = "safety_rejected"
+            preview["error"] = str(exc)
+            return preview
+        preview["preview_status"] = "safety_approved"
+        preview["would_submit"] = True
+        return preview
+
+
+class _LiveDataPortal:
+    """Minimal data portal for live decision preview."""
+
+    def __init__(self) -> None:
+        self._bars: list[Bar] = []
+        self._current_bars: dict[str, Bar] = {}
+        self._quotes: dict[str, Quote] = {}
+        self.feature_pipeline: FeaturePipeline | None = None
+
+    def get_bars(
+        self,
+        symbol: str,
+        lookback: int | None = None,
+        end: datetime | str | None = None,
+    ) -> list[Bar]:
+        normalized_symbol = normalize_symbol(symbol)
+        rows = [bar for bar in self._bars if bar.symbol == normalized_symbol]
+        if end is not None:
+            rows = [bar for bar in rows if bar.timestamp <= normalize_timestamp(end)]
+        return rows[-lookback:] if lookback is not None else rows
+
+    def get_current_bar(self, symbol: str) -> Bar | None:
+        return self._current_bars.get(normalize_symbol(symbol))
+
+    def get_quote(self, symbol: str) -> Quote | None:
+        return self._quotes.get(normalize_symbol(symbol))
+
+    def get_feature_frame(
+        self,
+        symbols: Sequence[str],
+        feature_names: Sequence[str] | None = None,
+        lookback: int | None = None,
+    ) -> FeatureFrame:
+        if self.feature_pipeline is None:
+            raise ConfigurationError("live data portal has no feature pipeline")
+        bars = [bar for bar in self._bars if bar.symbol in {symbol.upper() for symbol in symbols}]
+        if lookback is not None:
+            bars = bars[-lookback:]
+        return self.feature_pipeline.transform_batch(bars)
+
+    def advance(self, event: Bar | Quote) -> None:
+        if isinstance(event, Bar):
+            self._bars.append(event)
+            self._current_bars[event.symbol] = event
+            return
+        self._quotes[event.symbol] = event
+
+
+def _event_price(event: Bar | Quote) -> float:
+    if isinstance(event, Quote):
+        return (event.bid_price + event.ask_price) / 2.0
+    return event.close
 
 
 class _DryRunLiveBrokerage:

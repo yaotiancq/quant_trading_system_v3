@@ -76,6 +76,12 @@ disconnect, reconnect, heartbeat miss, source-run, and stopped-reason counters,
 and paper runtime loops read `market_data.reconnect` and
 `market_data.heartbeat` settings.
 
+Major Architecture Phase B2b2 has added guarded live decision preview. Dry-run
+live bar events now run through live data portal state, feature updates,
+strategies, risk evaluation, normalized order-request construction, and live
+safety validation, then record a preview without calling broker order
+submission.
+
 Real live broker order submission remains disabled by default. Phase 8 provides
 guarded dry-run initialization and safety validation only.
 
@@ -85,10 +91,11 @@ runtime feature schema wiring. ADR-007 follow-up fixes made the original
 paper/live market-data mode explicit through `market_data.provider:
 external_events`; Phase B1 adds paper-only `fake_stream` support, and Phase B2a
 adds paper-only `alpaca_stream` adapter support. Phase B2b1 adds runtime stream
-reliability policy. Live remains external-event driven. Runtime order validation
-also enforces `execution.allow_fractional`.
+reliability policy. Phase B2b2 adds guarded dry-run live decision previews.
+Live remains external-event driven and real live broker submission remains
+disabled. Runtime order validation also enforces `execution.allow_fractional`.
 
-- **Current phase:** Major Architecture Phase B2b1 complete
+- **Current phase:** Major Architecture Phase B2b2 complete
 - **Completed phases:**
   - Phase 0 - Documentation and repository scaffold initialization
   - Phase 1 - Project Skeleton and Core Domain Models
@@ -105,9 +112,10 @@ also enforces `execution.allow_fractional`.
   - Major Architecture Phase B1 - Deterministic Runtime Event Loop and Fake Stream
   - Major Architecture Phase B2a - Alpaca Stream Adapter Boundary for Paper Runtime
   - Major Architecture Phase B2b1 - Runtime Reconnect and Heartbeat Policy
+  - Major Architecture Phase B2b2 - Guarded Live Decision Preview
 - **In-progress phase:** None
-- **Next recommended task:** Major Architecture Phase B2b2 - Guarded Live
-  Decision Preview.
+- **Next recommended task:** Major Architecture Phase C - Broker Event Stream
+  and Order Lifecycle Synchronization.
 
 ## 2. Completed Phases
 
@@ -128,12 +136,12 @@ also enforces `execution.allow_fractional`.
 | Major Architecture Phase B1 | Complete | Implemented deterministic runtime event-loop primitives, fake in-memory stream support, paper-engine finite stream execution, config template, and tests. |
 | Major Architecture Phase B2a | Complete | Implemented mockable Alpaca stream payload adapter, paper-engine stream source wiring, config template, and tests. |
 | Major Architecture Phase B2b1 | Complete | Implemented runtime reconnect/heartbeat policy, event-loop health counters, config validation, and tests. |
+| Major Architecture Phase B2b2 | Complete | Implemented guarded live dry-run decision previews through feature, strategy, risk, order-request, and live safety validation without broker submission. |
 
 ## 3. Pending Phases
 
 | Phase | Status |
 |---|---|
-| Major Architecture Phase B2b2 - Guarded Live Decision Preview | Planned |
 | Major Architecture Phase C - Broker Event Stream and Order Lifecycle Synchronization | Planned |
 | Major Architecture Phase D - Production Live-Trading Enablement | Blocked until A-C complete |
 | Major Architecture Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned |

@@ -1004,7 +1004,7 @@ time after Phase A is stable:
 | Phase B1 - Deterministic Runtime Event Loop and Fake Stream | Complete | Added event-source abstraction, finite fake stream, paper-engine loop wiring, and deterministic tests. |
 | Phase B2a - Alpaca Stream Adapter Boundary for Paper Runtime | Complete | Added mockable Alpaca stream payload adapter, paper-engine source factory wiring, config template, and tests. |
 | Phase B2b1 - Runtime Reconnect and Heartbeat Policy | Complete | Added bounded reconnect policy, heartbeat/data-gap counters, config plumbing, and deterministic tests. |
-| Phase B2b2 - Guarded Live Decision Preview | Planned | Add guarded live dry-run strategy/risk decision dispatch without real broker submission. |
+| Phase B2b2 - Guarded Live Decision Preview | Complete | Added live dry-run strategy/risk/order-request previews without broker submission. |
 | Phase C - Broker Event Stream and Order Lifecycle Synchronization | Planned | Add normalized broker event stream, idempotent lifecycle updates, and polling fallback. |
 | Phase D - Production Live-Trading Enablement | Blocked until A-C complete | Enable real live submission only behind strict fail-closed safety gates. |
 | Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned | Add optional static chart artifacts for backtest reports. |
@@ -1111,4 +1111,35 @@ live decision preview.
   reconnect is enabled and attempts remain.
 - Heartbeat/data-gap misses are counted, and can either fail closed or warn
   according to config.
+- Tests remain deterministic and network-free.
+
+## Major Architecture Phase B2b2 - Guarded Live Decision Preview
+
+### Goal
+
+Allow guarded live dry-run runtimes to process normalized market events through
+the same feature, strategy, risk, and order-request construction path used by
+paper trading while stopping before broker submission.
+
+### Scope
+
+- Initialize live feature pipeline, data portal, risk engine, and strategies.
+- On live bar events, run enabled strategies and risk evaluation.
+- Build normalized `OrderRequest` previews for approved risk decisions.
+- Validate previews against live order safety gates.
+- Record approved or safety-rejected decision previews in health/status output.
+- Keep quote-only events stateful but non-ordering for bar-based strategies.
+
+### Out of Scope
+
+- Real live broker order submission.
+- Broker event streams and lifecycle synchronization.
+- Continuous live stream provider ownership.
+
+### Acceptance Criteria
+
+- Dry-run live bar events can produce safety-approved decision previews without
+  calling `broker.submit_order`.
+- Unsafe live previews are recorded as rejected instead of submitted.
+- Quote-only events update state without creating bar-strategy previews.
 - Tests remain deterministic and network-free.

@@ -13,6 +13,7 @@ def make_live_config(
     safety: dict[str, object] | None = None,
     symbols: list[str] | None = None,
     account_id: str = "acct-1",
+    risk: dict[str, object] | None = None,
     execution: dict[str, object] | None = None,
 ) -> RuntimeConfig:
     merged_safety = {
@@ -48,7 +49,8 @@ def make_live_config(
                 parameters={"fast_window": 2, "slow_window": 3},
             )
         ],
-        risk={
+        risk=risk
+        or {
             "sizing_method": "fixed_notional",
             "sizing_parameters": {"notional_per_trade": 100},
         },

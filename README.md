@@ -159,6 +159,10 @@ policy through `market_data.reconnect` and `market_data.heartbeat`. Reconnects
 require an explicit source factory, and current tests do not sleep or open real
 network streams.
 
+Live dry-run event handling can produce guarded decision previews. These
+previews run the feature, strategy, risk, order-request, and live-safety path,
+then stop before broker submission.
+
 Validate a runtime config through the CLI:
 
 ```bash

@@ -1005,3 +1005,45 @@ streaming transports can honor later.
 - Add real sleeps and wall-clock timeout behavior to unit tests.
 - Retry by reusing the same source object implicitly.
 - Treat stream disconnects as ordinary generic data errors.
+
+---
+
+## ADR-028: Live Dry-Run Events Produce Decision Previews, Not Orders
+
+### Context
+
+Live runtime should converge with paper trading by running normalized market
+events through feature, strategy, risk, and order-request construction paths.
+However, real live order submission remains intentionally disabled until broker
+event synchronization and production live safety phases are complete.
+
+### Decision
+
+`LiveEngine.on_market_event()` now supports guarded dry-run decision preview for
+bar events. The engine advances live data state, marks the internal portfolio to
+market, updates online features, invokes enabled strategies, evaluates risk,
+builds a normalized `OrderRequest` preview, and validates live order safety.
+
+The preview is recorded in status output with `would_submit`, preview status,
+the serialized order request, and any safety error. The broker adapter is not
+called for order submission.
+
+### Rationale
+
+This tests the live decision path without creating an accidental live trading
+surface. It keeps the live runtime aligned with paper/backtest contracts while
+preserving the fail-closed live safety model.
+
+### Consequences
+
+- Live dry-run bar events can produce safety-approved or safety-rejected
+  previews.
+- Quote-only events update state but do not trigger bar-based strategy previews.
+- Production live submission still requires later broker event stream and live
+  enablement phases.
+
+### Alternatives Considered
+
+- Keep live market events as health-only telemetry until production live mode.
+- Submit dry-run orders to the live broker adapter.
+- Duplicate paper engine order-submission logic inside live mode.

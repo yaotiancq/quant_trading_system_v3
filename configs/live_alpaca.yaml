@@ -32,7 +32,9 @@ market_session:
 
 # Live runtime event source.
 market_data:
-  # Options for this runtime scaffold: external_events.
+  # Options for this runtime scaffold: external_events. Dry-run engine usage can
+  # preview decisions from externally supplied normalized Bar events, but real
+  # live stream ownership remains a future phase.
   provider: external_events
 
 # Alpaca live brokerage settings.

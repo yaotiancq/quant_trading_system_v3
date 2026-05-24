@@ -8,6 +8,34 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Major Architecture Phase B2b2] - 2026-05-24
+
+### Added
+
+- Added guarded live decision previews to `LiveEngine` for dry-run market events.
+- Added live runtime data portal state, feature pipeline initialization, strategy
+  initialization, and risk engine wiring.
+- Added live preview tests for safety-approved previews, safety-rejected
+  previews, quote-only events, and no broker submission.
+
+### Changed
+
+- `LiveEngine.on_market_event()` now advances live data state, marks the
+  portfolio to market, runs bar-based strategy/risk evaluation, builds
+  normalized order-request previews, and validates live safety gates without
+  submitting broker orders.
+- Live health output now reports decision preview count and the latest preview.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+---
+
 ## [Major Architecture Phase B2b1] - 2026-05-24
 
 ### Added

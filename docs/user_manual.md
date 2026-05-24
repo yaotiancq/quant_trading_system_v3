@@ -419,6 +419,8 @@ Current limitations:
 - Runtime event loops expose deterministic reconnect and heartbeat/data-gap
   policy through `market_data.reconnect` and `market_data.heartbeat`. Current
   tests do not sleep or connect to real streaming services.
+- Live dry-run event handling can produce guarded decision previews, but those
+  previews stop before broker submission.
 - Fill updates are derived from polling filled-quantity deltas.
 
 Run the deterministic fake-stream paper template:
@@ -526,6 +528,12 @@ This validates:
 - health checks.
 
 It does not submit live broker orders.
+
+In direct engine usage, normalized live bar events can produce decision
+previews. A preview runs feature updates, strategy logic, risk evaluation,
+order-request construction, and live safety validation, then records what would
+happen without submitting to the broker. Quote-only events update state but do
+not trigger the bundled bar-based strategies.
 
 Without `--confirm-live-safety`, the live engine should fail closed. That is
 expected.

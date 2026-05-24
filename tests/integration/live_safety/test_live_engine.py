@@ -6,11 +6,64 @@ from datetime import datetime, timezone
 from io import StringIO
 
 from qts.core import LiveSafetyError, ReplayClock
-from qts.domain import OrderRequest, OrderSide, OrderType, TimeInForce
+from qts.domain import (
+    Bar,
+    BarTimeframe,
+    OrderRequest,
+    OrderSide,
+    OrderType,
+    PortfolioSnapshot,
+    Quote,
+    Signal,
+    SignalDirection,
+    TimeInForce,
+)
 from qts.engines import LiveEngine
+from qts.strategies import BaseStrategy
 
 from scripts.run_live_trading import main as run_live_main
 from tests.unit.monitoring.helpers import NOW, make_live_config
+
+
+class BuyOnceLiveStrategy(BaseStrategy):
+    def __init__(self) -> None:
+        super().__init__()
+        self.fired = False
+
+    def on_data(
+        self,
+        market_event: Bar,
+        features,
+        portfolio_snapshot: PortfolioSnapshot | None = None,
+    ) -> list[Signal]:
+        self._validate_symbol(market_event.symbol)
+        if self.fired:
+            return []
+        self.fired = True
+        return [
+            Signal(
+                signal_id="live-preview-buy-once",
+                strategy_id=self.name,
+                symbol=market_event.symbol,
+                timestamp=market_event.timestamp,
+                direction=SignalDirection.BUY,
+                confidence=1.0,
+                reason="live_preview_test",
+            )
+        ]
+
+
+def make_bar() -> Bar:
+    return Bar(
+        symbol="SPY",
+        timestamp=NOW,
+        timeframe=BarTimeframe.MINUTE,
+        open=100,
+        high=101,
+        low=99,
+        close=100,
+        volume=1000,
+    )
 
 
 class LiveEngineSafetyIntegrationTests(unittest.TestCase):
@@ -56,6 +109,62 @@ class LiveEngineSafetyIntegrationTests(unittest.TestCase):
 
         with self.assertRaises(LiveSafetyError):
             engine.validate_order_request(order, price=100)
+
+    def test_live_engine_records_safety_approved_decision_preview_without_submission(self) -> None:
+        config = make_live_config(
+            risk={
+                "sizing_method": "fixed_quantity",
+                "sizing_parameters": {"quantity": 1},
+            },
+            execution={"allow_fractional": False},
+        )
+        engine = LiveEngine(config, strategies=[BuyOnceLiveStrategy()])
+        engine.initialize()
+
+        status = engine.on_market_event(make_bar())
+
+        previews = status["decision_previews"]
+        self.assertEqual(len(previews), 1)
+        self.assertEqual(previews[0]["preview_status"], "safety_approved")
+        self.assertTrue(previews[0]["would_submit"])
+        self.assertEqual(previews[0]["order_request"]["symbol"], "SPY")
+        self.assertEqual(status["decision_preview_count"], 1)
+        self.assertEqual(engine.brokerage.orders, {})
+
+    def test_live_engine_records_safety_rejected_decision_preview(self) -> None:
+        config = make_live_config(
+            risk={
+                "sizing_method": "fixed_quantity",
+                "sizing_parameters": {"quantity": 11},
+            },
+            execution={"allow_fractional": False},
+        )
+        engine = LiveEngine(config, strategies=[BuyOnceLiveStrategy()])
+        engine.initialize()
+
+        status = engine.on_market_event(make_bar())
+
+        preview = status["decision_previews"][0]
+        self.assertEqual(preview["preview_status"], "safety_rejected")
+        self.assertFalse(preview["would_submit"])
+        self.assertIn("max_order_quantity", preview["error"])
+        self.assertEqual(engine.brokerage.orders, {})
+
+    def test_live_engine_quote_event_updates_state_without_decision_preview(self) -> None:
+        engine = LiveEngine(make_live_config(), strategies=[BuyOnceLiveStrategy()])
+        engine.initialize()
+        quote = Quote(
+            symbol="SPY",
+            timestamp=NOW,
+            bid_price=100,
+            ask_price=100.1,
+        )
+
+        status = engine.on_market_event(quote)
+
+        self.assertEqual(status["decision_previews"], [])
+        self.assertEqual(status["decision_preview_count"], 0)
+        self.assertEqual(status["last_market_event_symbol"], "SPY")
 
     def test_live_runner_dry_run_command_initializes(self) -> None:
         with redirect_stdout(StringIO()):

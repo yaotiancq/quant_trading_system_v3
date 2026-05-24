@@ -1237,3 +1237,37 @@ Summary counters returned by one runtime event-loop run.
 - paper runtime health/status output,
 - tests,
 - future live/runtime monitoring.
+
+---
+
+## 26. LiveDecisionPreview
+
+### Purpose
+
+Structured status payload for a would-be live order in dry-run decision preview
+mode. It is emitted by `LiveEngine` and is not submitted to a broker.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `preview_id` | string | yes | derived from risk decision id |
+| `timestamp` | datetime string | yes | UTC ISO timestamp |
+| `symbol` | string | yes | normalized symbol |
+| `risk_decision_id` | string | yes | source risk decision |
+| `risk_status` | string | yes | approved, modified, or rejected |
+| `preview_status` | string | yes | `safety_approved`, `safety_rejected`, or `risk_rejected` |
+| `would_submit` | bool | yes | true only when risk and safety allow the order |
+| `reasons` | list[string] | yes | sizing/risk reasons |
+| `order_request` | dict/null | no | serialized normalized order request |
+| `error` | string/null | no | safety or order-request error |
+
+### Producers
+
+- guarded dry-run `LiveEngine`.
+
+### Consumers
+
+- live health/status output,
+- tests,
+- future audit logging.
