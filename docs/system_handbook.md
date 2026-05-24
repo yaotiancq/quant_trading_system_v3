@@ -105,7 +105,10 @@ Each layer owns a small responsibility:
    pass.
 8. Non-dry-run `LiveEngine` can construct the selected Alpaca live adapter only
    after the same D1 submission gates pass.
-9. Strategy previews are not automatically submitted.
+9. Safety-approved previews can submit automatically only when
+   `enable_automated_submission` is true and the automated kill switch is open.
+10. Automated submission failures stop further automation and report critical
+    live health.
 
 ## 3. File-by-File Reference
 
@@ -156,7 +159,7 @@ generated egg-info metadata are not part of the source contract.
 | `configs/paper_ibkr.yaml` | IBKR paper runtime template using external market events and `symbol_conids`. |
 | `configs/paper_fake_stream.yaml` | Deterministic paper runtime template using finite in-memory market events. |
 | `configs/paper_alpaca_stream_mock.yaml` | Deterministic paper runtime template using Alpaca-shaped mock stream payloads. |
-| `configs/live_alpaca.yaml` | Guarded live template with dry-run support plus manual submission and Alpaca live adapter construction disabled by default. |
+| `configs/live_alpaca.yaml` | Guarded live template with dry-run support plus manual submission, Alpaca live adapter construction, and automated preview submission disabled by default. |
 | `configs/ml/directional_baseline.yaml` | Offline ML fixture training configuration. |
 | `configs/risk/base.yaml` | Reusable risk sizing and rule defaults imported with `risk_ref`. |
 | `configs/strategies/sma_crossover.yaml` | Reusable SMA crossover strategy profile imported with `config_ref`. |
@@ -288,7 +291,7 @@ broker or integration metadata.
 | `src/qts/brokers/interfaces.py` | Normalized `Brokerage` protocol. |
 | `src/qts/brokers/backtest/brokerage.py` | Simulated broker with order lifecycle, fill policies, cash, positions, slippage, and commission. |
 | `src/qts/brokers/backtest/__init__.py` | Backtest broker exports. |
-| `src/qts/brokers/alpaca/brokerage.py` | Alpaca paper brokerage adapter implementing `Brokerage`. |
+| `src/qts/brokers/alpaca/brokerage.py` | Alpaca paper and explicitly gated live brokerage adapter implementing `Brokerage`. |
 | `src/qts/brokers/alpaca/__init__.py` | Alpaca broker exports. |
 | `src/qts/brokers/ibkr/brokerage.py` | IBKR paper brokerage adapter implementing `Brokerage`. |
 | `src/qts/brokers/ibkr/__init__.py` | IBKR broker exports. |
@@ -337,7 +340,7 @@ but should not be confused with broker-owned account state.
 | `src/qts/engines/market_data.py` | Validates event-driven market data provider settings for paper/live. |
 | `src/qts/engines/backtest_engine.py` | Deterministic local backtest orchestration. |
 | `src/qts/engines/paper_trading_engine.py` | Paper runtime initialization, externally supplied event handling, and finite fake-stream execution. |
-| `src/qts/engines/live_engine.py` | Guarded live orchestration, manual live order submission envelope, selected Alpaca live brokerage construction, and `_DryRunLiveBrokerage`. |
+| `src/qts/engines/live_engine.py` | Guarded live orchestration, manual live order submission envelope, selected Alpaca live brokerage construction, automated preview submission, and `_DryRunLiveBrokerage`. |
 | `src/qts/engines/__init__.py` | Engine exports. |
 
 Engines wire modules together. Keep detailed business behavior in the owning
@@ -379,7 +382,7 @@ ML training is offline. Runtime trading integration happens through
 | `src/qts/monitoring/health.py` | Callable health checks, broker connection health, health monitor aggregation. |
 | `src/qts/monitoring/metrics.py` | In-memory runtime metric logger. |
 | `src/qts/monitoring/alerts.py` | Alert sinks and alert manager. |
-| `src/qts/monitoring/safety.py` | Live safety policy, submission gate, and account/order request safety validation. |
+| `src/qts/monitoring/safety.py` | Live safety policy, manual and automated submission gates, and account/order request safety validation. |
 | `src/qts/monitoring/reconciliation.py` | Broker/internal reconciliation health check. |
 | `src/qts/monitoring/recovery.py` | Recovery manager for stop/retry/escalation behavior. |
 | `src/qts/monitoring/__init__.py` | Monitoring exports. |
@@ -500,7 +503,7 @@ Detailed test file index:
 | `tests/integration/ml/__init__.py` | ML integration package marker. |
 | `tests/integration/ml/test_training_pipeline.py` | Fixture-backed end-to-end ML training pipeline test. |
 | `tests/integration/live_safety/__init__.py` | Live safety integration package marker. |
-| `tests/integration/live_safety/test_live_engine.py` | Guarded live initialization, decision preview, manual submission, and Alpaca live adapter construction tests. |
+| `tests/integration/live_safety/test_live_engine.py` | Guarded live initialization, decision preview, manual submission, Alpaca live adapter construction, and automated submission tests. |
 
 Generated metadata note:
 
@@ -595,8 +598,8 @@ Do not let execution or strategies import vendor clients.
 - Backtest, paper, and live modes share the strategy/risk/execution path.
 - Alpaca live adapter construction is gated by the D1 confirmation/submission
   checks.
-- Automated live submission remains disabled until a future phase explicitly
-  enables it.
+- Automated live submission is separately gated and fail-stops on submission or
+  post-submit reconciliation errors.
 - Documentation changes accompany interface, model, or architecture changes.
 
 ## 7. Recommended Reading Order

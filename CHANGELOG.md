@@ -8,6 +8,39 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Major Architecture Phase D3] - 2026-05-24
+
+### Added
+
+- Added `broker.safety.enable_automated_submission` as a separate gate before
+  safety-approved live decision previews can become submitted orders.
+- Added `broker.safety.automated_submission_kill_switch` to block automated
+  live submissions even when the automation gate is enabled.
+- Added `validate_live_automated_submission_config()` for automated live
+  submission safety validation.
+- Added automated live submission handling in `LiveEngine.on_market_event()`
+  that routes approved previews through `LiveEngine.submit_live_order(...)`,
+  records submission status, and reconciles after submission.
+- Added fail-stop behavior for automated submission failures and post-submit
+  reconciliation mismatches.
+- Added deterministic tests for automation-disabled previews, successful
+  automated submission, kill-switch blocking, and failure-stop behavior.
+
+### Changed
+
+- Live health output now includes automated submission enablement, kill-switch,
+  event count, latest event, stopped flag, and stop reason.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+---
+
 ## [Major Architecture Phase D2] - 2026-05-24
 
 ### Added

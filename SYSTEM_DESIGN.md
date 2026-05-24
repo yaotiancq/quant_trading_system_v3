@@ -398,6 +398,10 @@ Rules:
   session, and reconciliation gates before calling `broker.submit_order`.
 - Non-dry-run live brokerage construction is limited to the selected Alpaca
   adapter and requires those same D1 gates.
+- Automated live submission may only convert safety-approved decision previews
+  through the D1 submission path when an additional automation gate is enabled
+  and the automated kill switch is open. The live engine must be running before
+  automation submits. Submission failures must stop further automation.
 
 ### `reporting/`
 
@@ -659,10 +663,13 @@ Live trading uses the same flow as paper trading with stricter controls:
 - explicit `enable_order_submission: true` before any broker submission,
 - selected broker-specific live adapter construction only after the same
   explicit submission gates pass,
+- explicit `enable_automated_submission: true` and an open automated kill
+  switch before strategy decisions can submit automatically,
 - dry-run mode recommended before enabling real order submission.
 
-Automated strategy-driven live trading remains deferred until a later Phase D
-sub-phase.
+Automated strategy-driven live submission is supported only for externally
+supplied live market events after the explicit automated gate is enabled.
+Continuous live stream ownership remains future work.
 
 ## 14. Configuration Strategy
 

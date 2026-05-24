@@ -1334,8 +1334,10 @@ health/status output after a sync run.
 
 ### Purpose
 
-Structured status payload for a would-be live order in dry-run decision preview
-mode. It is emitted by `LiveEngine` and is not submitted to a broker.
+Structured status payload for a live decision preview. In dry-run or
+automation-disabled mode it records a would-be order without broker submission.
+When D3 automation is explicitly enabled, a safety-approved preview can also
+record the resulting broker submission.
 
 ### Fields
 
@@ -1351,10 +1353,15 @@ mode. It is emitted by `LiveEngine` and is not submitted to a broker.
 | `reasons` | list[string] | yes | sizing/risk reasons |
 | `order_request` | dict/null | no | serialized normalized order request |
 | `error` | string/null | no | safety or order-request error |
+| `automation_status` | string | yes | `not_applicable`, `disabled`, `blocked`, `submitted`, or `failed` |
+| `automation_error` | string/null | no | automated submission gate or failure reason |
+| `submission_result` | dict/null | no | serialized `LiveOrderSubmissionResult` when automation submits |
+| `post_submission_reconciliation` | dict/null | no | reconciliation payload after automated submission |
 
 ### Producers
 
 - guarded dry-run `LiveEngine`.
+- D3 automated live decision submission.
 
 ### Consumers
 
@@ -1390,7 +1397,9 @@ the configured live brokerage.
 - The result is produced only after `validate_live_order_submission_config`,
   `validate_live_account`, `validate_order_request_safety`, and reconciliation
   checks pass.
-- Automated strategy-generated submissions remain out of scope until Phase D3.
+- Automated strategy-generated submissions reuse this result only after
+  `validate_live_automated_submission_config` also passes and the automated
+  kill switch is open.
 
 ### Producers
 

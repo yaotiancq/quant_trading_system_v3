@@ -577,17 +577,18 @@ Orchestrate paper or live trading runtime.
 | `initialize` | runtime config | none | Wire live dependencies. |
 | `start` | none | none | Start event loop. |
 | `stop` | reason | none | Graceful shutdown. |
-| `on_market_event` | event | health/status with decision previews | Handle incoming data and guarded dry-run preview. |
+| `on_market_event` | event | health/status with decision previews | Handle incoming data, decision previews, and gated automated submission. |
 | `on_broker_event` | broker event or order/fill/account event | none | Handle broker updates. |
 | `sync_broker_events` | `BrokerEventSource`, optional limits/policy | sync status dict | Checkpointed broker lifecycle sync with reconciliation before/after. |
-| `submit_live_order` | `OrderRequest`, optional price | submission status dict | Manual Phase D1 submission path after explicit live safety and reconciliation gates. |
+| `submit_live_order` | `OrderRequest`, optional price | submission status dict | Manual Phase D1 submission path reused by D3 automation after explicit live safety and reconciliation gates. |
 | `health_check` | none | health status | Used by monitoring. |
 
 ### Safety Contract
 
 Live mode must fail initialization unless explicit live-trading safety flags are enabled.
 Dry-run live market events may generate decision previews, but they must not
-call broker order submission. Any would-be order must be represented as a
+call broker order submission. Non-dry-run live market events may submit only
+when the D3 automation gates pass. Any would-be order must be represented as a
 serialized `OrderRequest` preview and validated through live safety gates.
 Manual live order submission is a separate Phase D1 path. It requires
 non-dry-run live mode, `confirm_live_trading=true`,
@@ -595,9 +596,13 @@ non-dry-run live mode, `confirm_live_trading=true`,
 market-session validation, order safety caps, and a matched reconciliation
 check immediately before calling `broker.submit_order`.
 Phase D2 permits `LiveEngine` to construct the selected Alpaca live brokerage
-adapter only after those explicit live submission gates pass. Automated
-strategy-driven live broker submission remains disabled until a later
-documented Phase D sub-phase.
+adapter only after those explicit live submission gates pass. Phase D3 permits
+safety-approved live decision previews to submit through the D1 path only when
+`enable_automated_submission=true` and
+`automated_submission_kill_switch` is not true. The live engine must be
+running before automation submits. Automated submission failures or post-submit
+reconciliation mismatches must stop further automation and surface critical live
+health.
 
 ## 21. Reporter
 
@@ -637,6 +642,7 @@ enabling unsafe broker submission.
 | `BrokerReconciliationCheck` | portfolio, brokerage | health result | Calls portfolio reconciliation and reports mismatch. |
 | `validate_live_safety_config` | `RuntimeConfig` | safety policy | Fails closed unless live gates are explicit. |
 | `validate_live_order_submission_config` | `RuntimeConfig` | safety policy | Requires explicit non-dry-run submission gates before `broker.submit_order`. |
+| `validate_live_automated_submission_config` | `RuntimeConfig` | safety policy | Requires D1 submission gates plus automated gate and open kill switch. |
 | `validate_live_account` | config, broker account | bool | Enforces account allowlists. |
 | `validate_order_request_safety` | config, order request, optional price | bool | Enforces symbol and max order size caps. |
 
@@ -650,8 +656,11 @@ enabling unsafe broker submission.
 - Dry-run initialization must not submit orders or call external broker APIs.
 - Manual live order submission additionally requires
   `broker.safety.enable_order_submission=true`.
-- Automated strategy-driven live broker submission remains disabled until a
-  later documented Phase D sub-phase.
+- Automated strategy-driven live broker submission additionally requires
+  `broker.safety.enable_automated_submission=true` and
+  `broker.safety.automated_submission_kill_switch` not true.
+- Automated submission failures must stop future automated submissions until
+  the process/configuration is reset.
 
 ### Error Behavior
 

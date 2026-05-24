@@ -1,10 +1,11 @@
 # Operational Runbooks
 
 These runbooks cover the guarded live-trading foundation through Major
-Architecture Phase D2. Live trading remains disabled by default; dry-run
+Architecture Phase D3. Live trading remains disabled by default; dry-run
 initialization, deterministic broker-event synchronization, and manually gated
-live order submission through the selected Alpaca live adapter are the
-supported operational readiness paths in this phase.
+live order submission through the selected Alpaca live adapter are supported.
+Safety-approved live decision previews may submit automatically only after a
+separate automation gate is enabled and the automated kill switch is open.
 
 ## Live Safety Gate
 
@@ -21,6 +22,9 @@ Non-dry-run live mode additionally requires
 `broker.safety.confirm_live_trading: true`. Manual live order submission also
 requires `broker.safety.enable_order_submission: true` and a matched
 reconciliation check immediately before submission.
+Automated strategy-to-order submission additionally requires
+`broker.safety.enable_automated_submission: true` and
+`broker.safety.automated_submission_kill_switch: false`.
 
 Dry-run initialization can be exercised locally:
 
@@ -106,7 +110,29 @@ Before constructing a non-dry-run Alpaca live adapter, confirm:
 - account and symbol allowlists match the target live account.
 
 IBKR live remains fail-closed. Automated strategy-driven live submission is
-still future Phase D3 work.
+handled only through the D3 preview-to-D1 handoff and remains disabled by
+default.
+
+## Automated Live Decision Submission
+
+`LiveEngine.on_market_event(...)` can submit safety-approved bar decision
+previews automatically only when:
+
+- D1 live submission gates pass,
+- `enable_automated_submission` is true,
+- `automated_submission_kill_switch` is false,
+- the live engine is running,
+- the preview is `safety_approved`,
+- pre-submit reconciliation passes,
+- post-submit reconciliation passes.
+
+If broker submission fails or post-submit reconciliation mismatches, the engine
+sets `automated_submission_stopped: true`, reports critical health, emits a
+critical alert, and blocks further automated submissions in that process.
+
+To stop automation immediately, set
+`broker.safety.automated_submission_kill_switch: true` and restart/reload the
+runtime config before processing more live events.
 
 ## Broker Lifecycle Synchronization
 
@@ -169,4 +195,5 @@ and reconciliation first.
 Every live order path must validate normalized `OrderRequest` objects against
 the live safety policy before broker submission. The scaffold also rejects order
 timestamps outside the configured market session. Automated strategy-driven live
-submission remains disabled until a later production-live phase.
+submission uses the same D1 path and adds the D3 automation gate and kill
+switch.

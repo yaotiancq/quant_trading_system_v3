@@ -6,6 +6,7 @@ from qts.core import LiveSafetyError
 from qts.domain import Account, OrderRequest, OrderSide, OrderType, TimeInForce
 from qts.monitoring import (
     validate_live_account,
+    validate_live_automated_submission_config,
     validate_live_order_submission_config,
     validate_live_safety_config,
     validate_order_request_safety,
@@ -54,6 +55,46 @@ class LiveSafetyTests(unittest.TestCase):
         with self.assertRaisesRegex(LiveSafetyError, "enable_order_submission"):
             validate_live_order_submission_config(missing_submission_flag)
         self.assertFalse(validate_live_order_submission_config(enabled_config).dry_run)
+
+    def test_live_automated_submission_requires_separate_gate_and_open_kill_switch(self) -> None:
+        missing_automation_gate = make_live_config(
+            safety={
+                "dry_run": False,
+                "mock_mode": False,
+                "confirm_live_trading": True,
+                "enable_order_submission": True,
+            }
+        )
+        kill_switch_enabled = make_live_config(
+            safety={
+                "dry_run": False,
+                "mock_mode": False,
+                "confirm_live_trading": True,
+                "enable_order_submission": True,
+                "enable_automated_submission": True,
+                "automated_submission_kill_switch": True,
+            }
+        )
+        enabled_config = make_live_config(
+            safety={
+                "dry_run": False,
+                "mock_mode": False,
+                "confirm_live_trading": True,
+                "enable_order_submission": True,
+                "enable_automated_submission": True,
+                "automated_submission_kill_switch": False,
+            }
+        )
+
+        with self.assertRaisesRegex(LiveSafetyError, "enable_automated_submission"):
+            validate_live_automated_submission_config(missing_automation_gate)
+        with self.assertRaisesRegex(LiveSafetyError, "automated_submission_kill_switch"):
+            validate_live_automated_submission_config(kill_switch_enabled)
+        self.assertTrue(
+            validate_live_automated_submission_config(
+                enabled_config
+            ).automated_submission_enabled
+        )
 
     def test_live_account_must_be_allowlisted(self) -> None:
         config = make_live_config()

@@ -499,6 +499,8 @@ def _validate_broker(config: Mapping[str, Any]) -> None:
             "live_enabled",
             "confirm_live_trading",
             "enable_order_submission",
+            "enable_automated_submission",
+            "automated_submission_kill_switch",
             "dry_run",
             "dry_run_account_id",
             "dry_run_cash",

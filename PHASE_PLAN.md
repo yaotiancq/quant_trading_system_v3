@@ -1010,7 +1010,7 @@ time after Phase A is stable:
 | Phase C3 - Engine Lifecycle Synchronization Hardening | Complete | Added checkpointed broker-event sync, gap/out-of-order detection, engine reconciliation hooks, and lifecycle double-count protection. |
 | Phase D1 - Manual Live Order Submission Safety Envelope | Complete | Added explicit non-dry-run submission gates and a manual `LiveEngine.submit_live_order` path. |
 | Phase D2 - Broker-Specific Live Adapter Enablement | Complete | Enabled Alpaca live adapter construction only behind the D1 submission envelope and adapter-specific tests. |
-| Phase D3 - Automated Live Decision Submission | Planned | Convert approved live previews into optional broker submissions with lifecycle sync and kill-switch controls. |
+| Phase D3 - Automated Live Decision Submission | Complete | Converts approved live previews into optional broker submissions through D1 gates, kill-switch checks, post-submit reconciliation, and fail-stop controls. |
 | Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned | Add optional static chart artifacts for backtest reports. |
 | Phase F - Production ML Contracts and Model Governance | Planned | Add model manifests, schema hashes, approval/stage rules, and runtime ML metadata. |
 
@@ -1374,3 +1374,15 @@ monitoring controls are active.
 
 - High-frequency trading behavior.
 - Multi-broker smart routing.
+
+### Acceptance Criteria
+
+- Automated live submission remains disabled unless
+  `enable_automated_submission=true`.
+- `automated_submission_kill_switch=true` blocks automated submissions.
+- Safety-approved live previews submit through `LiveEngine.submit_live_order`
+  only after D1 gates pass and the live engine is running.
+- Automated submissions reconcile after broker submission.
+- Submission errors or post-submit reconciliation mismatches stop further
+  automated submissions and report critical health.
+- Tests remain deterministic and network-free.

@@ -16,6 +16,7 @@ from .recovery import RecoveryManager
 from .safety import (
     LiveSafetyPolicy,
     validate_live_account,
+    validate_live_automated_submission_config,
     validate_live_order_submission_config,
     validate_live_safety_config,
     validate_order_request_safety,
@@ -43,6 +44,7 @@ __all__ = [
     "RuntimeMetricsLogger",
     "overall_status",
     "validate_live_account",
+    "validate_live_automated_submission_config",
     "validate_live_order_submission_config",
     "validate_live_safety_config",
     "validate_order_request_safety",

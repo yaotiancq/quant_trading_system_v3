@@ -21,6 +21,8 @@ class LiveSafetyPolicy:
     max_order_notional: float | None
     max_order_quantity: float | None
     order_submission_enabled: bool = False
+    automated_submission_enabled: bool = False
+    automated_submission_kill_switch: bool = False
 
 
 def validate_live_safety_config(config: RuntimeConfig) -> LiveSafetyPolicy:
@@ -64,6 +66,8 @@ def validate_live_safety_config(config: RuntimeConfig) -> LiveSafetyPolicy:
         max_order_notional=max_order_notional,
         max_order_quantity=max_order_quantity,
         order_submission_enabled=_truthy(safety.get("enable_order_submission")),
+        automated_submission_enabled=_truthy(safety.get("enable_automated_submission")),
+        automated_submission_kill_switch=_truthy(safety.get("automated_submission_kill_switch")),
     )
 
 
@@ -81,6 +85,20 @@ def validate_live_order_submission_config(config: RuntimeConfig) -> LiveSafetyPo
         raise LiveSafetyError("live order submission requires broker.paper=false")
     if not broker_type.endswith("_live"):
         raise LiveSafetyError("live order submission requires a *_live broker_type")
+    return policy
+
+
+def validate_live_automated_submission_config(config: RuntimeConfig) -> LiveSafetyPolicy:
+    """Validate explicit gates before strategy decisions may auto-submit."""
+    policy = validate_live_order_submission_config(config)
+    if not policy.automated_submission_enabled:
+        raise LiveSafetyError(
+            "automated live submission requires broker.safety.enable_automated_submission=true"
+        )
+    if policy.automated_submission_kill_switch:
+        raise LiveSafetyError(
+            "automated live submission blocked by broker.safety.automated_submission_kill_switch"
+        )
     return policy
 
 
@@ -162,6 +180,7 @@ def _optional_positive_float(value: Any) -> float | None:
 __all__ = [
     "LiveSafetyPolicy",
     "validate_live_account",
+    "validate_live_automated_submission_config",
     "validate_live_order_submission_config",
     "validate_live_safety_config",
     "validate_order_request_safety",

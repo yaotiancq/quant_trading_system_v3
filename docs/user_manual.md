@@ -12,15 +12,16 @@ documents, which remain the source of truth for design decisions:
 - `PROJECT_STATE.md`
 - `CHANGELOG.md`
 
-The current implementation is complete through Major Architecture Phase D2. It
+The current implementation is complete through Major Architecture Phase D3. It
 supports Alpaca SIP historical bar downloads, local backtests, report
 generation, mocked paper initialization for Alpaca and IBKR, normalized broker
 event polling synchronization, mockable Alpaca/IBKR broker push-event adapter
 boundaries, checkpointed broker-event engine synchronization, an offline ML
 baseline workflow, guarded live dry-run initialization, and a manual live order
 submission safety envelope. Alpaca live adapter construction is available only
-behind explicit production gates. Automated live broker order submission remains
-disabled by default.
+behind explicit production gates. Automated live broker order submission is
+available only for safety-approved live previews behind a separate automation
+gate and kill switch.
 
 ## 1. Safety Model
 
@@ -30,7 +31,7 @@ This system is built around explicit mode boundaries:
 |---|---|---|
 | Backtest | `configs/backtest.yaml`, `configs/backtest_fixture.yaml` | Runs deterministic local bar replay with simulated brokerage fills. |
 | Paper | `configs/paper_alpaca.yaml`, `configs/paper_ibkr.yaml`, `configs/paper_fake_stream.yaml`, `configs/paper_alpaca_stream_mock.yaml` | Initializes a paper brokerage path. Mock mode, fake stream, and mock Alpaca stream payloads work without credentials. |
-| Live | `configs/live_alpaca.yaml` | Guarded dry-run scaffold plus a manual submission envelope and gated Alpaca live adapter construction that are disabled by default. |
+| Live | `configs/live_alpaca.yaml` | Guarded dry-run scaffold plus manual submission, gated Alpaca live adapter construction, and automated preview submission disabled by default. |
 
 Important safety constraints:
 
@@ -52,6 +53,9 @@ Important safety constraints:
   reconciliation.
 - Alpaca live adapter construction uses the same explicit submission gates.
   IBKR live remains fail-closed.
+- Automated live submission additionally requires
+  `enable_automated_submission: true` and
+  `automated_submission_kill_switch: false`.
 
 ## 2. Local Setup
 
@@ -569,7 +573,13 @@ Phase D2 also allows `LiveEngine` to construct `AlpacaBrokerage` for
 `broker_type: alpaca_live` after those same gates pass. Real Alpaca client
 construction requires the configured credential environment variables and uses
 the configured live endpoint or Alpaca's live trading default. IBKR live is
-still disabled, and strategy previews still do not become orders automatically.
+still disabled.
+
+Phase D3 allows safety-approved live decision previews to become orders only
+when `broker.safety.enable_automated_submission: true` and
+`broker.safety.automated_submission_kill_switch: false`. Automated submissions
+reuse `LiveEngine.submit_live_order(...)`, reconcile after submission, and stop
+future automation if broker submission or post-submit reconciliation fails.
 
 ## 13. Common Configuration Changes
 
@@ -671,7 +681,7 @@ Before running any non-mock broker workflow:
 9. Run mock or dry-run initialization first.
 10. Inspect logs and reconciliation status.
 
-Before adding automated live submission in a future phase:
+Before expanding live automation in a future phase:
 
 1. Extend `PHASE_PLAN.md`.
 2. Add an ADR in `DECISIONS.md`.

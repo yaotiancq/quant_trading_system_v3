@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from io import StringIO
 from unittest.mock import patch
 
-from qts.core import LiveSafetyError, ReplayClock
+from qts.core import BrokerError, LiveSafetyError, ReplayClock
 from qts.domain import (
     Account,
     Bar,
@@ -145,6 +145,12 @@ class RecordingAlpacaLiveBrokerage(RecordingLiveBrokerage):
         if broker_config is not None:
             self.broker_config = broker_config
         self.connected = True
+
+
+class FailingLiveBrokerage(RecordingLiveBrokerage):
+    def submit_order(self, order_request: OrderRequest) -> Order:
+        self.submitted_requests.append(order_request)
+        raise BrokerError("submit boom")
 
 
 class LiveEngineSafetyIntegrationTests(unittest.TestCase):
@@ -371,6 +377,149 @@ class LiveEngineSafetyIntegrationTests(unittest.TestCase):
                 engine.initialize()
 
         factory.assert_not_called()
+
+    def test_live_engine_automation_gate_defaults_to_preview_only(self) -> None:
+        config = make_live_config(
+            safety={
+                "dry_run": False,
+                "mock_mode": False,
+                "confirm_live_trading": True,
+                "enable_order_submission": True,
+            },
+            risk={
+                "sizing_method": "fixed_quantity",
+                "sizing_parameters": {"quantity": 1},
+            },
+            execution={"allow_fractional": False},
+        )
+        brokerage = RecordingLiveBrokerage()
+        engine = LiveEngine(config, brokerage=brokerage, strategies=[BuyOnceLiveStrategy()])
+        engine.start(max_events=0)
+
+        status = engine.on_market_event(make_bar())
+
+        preview = status["decision_previews"][0]
+        self.assertEqual(preview["preview_status"], "safety_approved")
+        self.assertEqual(preview["automation_status"], "disabled")
+        self.assertEqual(brokerage.submitted_requests, [])
+        self.assertEqual(status["automated_submission_count"], 0)
+
+    def test_live_engine_automated_submission_uses_d1_path_after_all_gates(self) -> None:
+        config = make_live_config(
+            safety={
+                "dry_run": False,
+                "mock_mode": False,
+                "confirm_live_trading": True,
+                "enable_order_submission": True,
+                "enable_automated_submission": True,
+                "automated_submission_kill_switch": False,
+            },
+            risk={
+                "sizing_method": "fixed_quantity",
+                "sizing_parameters": {"quantity": 1},
+            },
+            execution={"allow_fractional": False},
+        )
+        brokerage = RecordingLiveBrokerage()
+        engine = LiveEngine(config, brokerage=brokerage, strategies=[BuyOnceLiveStrategy()])
+        engine.start(max_events=0)
+
+        status = engine.on_market_event(make_bar())
+
+        preview = status["decision_previews"][0]
+        self.assertEqual(preview["automation_status"], "submitted")
+        self.assertEqual(preview["submission_result"]["order_id"], "live-order-1")
+        self.assertEqual(preview["post_submission_reconciliation"]["status"], "matched")
+        self.assertEqual(len(brokerage.submitted_requests), 1)
+        self.assertEqual(status["live_order_submission_count"], 1)
+        self.assertEqual(status["automated_submission_count"], 1)
+        self.assertFalse(status["automated_submission_stopped"])
+
+    def test_live_engine_automated_submission_requires_running_engine(self) -> None:
+        config = make_live_config(
+            safety={
+                "dry_run": False,
+                "mock_mode": False,
+                "confirm_live_trading": True,
+                "enable_order_submission": True,
+                "enable_automated_submission": True,
+                "automated_submission_kill_switch": False,
+            },
+            risk={
+                "sizing_method": "fixed_quantity",
+                "sizing_parameters": {"quantity": 1},
+            },
+            execution={"allow_fractional": False},
+        )
+        brokerage = RecordingLiveBrokerage()
+        engine = LiveEngine(config, brokerage=brokerage, strategies=[BuyOnceLiveStrategy()])
+        engine.initialize()
+
+        status = engine.on_market_event(make_bar())
+
+        preview = status["decision_previews"][0]
+        self.assertEqual(preview["automation_status"], "blocked")
+        self.assertIn("engine to be running", preview["automation_error"])
+        self.assertEqual(brokerage.submitted_requests, [])
+
+    def test_live_engine_automated_submission_respects_kill_switch(self) -> None:
+        config = make_live_config(
+            safety={
+                "dry_run": False,
+                "mock_mode": False,
+                "confirm_live_trading": True,
+                "enable_order_submission": True,
+                "enable_automated_submission": True,
+                "automated_submission_kill_switch": True,
+            },
+            risk={
+                "sizing_method": "fixed_quantity",
+                "sizing_parameters": {"quantity": 1},
+            },
+            execution={"allow_fractional": False},
+        )
+        brokerage = RecordingLiveBrokerage()
+        engine = LiveEngine(config, brokerage=brokerage, strategies=[BuyOnceLiveStrategy()])
+        engine.initialize()
+
+        status = engine.on_market_event(make_bar())
+
+        preview = status["decision_previews"][0]
+        self.assertEqual(preview["automation_status"], "blocked")
+        self.assertIn("automated_submission_kill_switch", preview["automation_error"])
+        self.assertEqual(brokerage.submitted_requests, [])
+        self.assertFalse(status["automated_submission_stopped"])
+
+    def test_live_engine_automated_submission_failure_stops_future_automation(self) -> None:
+        config = make_live_config(
+            safety={
+                "dry_run": False,
+                "mock_mode": False,
+                "confirm_live_trading": True,
+                "enable_order_submission": True,
+                "enable_automated_submission": True,
+                "automated_submission_kill_switch": False,
+            },
+            risk={
+                "sizing_method": "fixed_quantity",
+                "sizing_parameters": {"quantity": 1},
+            },
+            execution={"allow_fractional": False},
+        )
+        brokerage = FailingLiveBrokerage()
+        engine = LiveEngine(config, brokerage=brokerage, strategies=[BuyOnceLiveStrategy()])
+        engine.start(max_events=0)
+
+        status = engine.on_market_event(make_bar())
+
+        preview = status["decision_previews"][0]
+        self.assertEqual(preview["automation_status"], "failed")
+        self.assertIn("submit boom", preview["automation_error"])
+        self.assertTrue(status["automated_submission_stopped"])
+        self.assertIn("submit boom", status["automated_submission_stop_reason"])
+        self.assertFalse(status["running"])
+        self.assertFalse(status["healthy"])
+        self.assertEqual(len(brokerage.submitted_requests), 1)
 
     def test_live_runner_dry_run_command_initializes(self) -> None:
         with redirect_stdout(StringIO()):

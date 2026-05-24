@@ -1278,8 +1278,8 @@ Enable `alpaca_live` as the first selected live brokerage adapter:
   uses the live base URL default or `broker.base_url`.
 - IBKR live remains fail-closed until a separate phase designs and tests it.
 
-Automated conversion of live decision previews into submitted orders remains
-Phase D3 work.
+Automated conversion of live decision previews into submitted orders is handled
+by ADR-034.
 
 ### Rationale
 
@@ -1304,3 +1304,55 @@ testable.
 - Continue requiring injected live brokerages for all non-dry-run live runs.
 - Enable Alpaca and IBKR live adapters together.
 - Couple live adapter enablement to automated strategy submission.
+
+---
+
+## ADR-034: Gate Automated Live Submission Separately From Manual Submission
+
+### Context
+
+D1 introduced a manual `submit_live_order(...)` safety envelope, and D2 allowed
+`LiveEngine` to construct the selected Alpaca live adapter behind that envelope.
+The remaining production-live step is allowing strategy decisions to submit
+orders automatically. That path is riskier than manual submission because it is
+triggered by incoming market events, so it needs its own operator gate,
+kill-switch, and failure-stop behavior.
+
+### Decision
+
+Automated live decision submission is enabled only when all of these are true:
+
+- D1 live order submission gates pass.
+- `broker.safety.enable_automated_submission=true`.
+- `broker.safety.automated_submission_kill_switch` is not true.
+- The live engine is running.
+- The live decision preview is `safety_approved`.
+- Reconciliation passes before submission through `submit_live_order(...)`.
+- Reconciliation passes again after broker submission.
+
+If broker submission or post-submit reconciliation fails, `LiveEngine` stops
+further automated submissions, marks live health critical, records the failure
+in health output, and emits a critical alert. Manual submission remains
+available through the D1 path if the operator intentionally calls it.
+
+### Rationale
+
+This keeps automated trading opt-in and easy to stop while preserving the
+single live submission path. It avoids duplicating order-safety logic inside the
+decision loop and gives operators an explicit emergency switch independent of
+the broader live-mode and manual-submission gates.
+
+### Consequences
+
+- Default live configs remain non-automated.
+- Automated submissions share the same account, symbol, market-session,
+  quantity/notional, fractional, and reconciliation checks as manual orders.
+- Failures stop future automation without adding real stream ownership or
+  restart orchestration.
+- Continuous live market-data stream ownership remains future work.
+
+### Alternatives Considered
+
+- Reuse `enable_order_submission` as the only automated gate.
+- Let safety-approved previews submit in dry-run mode.
+- Continue requiring a manual operator call for all live submissions.

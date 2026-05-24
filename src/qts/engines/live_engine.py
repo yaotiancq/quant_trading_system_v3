@@ -48,6 +48,7 @@ from qts.monitoring import (
     HealthStatus,
     RuntimeMetricsLogger,
     validate_live_account,
+    validate_live_automated_submission_config,
     validate_live_order_submission_config,
     validate_live_safety_config,
     validate_order_request_safety,
@@ -63,9 +64,9 @@ from .market_data import resolve_event_market_data_provider
 class LiveEngine:
     """Live runtime scaffold guarded by explicit safety gates.
 
-    Phase 8 intentionally supports safe initialization, monitoring, dry-run
-    broker checks, and order safety validation. Continuous live market-data
-    loops and real live broker submission remain disabled by default.
+    The live engine supports safe initialization, monitoring, dry-run previews,
+    manual submission, and separately gated automated preview submission.
+    Continuous live market-data loops remain disabled by default.
     """
 
     def __init__(
@@ -105,6 +106,10 @@ class LiveEngine:
         self._last_broker_event_sync: dict[str, object] | None = None
         self._live_order_submissions: list[dict[str, object]] = []
         self._last_live_order_submission: dict[str, object] | None = None
+        self._automated_submission_events: list[dict[str, object]] = []
+        self._last_automated_submission_event: dict[str, object] | None = None
+        self._automated_submission_stopped = False
+        self._automated_submission_stop_reason: str | None = None
 
     def initialize(self, runtime_config: RuntimeConfig | None = None) -> None:
         if runtime_config is not None:
@@ -191,7 +196,7 @@ class LiveEngine:
         self._running = True
         self.metrics_logger.increment("live_engine_starts_total")
         if max_events > 0:
-            raise ConfigurationError("continuous live market-data loops are not implemented in Phase 8")
+            raise ConfigurationError("continuous live market-data loops are not implemented")
         return self.health_check()
 
     def stop(self, reason: str | None = None) -> None:
@@ -363,6 +368,23 @@ class LiveEngine:
                 "broker_event_sync": self._last_broker_event_sync,
                 "live_order_submission_count": len(self._live_order_submissions),
                 "last_live_order_submission": self._last_live_order_submission,
+                "automated_submission_enabled": _truthy(
+                    self.config.broker.safety.get("enable_automated_submission")
+                ),
+                "automated_submission_kill_switch": _truthy(
+                    self.config.broker.safety.get("automated_submission_kill_switch")
+                ),
+                "automated_submission_count": len(
+                    [
+                        event
+                        for event in self._automated_submission_events
+                        if event.get("automation_status") == "submitted"
+                    ]
+                ),
+                "automated_submission_event_count": len(self._automated_submission_events),
+                "last_automated_submission_event": self._last_automated_submission_event,
+                "automated_submission_stopped": self._automated_submission_stopped,
+                "automated_submission_stop_reason": self._automated_submission_stop_reason,
                 "last_market_event_symbol": (
                     self._last_market_event.symbol if self._last_market_event is not None else None
                 ),
@@ -372,6 +394,19 @@ class LiveEngine:
                 ),
             }
         )
+        if self._automated_submission_stopped:
+            summary["status"] = HealthStatus.CRITICAL.value
+            summary["healthy"] = False
+            checks = list(summary.get("checks") or [])
+            checks.append(
+                HealthCheckResult(
+                    "live_automated_submission",
+                    HealthStatus.CRITICAL,
+                    "automated live submission is stopped",
+                    details={"reason": self._automated_submission_stop_reason},
+                ).to_dict()
+            )
+            summary["checks"] = checks
         return summary
 
     def _require_initialized(self) -> None:
@@ -401,7 +436,9 @@ class LiveEngine:
                         "prices": dict(self._latest_prices),
                     },
                 )
-                preview = self._decision_preview(event, decision)
+                preview, order_request = self._decision_preview(event, decision)
+                if order_request is not None:
+                    self._maybe_submit_automated_preview(event, preview, order_request)
                 previews.append(preview)
                 self._decision_previews.append(preview)
                 self.metrics_logger.increment(
@@ -413,7 +450,11 @@ class LiveEngine:
                 )
         return previews
 
-    def _decision_preview(self, event: Bar, decision) -> dict[str, object]:  # type: ignore[no-untyped-def]
+    def _decision_preview(
+        self,
+        event: Bar,
+        decision,
+    ) -> tuple[dict[str, object], OrderRequest | None]:  # type: ignore[no-untyped-def]
         preview: dict[str, object] = {
             "preview_id": f"preview-{decision.decision_id}",
             "timestamp": event.timestamp.isoformat().replace("+00:00", "Z"),
@@ -425,9 +466,13 @@ class LiveEngine:
             "reasons": list(decision.reasons),
             "order_request": None,
             "error": None,
+            "automation_status": "not_applicable",
+            "automation_error": None,
+            "submission_result": None,
+            "post_submission_reconciliation": None,
         }
         if decision.status == RiskDecisionStatus.REJECTED:
-            return preview
+            return preview, None
         try:
             order_request = build_order_request(
                 decision,
@@ -439,10 +484,128 @@ class LiveEngine:
         except (ExecutionError, LiveSafetyError) as exc:
             preview["preview_status"] = "safety_rejected"
             preview["error"] = str(exc)
-            return preview
+            return preview, None
         preview["preview_status"] = "safety_approved"
         preview["would_submit"] = True
-        return preview
+        preview["automation_status"] = "disabled"
+        return preview, order_request
+
+    def _maybe_submit_automated_preview(
+        self,
+        event: Bar,
+        preview: dict[str, object],
+        order_request: OrderRequest,
+    ) -> None:
+        if not _truthy(self.config.broker.safety.get("enable_automated_submission")):
+            return
+        try:
+            validate_live_automated_submission_config(self.config)
+        except LiveSafetyError as exc:
+            self._record_automated_submission_event(
+                preview,
+                status="blocked",
+                error=str(exc),
+            )
+            return
+        if self._automated_submission_stopped:
+            self._record_automated_submission_event(
+                preview,
+                status="blocked",
+                error=self._automated_submission_stop_reason
+                or "automated live submission is stopped",
+            )
+            return
+        if not self._running:
+            self._record_automated_submission_event(
+                preview,
+                status="blocked",
+                error="automated live submission requires the live engine to be running",
+            )
+            return
+
+        submission_result: dict[str, object] | None = None
+        post_reconciliation: dict[str, object] | None = None
+        try:
+            submission_result = self.submit_live_order(
+                order_request,
+                price=event.close,
+                require_reconciliation=True,
+            )
+            post_reconciliation = self.reconcile()
+            submission_result["post_submission_reconciliation"] = post_reconciliation
+            if not bool(post_reconciliation.get("matched")):
+                raise ReconciliationError(
+                    "automated live submission post-submit reconciliation mismatch"
+                )
+        except Exception as exc:
+            self._stop_automated_submission(
+                str(exc),
+                preview=preview,
+                submission_result=submission_result,
+                post_reconciliation=post_reconciliation,
+            )
+            return
+
+        self._record_automated_submission_event(
+            preview,
+            status="submitted",
+            submission_result=submission_result,
+            post_reconciliation=post_reconciliation,
+        )
+        self.metrics_logger.increment(
+            "live_automated_submissions_total",
+            tags={"symbol": order_request.symbol},
+        )
+
+    def _record_automated_submission_event(
+        self,
+        preview: dict[str, object],
+        *,
+        status: str,
+        error: str | None = None,
+        submission_result: dict[str, object] | None = None,
+        post_reconciliation: dict[str, object] | None = None,
+    ) -> None:
+        preview["automation_status"] = status
+        preview["automation_error"] = error
+        preview["submission_result"] = submission_result
+        preview["post_submission_reconciliation"] = post_reconciliation
+        event = {
+            "preview_id": preview["preview_id"],
+            "symbol": preview["symbol"],
+            "automation_status": status,
+            "automation_error": error,
+            "submission_result": submission_result,
+            "post_submission_reconciliation": post_reconciliation,
+        }
+        self._last_automated_submission_event = event
+        self._automated_submission_events.append(event)
+
+    def _stop_automated_submission(
+        self,
+        reason: str,
+        *,
+        preview: dict[str, object],
+        submission_result: dict[str, object] | None = None,
+        post_reconciliation: dict[str, object] | None = None,
+    ) -> None:
+        self._automated_submission_stopped = True
+        self._automated_submission_stop_reason = reason
+        self._running = False
+        self._record_automated_submission_event(
+            preview,
+            status="failed",
+            error=reason,
+            submission_result=submission_result,
+            post_reconciliation=post_reconciliation,
+        )
+        self.metrics_logger.increment("live_automated_submission_failures_total")
+        self.alert_manager.emit(
+            AlertSeverity.CRITICAL,
+            "live_engine",
+            "automated live submission stopped",
+            details={"reason": reason, "preview_id": preview.get("preview_id")},
+        )
 
 
 class _LiveDataPortal:
@@ -497,6 +660,12 @@ def _event_price(event: Bar | Quote) -> float:
     if isinstance(event, Quote):
         return (event.bid_price + event.ask_price) / 2.0
     return event.close
+
+
+def _truthy(value: object) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)
 
 
 def _live_brokerage_from_config(config: RuntimeConfig) -> Brokerage:

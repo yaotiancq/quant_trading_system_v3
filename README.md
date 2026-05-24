@@ -14,7 +14,7 @@ The architecture documents in the project root are the source of truth:
 
 ## Current Status
 
-Major Architecture Phase D2 is complete. The repository now includes the package
+Major Architecture Phase D3 is complete. The repository now includes the package
 layout, validated domain models and enums, core configuration loading, clocks,
 common exceptions, logging setup, local market data providers, a config-driven
 Alpaca SIP historical bar downloader, a shared US equity calendar/session
@@ -30,12 +30,14 @@ initialization path, configuration templates, an offline ML workflow, a
 filesystem model registry, runtime ML inference, an ML signal strategy adapter,
 monitoring and alert helpers, reconciliation health checks, guarded live safety
 gates, dry-run `LiveEngine` scaffolding, a manual live order submission safety
-envelope, gated Alpaca live adapter construction, a dependency-free IBKR paper
-brokerage foundation, operational runbooks, and tests.
+envelope, gated Alpaca live adapter construction, optional automated live
+decision submission with a kill switch and fail-stop behavior, a
+dependency-free IBKR paper brokerage foundation, operational runbooks, and
+tests.
 
 Live order submission remains disabled by default and requires explicit
 non-dry-run production gates. The next planned work is Major Architecture Phase
-D3 for automated live decision submission.
+E for chart reporting and visual backtest diagnostics.
 
 ## Layout
 
@@ -65,7 +67,7 @@ src/qts/monitoring/
                   Health checks, metrics, alerts, recovery, safety gates
 scripts/          Local data download, backtest, report, paper, ML, and live dry-run commands
 docs/             User manual, system handbook, and operational runbooks
-tests/            Smoke, unit, and integration tests through Phase D2
+tests/            Smoke, unit, and integration tests through Phase D3
 data/             Local data placeholder, ignored by git
 artifacts/        Runtime output placeholder, ignored by git
 ```
@@ -300,4 +302,5 @@ reconciliation, and health checks. It does not submit live orders. Manual live
 submission additionally requires `broker.safety.enable_order_submission: true`
 and a non-dry-run live brokerage. The selected Alpaca live adapter can be
 constructed only after those same explicit gates pass; automated strategy
-submissions remain disabled.
+submissions additionally require `broker.safety.enable_automated_submission:
+true` and `broker.safety.automated_submission_kill_switch: false`.
