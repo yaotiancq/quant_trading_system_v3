@@ -1,10 +1,10 @@
 # Operational Runbooks
 
 These runbooks cover the guarded live-trading foundation through Major
-Architecture Phase D1. Live trading remains disabled by default; dry-run
+Architecture Phase D2. Live trading remains disabled by default; dry-run
 initialization, deterministic broker-event synchronization, and manually gated
-live order submission are the supported operational readiness paths in this
-phase.
+live order submission through the selected Alpaca live adapter are the
+supported operational readiness paths in this phase.
 
 ## Live Safety Gate
 
@@ -88,6 +88,25 @@ Before enabling `broker.safety.enable_order_submission`, confirm:
 
 If any validation fails, keep the engine stopped or in dry-run mode and resolve
 the safety issue before retrying.
+
+## Alpaca Live Adapter Enablement
+
+Phase D2 permits `LiveEngine` to construct `AlpacaBrokerage` for
+`broker_type: alpaca_live` only after the same D1 live submission gates pass.
+The live adapter still uses normalized `OrderRequest`, `Order`, `Fill`,
+`Account`, and `Position` objects at the system boundary.
+
+Before constructing a non-dry-run Alpaca live adapter, confirm:
+
+- `broker.paper` is false,
+- `dry_run` and `mock_mode` are false,
+- `live_enabled`, `confirm_live_trading`, and `enable_order_submission` are true,
+- live credentials are available through `broker.credential_env_keys`,
+- `ALPACA_LIVE_BASE_URL` or `broker.base_url` points to the intended endpoint,
+- account and symbol allowlists match the target live account.
+
+IBKR live remains fail-closed. Automated strategy-driven live submission is
+still future Phase D3 work.
 
 ## Broker Lifecycle Synchronization
 

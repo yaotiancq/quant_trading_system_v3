@@ -12,8 +12,9 @@ Phase 7 ML workflow, Phase 8 monitoring/live-trading readiness, and Phase 9
 IBKR paper brokerage foundation, Phase 10 Alpaca SIP historical data download,
 Major Architecture Phase C1 normalized broker-event polling sync, Major
 Architecture Phase C2 vendor broker push adapter boundaries, Major Architecture
-Phase C3 engine lifecycle synchronization hardening, and Major Architecture
-Phase D1 manual live order submission safety envelope.
+Phase C3 engine lifecycle synchronization hardening, Major Architecture Phase
+D1 manual live order submission safety envelope, and Major Architecture Phase
+D2 broker-specific live adapter enablement.
 
 The Python package now includes stable domain enums and data models, core config
 loading and validation, clocks, common exceptions, logging setup, local
@@ -38,7 +39,8 @@ model registry, runtime model inference, an ML strategy adapter, fixture ML
 configs, a training script, monitoring health checks, runtime metrics logging,
 alert hooks, recovery behavior, broker reconciliation checks, live safety
 gates, guarded dry-run `LiveEngine` scaffolding, a manual live order submission
-safety envelope, operational runbooks, and focused tests. It also includes a
+safety envelope, Alpaca live adapter construction behind explicit D1 gates,
+operational runbooks, and focused tests. It also includes a
 dependency-free IBKR Web API client boundary,
 IBKR payload mapping, IBKR broker order-update event normalization,
 `IBKRBrokerage`, a mock IBKR client, an IBKR paper configuration template, and
@@ -116,6 +118,13 @@ market-session checks, reconciliation, `confirm_live_trading=true`, and
 submission disabled by default, and automated strategy-driven live submission
 remains future Phase D work.
 
+Major Architecture Phase D2 has enabled broker-specific live adapter
+construction for Alpaca behind the D1 submission envelope. Non-dry-run
+`LiveEngine` instances can construct `AlpacaBrokerage` only after the explicit
+live submission gates pass, while `AlpacaBrokerage` itself rejects unsafe live
+mode, dry-run, mock, missing confirmation, and missing submission-gate
+configurations. IBKR live brokerage remains fail-closed.
+
 Post-Phase 8 design review fixes have been applied for replay-bounded backtest
 data portal reads, broker/execution dependency direction, and explicit ML
 runtime feature schema wiring. ADR-007 follow-up fixes made the original
@@ -126,11 +135,12 @@ reliability policy. Phase B2b2 adds guarded dry-run live decision previews.
 Phase C1 adds normalized broker-event polling synchronization, Phase C2 adds
 mockable vendor broker push adapter boundaries, and Phase C3 adds checkpointed
 engine broker-event synchronization hardening. Phase D1 adds a manually invoked
-live order submission path behind explicit production gates. Live remains
+live order submission path behind explicit production gates. Phase D2 enables
+the selected Alpaca live adapter behind those same gates. Live remains
 external-event driven, and automated live broker submission remains disabled.
 Runtime order validation also enforces `execution.allow_fractional`.
 
-- **Current phase:** Major Architecture Phase D1 complete
+- **Current phase:** Major Architecture Phase D2 complete
 - **Completed phases:**
   - Phase 0 - Documentation and repository scaffold initialization
   - Phase 1 - Project Skeleton and Core Domain Models
@@ -152,9 +162,10 @@ Runtime order validation also enforces `execution.allow_fractional`.
   - Major Architecture Phase C2 - Vendor Broker Push Adapter Boundaries
   - Major Architecture Phase C3 - Engine Lifecycle Synchronization Hardening
   - Major Architecture Phase D1 - Manual Live Order Submission Safety Envelope
+  - Major Architecture Phase D2 - Broker-Specific Live Adapter Enablement
 - **In-progress phase:** None
-- **Next recommended task:** Major Architecture Phase D2 - Broker-Specific Live
-  Adapter Enablement.
+- **Next recommended task:** Major Architecture Phase D3 - Automated Live
+  Decision Submission.
 
 ## 2. Completed Phases
 
@@ -180,12 +191,12 @@ Runtime order validation also enforces `execution.allow_fractional`.
 | Major Architecture Phase C2 | Complete | Implemented mockable Alpaca/IBKR broker push adapter boundaries that normalize vendor-shaped order/fill updates into `BrokerEvent`. |
 | Major Architecture Phase C3 | Complete | Implemented checkpointed broker-event sync loops, paper/live reconciliation hooks, gap/out-of-order handling, and lifecycle double-count protection. |
 | Major Architecture Phase D1 | Complete | Implemented manual live order submission through explicit non-dry-run, confirmation, submission, safety, account, and reconciliation gates. |
+| Major Architecture Phase D2 | Complete | Implemented Alpaca live adapter construction behind D1 gates and fail-closed unsafe live adapter tests. |
 
 ## 3. Pending Phases
 
 | Phase | Status |
 |---|---|
-| Major Architecture Phase D2 - Broker-Specific Live Adapter Enablement | Planned |
 | Major Architecture Phase D3 - Automated Live Decision Submission | Planned |
 | Major Architecture Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned |
 | Major Architecture Phase F - Production ML Contracts and Model Governance | Planned |
@@ -437,10 +448,11 @@ Future functionality outside the current phase plan remains missing:
 - IBKR paper order submission requires `broker.account_id` and
   `broker.safety.symbol_conids`; automatic IBKR order reply confirmation is not
   enabled and reply prompts fail closed.
-- Live readiness now includes dry-run initialization, safety validation, and a
-  manual `submit_live_order(...)` path gated by `enable_order_submission`.
-  Automated strategy-driven live order submission remains disabled and should
-  require a later documented Phase D sub-phase.
+- Live readiness now includes dry-run initialization, safety validation, a
+  manual `submit_live_order(...)` path gated by `enable_order_submission`, and
+  Alpaca live brokerage construction behind the same D1 gates. Automated
+  strategy-driven live order submission remains disabled and should require a
+  later documented Phase D sub-phase.
 - The Phase 7 ML model is a dependency-free directional baseline intended to
   validate workflow boundaries. Advanced model libraries, feature stores,
   online learning, optimization, and production model monitoring remain future
@@ -459,6 +471,9 @@ Future functionality outside the current phase plan remains missing:
 - First implementation target is minute-level bars.
 - Second-level data support should be preserved architecturally but not overbuilt early.
 - Alpaca is the first real broker target and now has a paper adapter.
+- Alpaca is the first enabled live broker adapter target, but only for
+  non-dry-run configurations that pass explicit confirmation and submission
+  gates. Automated strategy-to-order live submission is still disabled.
 - IBKR is the second broker target and now has a paper adapter foundation.
 - Alpaca SIP is the first remote historical data download target and writes
   normalized CSV or Parquet for the existing local provider/backtest path. The

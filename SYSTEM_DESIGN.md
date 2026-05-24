@@ -326,6 +326,8 @@ Rules:
 - Concrete broker behavior is isolated here.
 - Backtest brokerage is a first-class broker implementation.
 - Broker adapters may use low-level clients from `integrations/`.
+- Alpaca live adapter construction is allowed only behind explicit D1 live
+  confirmation and submission gates; IBKR live remains fail-closed.
 
 ### `integrations/`
 
@@ -394,6 +396,8 @@ Rules:
 - Manual live submission must use `LiveEngine.submit_live_order(...)` and must
   require explicit non-dry-run, confirmation, submission, account, order, market
   session, and reconciliation gates before calling `broker.submit_order`.
+- Non-dry-run live brokerage construction is limited to the selected Alpaca
+  adapter and requires those same D1 gates.
 
 ### `reporting/`
 
@@ -653,6 +657,8 @@ Live trading uses the same flow as paper trading with stricter controls:
 - reconciliation checks before trading,
 - health checks and alerts,
 - explicit `enable_order_submission: true` before any broker submission,
+- selected broker-specific live adapter construction only after the same
+  explicit submission gates pass,
 - dry-run mode recommended before enabling real order submission.
 
 Automated strategy-driven live trading remains deferred until a later Phase D

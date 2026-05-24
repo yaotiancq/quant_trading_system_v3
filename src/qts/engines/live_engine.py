@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import datetime, timezone
 
-from qts.brokers import Brokerage
+from qts.brokers import AlpacaBrokerage, Brokerage
 from qts.calendar import MarketSessionService, build_market_session_service, default_market_session_service
 from qts.core import ConfigurationError, ExecutionError, LiveSafetyError, RealClock, ReconciliationError
 from qts.domain import (
@@ -119,9 +119,11 @@ class LiveEngine:
         )
         policy = validate_live_safety_config(self.config)
         if self.brokerage is None:
-            if not policy.dry_run:
-                raise LiveSafetyError("real live brokerage submission is not enabled in Phase 8")
-            self.brokerage = _DryRunLiveBrokerage(self.config.broker)
+            if policy.dry_run:
+                self.brokerage = _DryRunLiveBrokerage(self.config.broker)
+            else:
+                validate_live_order_submission_config(self.config)
+                self.brokerage = _live_brokerage_from_config(self.config)
 
         self.brokerage.connect(self.config.broker)
         account = self.brokerage.get_account()
@@ -495,6 +497,15 @@ def _event_price(event: Bar | Quote) -> float:
     if isinstance(event, Quote):
         return (event.bid_price + event.ask_price) / 2.0
     return event.close
+
+
+def _live_brokerage_from_config(config: RuntimeConfig) -> Brokerage:
+    broker_type = config.broker.broker_type.lower()
+    if broker_type == "alpaca_live":
+        return AlpacaBrokerage(config.broker)
+    raise ConfigurationError(
+        "LiveEngine currently supports broker.broker_type=alpaca_live for non-dry-run live brokerage"
+    )
 
 
 class _DryRunLiveBrokerage:

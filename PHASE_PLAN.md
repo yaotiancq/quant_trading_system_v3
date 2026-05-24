@@ -1009,7 +1009,7 @@ time after Phase A is stable:
 | Phase C2 - Vendor Broker Push Adapter Boundaries | Complete | Added mockable Alpaca/IBKR broker order/fill event adapter boundaries without real live submission. |
 | Phase C3 - Engine Lifecycle Synchronization Hardening | Complete | Added checkpointed broker-event sync, gap/out-of-order detection, engine reconciliation hooks, and lifecycle double-count protection. |
 | Phase D1 - Manual Live Order Submission Safety Envelope | Complete | Added explicit non-dry-run submission gates and a manual `LiveEngine.submit_live_order` path. |
-| Phase D2 - Broker-Specific Live Adapter Enablement | Planned | Enable real broker adapters only behind the D1 submission envelope and adapter-specific tests. |
+| Phase D2 - Broker-Specific Live Adapter Enablement | Complete | Enabled Alpaca live adapter construction only behind the D1 submission envelope and adapter-specific tests. |
 | Phase D3 - Automated Live Decision Submission | Planned | Convert approved live previews into optional broker submissions with lifecycle sync and kill-switch controls. |
 | Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned | Add optional static chart artifacts for backtest reports. |
 | Phase F - Production ML Contracts and Model Governance | Planned | Add model manifests, schema hashes, approval/stage rules, and runtime ML metadata. |
@@ -1345,6 +1345,16 @@ envelope and broker-specific fail-closed tests.
 
 - Automated strategy-driven live submissions.
 - Unbounded reconnect or untested real network stream ownership.
+
+### Acceptance Criteria
+
+- Non-dry-run `LiveEngine` can construct only the selected Alpaca live adapter
+  after D1 submission gates pass.
+- Ungated Alpaca live adapter configs fail closed before order submission.
+- Missing Alpaca live credentials fail during real client construction.
+- IBKR live remains out of scope and fail-closed.
+- Tests remain deterministic and network-free through injected or patched
+  broker clients.
 
 ## Major Architecture Phase D3 - Automated Live Decision Submission
 

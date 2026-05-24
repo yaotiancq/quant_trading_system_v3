@@ -90,7 +90,7 @@ Each layer owns a small responsibility:
    through duplicate, checkpoint, out-of-order, and gap checks, with
    reconciliation before and after the run.
 
-### Live Dry-Run Flow
+### Live Flow
 
 1. `scripts/run_live_trading.py` loads live config and dry-run overrides.
 2. `LiveEngine` validates safety gates.
@@ -103,7 +103,9 @@ Each layer owns a small responsibility:
 7. Manual `submit_live_order(...)` calls can submit only after non-dry-run,
    confirmation, submission, account, order, session, and reconciliation gates
    pass.
-8. Strategy previews are not automatically submitted.
+8. Non-dry-run `LiveEngine` can construct the selected Alpaca live adapter only
+   after the same D1 submission gates pass.
+9. Strategy previews are not automatically submitted.
 
 ## 3. File-by-File Reference
 
@@ -154,7 +156,7 @@ generated egg-info metadata are not part of the source contract.
 | `configs/paper_ibkr.yaml` | IBKR paper runtime template using external market events and `symbol_conids`. |
 | `configs/paper_fake_stream.yaml` | Deterministic paper runtime template using finite in-memory market events. |
 | `configs/paper_alpaca_stream_mock.yaml` | Deterministic paper runtime template using Alpaca-shaped mock stream payloads. |
-| `configs/live_alpaca.yaml` | Guarded live dry-run template with manual submission disabled by default. |
+| `configs/live_alpaca.yaml` | Guarded live template with dry-run support plus manual submission and Alpaca live adapter construction disabled by default. |
 | `configs/ml/directional_baseline.yaml` | Offline ML fixture training configuration. |
 | `configs/risk/base.yaml` | Reusable risk sizing and rule defaults imported with `risk_ref`. |
 | `configs/strategies/sma_crossover.yaml` | Reusable SMA crossover strategy profile imported with `config_ref`. |
@@ -335,7 +337,7 @@ but should not be confused with broker-owned account state.
 | `src/qts/engines/market_data.py` | Validates event-driven market data provider settings for paper/live. |
 | `src/qts/engines/backtest_engine.py` | Deterministic local backtest orchestration. |
 | `src/qts/engines/paper_trading_engine.py` | Paper runtime initialization, externally supplied event handling, and finite fake-stream execution. |
-| `src/qts/engines/live_engine.py` | Guarded live dry-run orchestration, manual live order submission envelope, and `_DryRunLiveBrokerage`. |
+| `src/qts/engines/live_engine.py` | Guarded live orchestration, manual live order submission envelope, selected Alpaca live brokerage construction, and `_DryRunLiveBrokerage`. |
 | `src/qts/engines/__init__.py` | Engine exports. |
 
 Engines wire modules together. Keep detailed business behavior in the owning
@@ -460,7 +462,7 @@ Detailed test file index:
 | `tests/unit/brokers/backtest/__init__.py` | Backtest broker test package marker. |
 | `tests/unit/brokers/backtest/test_backtest_brokerage.py` | Tests fill policies, lifecycle, cash/position checks, and rejections. |
 | `tests/unit/brokers/alpaca/__init__.py` | Alpaca broker test package marker. |
-| `tests/unit/brokers/alpaca/test_alpaca_brokerage.py` | Tests Alpaca brokerage conversion, polling fills, errors, and live rejection. |
+| `tests/unit/brokers/alpaca/test_alpaca_brokerage.py` | Tests Alpaca brokerage conversion, polling fills, errors, and gated live adapter behavior. |
 | `tests/unit/brokers/ibkr/__init__.py` | IBKR broker test package marker. |
 | `tests/unit/brokers/ibkr/test_ibkr_brokerage.py` | Tests IBKR brokerage conversion, polling fills, reply prompt rejection, live rejection, and missing `conid` handling. |
 | `tests/unit/integrations/__init__.py` | Integration test package marker. |
@@ -498,7 +500,7 @@ Detailed test file index:
 | `tests/integration/ml/__init__.py` | ML integration package marker. |
 | `tests/integration/ml/test_training_pipeline.py` | Fixture-backed end-to-end ML training pipeline test. |
 | `tests/integration/live_safety/__init__.py` | Live safety integration package marker. |
-| `tests/integration/live_safety/test_live_engine.py` | Guarded live dry-run initialization tests. |
+| `tests/integration/live_safety/test_live_engine.py` | Guarded live initialization, decision preview, manual submission, and Alpaca live adapter construction tests. |
 
 Generated metadata note:
 
@@ -591,6 +593,8 @@ Do not let execution or strategies import vendor clients.
 - Broker adapters convert to/from domain models.
 - Market data and brokerage stay separate even for the same vendor.
 - Backtest, paper, and live modes share the strategy/risk/execution path.
+- Alpaca live adapter construction is gated by the D1 confirmation/submission
+  checks.
 - Automated live submission remains disabled until a future phase explicitly
   enables it.
 - Documentation changes accompany interface, model, or architecture changes.

@@ -1,4 +1,4 @@
-"""Normalized Alpaca paper brokerage adapter."""
+"""Normalized Alpaca brokerage adapter."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ from qts.integrations.alpaca import (
 
 
 class AlpacaBrokerage:
-    """Brokerage implementation for Alpaca paper trading."""
+    """Brokerage implementation for Alpaca paper or explicitly gated live trading."""
 
     def __init__(
         self,
@@ -62,7 +62,7 @@ class AlpacaBrokerage:
     def connect(self, broker_config: BrokerConfig | None = None) -> None:
         if broker_config is not None:
             self.broker_config = broker_config
-        self._ensure_paper_only()
+        self._validate_runtime_mode()
         if self.client is None:
             if _mock_mode(self.broker_config):
                 self.client = InMemoryAlpacaClient()
@@ -189,10 +189,37 @@ class AlpacaBrokerage:
             return bool(response["is_open"])
         return default_market_session_service().is_tradable(timestamp)
 
-    def _ensure_paper_only(self) -> None:
+    def _validate_runtime_mode(self) -> None:
         broker_type = self.broker_config.broker_type.lower()
-        if self.broker_config.paper is False or broker_type == "alpaca_live":
-            raise LiveSafetyError("Phase 6 only enables Alpaca paper brokerage")
+        if broker_type == "alpaca_live" or self.broker_config.paper is False:
+            self._ensure_live_enabled()
+            return
+        if broker_type != "alpaca_paper":
+            raise BrokerError(
+                "AlpacaBrokerage requires broker.broker_type=alpaca_paper or alpaca_live"
+            )
+
+    def _ensure_live_enabled(self) -> None:
+        broker_type = self.broker_config.broker_type.lower()
+        safety = dict(self.broker_config.safety)
+        if broker_type != "alpaca_live" or self.broker_config.paper is not False:
+            raise LiveSafetyError(
+                "Alpaca live brokerage requires broker.broker_type=alpaca_live and broker.paper=false"
+            )
+        if not _truthy(safety.get("live_enabled")):
+            raise LiveSafetyError("Alpaca live brokerage requires broker.safety.live_enabled=true")
+        if _truthy(safety.get("dry_run")) or _truthy(safety.get("mock_mode")):
+            raise LiveSafetyError(
+                "Alpaca live brokerage requires broker.safety.dry_run=false and mock_mode=false"
+            )
+        if not _truthy(safety.get("confirm_live_trading")):
+            raise LiveSafetyError(
+                "Alpaca live brokerage requires broker.safety.confirm_live_trading=true"
+            )
+        if not _truthy(safety.get("enable_order_submission")):
+            raise LiveSafetyError(
+                "Alpaca live brokerage requires broker.safety.enable_order_submission=true"
+            )
 
     def _require_connected(self) -> None:
         if not self._connected or self.client is None:
@@ -220,7 +247,13 @@ class AlpacaBrokerage:
 
 def _mock_mode(broker_config: BrokerConfig) -> bool:
     safety = dict(broker_config.safety)
-    return bool(safety.get("mock_mode") or safety.get("dry_run"))
+    return _truthy(safety.get("mock_mode")) or _truthy(safety.get("dry_run"))
+
+
+def _truthy(value: Any) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)
 
 
 __all__ = ["AlpacaBrokerage"]

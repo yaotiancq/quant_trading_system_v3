@@ -401,9 +401,11 @@ Normalize broker behavior across backtesting, paper trading, and live trading.
 ### Implementations
 
 - `BacktestBrokerage` simulates broker behavior for backtests.
-- `AlpacaBrokerage` supports Alpaca paper trading.
+- `AlpacaBrokerage` supports Alpaca paper trading and explicitly gated Alpaca
+  live adapter construction behind the D1 submission gates.
 - `IBKRBrokerage` supports IBKR paper trading and requires an account ID plus
-  symbol-to-`conid` mapping for order submission.
+  symbol-to-`conid` mapping for order submission. IBKR live remains
+  fail-closed.
 
 ## 15a. BrokerEventSource and Synchronization
 
@@ -592,6 +594,10 @@ non-dry-run live mode, `confirm_live_trading=true`,
 `enable_order_submission=true`, a live broker config, account allowlist,
 market-session validation, order safety caps, and a matched reconciliation
 check immediately before calling `broker.submit_order`.
+Phase D2 permits `LiveEngine` to construct the selected Alpaca live brokerage
+adapter only after those explicit live submission gates pass. Automated
+strategy-driven live broker submission remains disabled until a later
+documented Phase D sub-phase.
 
 ## 21. Reporter
 

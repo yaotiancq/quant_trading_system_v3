@@ -58,9 +58,11 @@ broker:
     live_enabled: false
     # Must be true as a second explicit operator confirmation.
     confirm_live_trading: false
-    # Must be true before LiveEngine.submit_live_order can call broker.submit_order.
-    # Keep false unless you are intentionally running a production live submission
-    # path with a configured live broker, allowlisted account, and allowlisted symbols.
+    # Must be true before LiveEngine can construct the Alpaca live adapter or
+    # LiveEngine.submit_live_order can call broker.submit_order.
+    # Keep false unless you are intentionally running a production live
+    # submission path with a configured live broker, allowlisted account, and
+    # allowlisted symbols.
     enable_order_submission: false
     # true routes through dry-run/mock brokerage behavior.
     dry_run: false

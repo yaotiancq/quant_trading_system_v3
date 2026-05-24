@@ -1108,7 +1108,7 @@ Configuration for broker implementation.
 | `commission_model` | dict | no | backtest cost config |
 | `slippage_model` | dict | no | backtest slippage config |
 | `fill_policy` | string | no | backtest fill policy |
-| `safety` | dict | no | live safety settings and adapter-specific safe defaults, e.g. `enable_order_submission`, IBKR `symbol_conids` |
+| `safety` | dict | no | live safety settings and adapter-specific safe defaults, e.g. `enable_order_submission`, Alpaca live adapter gates, IBKR `symbol_conids` |
 
 ### Example
 
@@ -1128,6 +1128,7 @@ Configuration for broker implementation.
 ### Consumers
 
 - broker factory,
+- broker adapter safety validation,
 - execution engine,
 - engines.
 
@@ -1389,7 +1390,7 @@ the configured live brokerage.
 - The result is produced only after `validate_live_order_submission_config`,
   `validate_live_account`, `validate_order_request_safety`, and reconciliation
   checks pass.
-- Automated strategy-generated submissions remain out of scope for Phase D1.
+- Automated strategy-generated submissions remain out of scope until Phase D3.
 
 ### Producers
 

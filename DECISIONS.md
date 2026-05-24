@@ -1250,3 +1250,57 @@ separate gates.
 - Enable real Alpaca live submission immediately.
 - Reuse `confirm_live_trading` as the only order-submission gate.
 - Automatically submit safety-approved live decision previews.
+
+---
+
+## ADR-033: Enable Alpaca Live Adapter Before Automated Live Submission
+
+### Context
+
+After D1, the system had a manually invoked live order submission path but the
+live engine still required an injected brokerage for non-dry-run use. The next
+step toward production live trading is to let the engine construct a real
+broker-specific live adapter without also enabling automated strategy-driven
+submissions.
+
+### Decision
+
+Enable `alpaca_live` as the first selected live brokerage adapter:
+
+- `LiveEngine` constructs `AlpacaBrokerage` only when the runtime is LIVE,
+  non-dry-run, `broker.paper=false`, and the D1
+  `enable_order_submission=true` gate passes.
+- `AlpacaBrokerage` itself rejects unsafe live configurations unless
+  `broker_type=alpaca_live`, `paper=false`, `live_enabled=true`,
+  `confirm_live_trading=true`, `enable_order_submission=true`, and both
+  `dry_run` and `mock_mode` are false.
+- Real client construction still requires configured Alpaca credentials and
+  uses the live base URL default or `broker.base_url`.
+- IBKR live remains fail-closed until a separate phase designs and tests it.
+
+Automated conversion of live decision previews into submitted orders remains
+Phase D3 work.
+
+### Rationale
+
+This keeps broker-specific live connectivity behind the same explicit
+production gates as manual submission while preserving the normalized
+`Brokerage` contract. It also isolates Alpaca-specific behavior in the broker
+adapter and avoids expanding the live decision loop before adapter safety is
+testable.
+
+### Consequences
+
+- Operators can use the real Alpaca live adapter only after deliberately
+  enabling the live confirmation and submission gates.
+- Tests can prove adapter construction with injected or patched clients without
+  network access.
+- The sample live config remains fail-closed by default.
+- Automated live strategy submission, live market-data stream ownership, and
+  IBKR live behavior remain future work.
+
+### Alternatives Considered
+
+- Continue requiring injected live brokerages for all non-dry-run live runs.
+- Enable Alpaca and IBKR live adapters together.
+- Couple live adapter enablement to automated strategy submission.

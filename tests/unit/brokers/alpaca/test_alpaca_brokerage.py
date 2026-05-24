@@ -4,7 +4,7 @@ import unittest
 from datetime import datetime, timezone
 
 from qts.brokers.alpaca import AlpacaBrokerage
-from qts.core import BrokerError, LiveSafetyError
+from qts.core import BrokerError, ConfigurationError, LiveSafetyError
 from qts.domain import BrokerConfig, OrderRequest, OrderSide, OrderStatus, OrderType, TimeInForce
 from qts.integrations.alpaca import AlpacaAPIError
 
@@ -142,10 +142,73 @@ class AlpacaBrokerageTests(unittest.TestCase):
         with self.assertRaises(BrokerError):
             broker.submit_order(make_order_request())
 
-    def test_phase_6_rejects_live_alpaca_configuration(self) -> None:
-        broker = AlpacaBrokerage(make_config(broker_type="alpaca_live", paper=False), client=FakeAlpacaClient())
+    def test_ungated_live_alpaca_configuration_fails_closed(self) -> None:
+        broker = AlpacaBrokerage(
+            make_config(broker_type="alpaca_live", paper=False),
+            client=FakeAlpacaClient(),
+        )
 
         with self.assertRaises(LiveSafetyError):
+            broker.connect()
+
+    def test_live_alpaca_requires_explicit_submission_safety_gates(self) -> None:
+        broker = AlpacaBrokerage(
+            make_config(
+                broker_type="alpaca_live",
+                paper=False,
+                safety={
+                    "live_enabled": True,
+                    "dry_run": False,
+                    "mock_mode": False,
+                    "confirm_live_trading": True,
+                },
+            ),
+            client=FakeAlpacaClient(),
+        )
+
+        with self.assertRaisesRegex(LiveSafetyError, "enable_order_submission"):
+            broker.connect()
+
+    def test_live_alpaca_connects_with_injected_client_after_safety_gates(self) -> None:
+        client = FakeAlpacaClient()
+        broker = AlpacaBrokerage(
+            make_config(
+                broker_type="alpaca_live",
+                paper=False,
+                safety={
+                    "live_enabled": True,
+                    "dry_run": False,
+                    "mock_mode": False,
+                    "confirm_live_trading": True,
+                    "enable_order_submission": True,
+                },
+            ),
+            client=client,
+        )
+
+        broker.connect()
+        order = broker.submit_order(make_order_request())
+
+        self.assertEqual(order.order_id, "alpaca-order-1")
+        self.assertEqual(client.submitted_payloads[0]["symbol"], "SPY")
+
+    def test_live_alpaca_without_injected_client_requires_credentials(self) -> None:
+        broker = AlpacaBrokerage(
+            make_config(
+                broker_type="alpaca_live",
+                paper=False,
+                safety={
+                    "live_enabled": True,
+                    "dry_run": False,
+                    "mock_mode": False,
+                    "confirm_live_trading": True,
+                    "enable_order_submission": True,
+                },
+            ),
+            env_values={},
+        )
+
+        with self.assertRaisesRegex(ConfigurationError, "missing Alpaca credential"):
             broker.connect()
 
 

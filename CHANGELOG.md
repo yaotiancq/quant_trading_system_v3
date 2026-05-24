@@ -8,6 +8,34 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Major Architecture Phase D2] - 2026-05-24
+
+### Added
+
+- Enabled `LiveEngine` to construct the selected `AlpacaBrokerage` live
+  adapter for non-dry-run live configs after the D1 order-submission gates
+  pass.
+- Added Alpaca live adapter safety checks for `alpaca_live`, `paper=false`,
+  `live_enabled=true`, `confirm_live_trading=true`,
+  `enable_order_submission=true`, and non-mock/non-dry-run mode.
+- Added deterministic tests for gated Alpaca live adapter construction,
+  rejected unsafe live configs, and missing live credentials.
+
+### Changed
+
+- `AlpacaBrokerage` now supports explicitly gated live mode in addition to
+  paper mode while preserving the normalized `Brokerage` interface.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+---
+
 ## [Major Architecture Phase D1] - 2026-05-24
 
 ### Added

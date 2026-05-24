@@ -4,6 +4,7 @@ import unittest
 from contextlib import redirect_stdout
 from datetime import datetime, timezone
 from io import StringIO
+from unittest.mock import patch
 
 from qts.core import LiveSafetyError, ReplayClock
 from qts.domain import (
@@ -133,6 +134,17 @@ class RecordingLiveBrokerage:
 
     def is_market_open(self, timestamp) -> bool:  # type: ignore[no-untyped-def]
         return True
+
+
+class RecordingAlpacaLiveBrokerage(RecordingLiveBrokerage):
+    def __init__(self, broker_config) -> None:  # type: ignore[no-untyped-def]
+        super().__init__(account_id=broker_config.account_id or "acct-1")
+        self.broker_config = broker_config
+
+    def connect(self, broker_config=None) -> None:  # type: ignore[no-untyped-def]
+        if broker_config is not None:
+            self.broker_config = broker_config
+        self.connected = True
 
 
 class LiveEngineSafetyIntegrationTests(unittest.TestCase):
@@ -325,6 +337,40 @@ class LiveEngineSafetyIntegrationTests(unittest.TestCase):
             engine.health_check()["last_live_order_submission"]["order_id"],
             "live-order-1",
         )
+
+    def test_live_engine_builds_alpaca_live_brokerage_after_submission_gates(self) -> None:
+        config = make_live_config(
+            safety={
+                "dry_run": False,
+                "mock_mode": False,
+                "confirm_live_trading": True,
+                "enable_order_submission": True,
+            }
+        )
+
+        with patch("qts.engines.live_engine.AlpacaBrokerage", RecordingAlpacaLiveBrokerage):
+            engine = LiveEngine(config)
+            engine.initialize()
+
+        self.assertIsInstance(engine.brokerage, RecordingAlpacaLiveBrokerage)
+        self.assertTrue(engine.brokerage.connected)
+        self.assertEqual(engine.health_check()["status"], "OK")
+
+    def test_live_engine_does_not_build_live_broker_without_submission_gate(self) -> None:
+        config = make_live_config(
+            safety={
+                "dry_run": False,
+                "mock_mode": False,
+                "confirm_live_trading": True,
+            }
+        )
+
+        with patch("qts.engines.live_engine.AlpacaBrokerage") as factory:
+            engine = LiveEngine(config)
+            with self.assertRaisesRegex(LiveSafetyError, "enable_order_submission"):
+                engine.initialize()
+
+        factory.assert_not_called()
 
     def test_live_runner_dry_run_command_initializes(self) -> None:
         with redirect_stdout(StringIO()):
