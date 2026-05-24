@@ -8,21 +8,13 @@ project:
   # Free-form project name. Keep stable if you want comparable artifacts.
   name: quant_trading_system_v3
 
-# Runtime defaults. Child configs normally override `mode`.
+# Shared runtime metadata. Active runtime configs must define their own mode,
+# symbols, and timeframe so operational behavior cannot silently fall back to a
+# base default.
 runtime:
-  # Options: BACKTEST, PAPER, LIVE.
-  mode: BACKTEST
   # IANA timezone name used as metadata. Timestamps in configs should still be UTC
   # or include an explicit offset.
   timezone: UTC
-
-# Default universe. Runtime configs may override this, and strategy-level symbols
-# can narrow the symbols used by each strategy.
-symbols: [SPY]
-
-# Domain timeframe for locally normalized bars.
-# Options: SECOND, MINUTE, HOUR, DAY.
-timeframe: MINUTE
 
 # Default repository-relative paths.
 paths:

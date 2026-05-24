@@ -42,6 +42,7 @@ class BacktestEngine:
         self.provider = market_data_provider
         self.feature_pipeline = feature_pipeline
         self.strategies = list(strategies or [])
+        self._strategies_injected = strategies is not None
         self.reporter = reporter or BacktestReporter()
         self.data_portal: DefaultDataPortal | None = None
         self.portfolio: DefaultPortfolio | None = None
@@ -97,16 +98,20 @@ class BacktestEngine:
             OrderRouter(self.brokerage),
             allow_fractional=bool(self.config.execution.get("allow_fractional", True)),
         )
-        if not self.strategies:
+        enabled_strategy_configs = [config for config in self.config.strategies if config.enabled]
+        if self._strategies_injected and len(self.strategies) != len(enabled_strategy_configs):
+            raise ConfigurationError(
+                "injected strategy count does not match enabled strategy config count"
+            )
+        if not self._strategies_injected:
             self.strategies = [
                 create_strategy(strategy_config)
-                for strategy_config in self.config.strategies
-                if strategy_config.enabled
+                for strategy_config in enabled_strategy_configs
             ]
         for strategy, strategy_config in zip(
             self.strategies,
-            [config for config in self.config.strategies if config.enabled],
-            strict=False,
+            enabled_strategy_configs,
+            strict=True,
         ):
             strategy.initialize(strategy_config, self.data_portal, {"runtime_config": self.config})
         self._latest_prices.clear()
@@ -225,9 +230,9 @@ def _provider_from_config(config: RuntimeConfig) -> MarketDataProvider:
     if not path:
         raise ConfigurationError("market_data.path is required for Phase 5 backtests")
     if provider_name in {"csv", "local_csv", "fixture_csv"}:
-        return CSVBarProvider(Path(path))
+        return CSVBarProvider(Path(path), default_timeframe=config.timeframe)
     if provider_name in {"parquet", "local_parquet"}:
-        return LocalParquetProvider(Path(path))
+        return LocalParquetProvider(Path(path), default_timeframe=config.timeframe)
     raise ConfigurationError(f"unsupported Phase 5 market data provider: {provider_name}")
 
 

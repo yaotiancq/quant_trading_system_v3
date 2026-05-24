@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from qts.brokers.ibkr import IBKRBrokerage
 from qts.core import BrokerError, LiveSafetyError
@@ -65,6 +65,41 @@ class IBKRBrokerageTests(unittest.TestCase):
         self.assertEqual(first[0].price, 101)
         self.assertEqual(first[0].source, "ibkr_paper")
         self.assertEqual(second, [])
+
+    def test_poll_fills_excludes_fill_at_since_boundary(self) -> None:
+        client = InMemoryIBKRClient(account_id="DU123456", fill_immediately=True, fill_price=101)
+        broker = IBKRBrokerage(make_config(), client=client)
+        broker.connect()
+        broker.submit_order(make_order_request())
+        first = broker.poll_fills()
+        order_id = first[0].order_id
+        client.orders[order_id]["filledQuantity"] = 11
+        client.orders[order_id]["updated_at"] = first[0].timestamp.isoformat()
+
+        boundary = broker.poll_fills(since=first[0].timestamp)
+
+        self.assertEqual(boundary, [])
+
+        client.orders[order_id]["filledQuantity"] = 12
+        client.orders[order_id]["updated_at"] = (first[0].timestamp + timedelta(seconds=1)).isoformat()
+        after_boundary = broker.poll_fills(since=first[0].timestamp)
+
+        self.assertEqual(len(after_boundary), 1)
+        self.assertEqual(after_boundary[0].quantity, 1)
+
+    def test_poll_fills_excludes_fill_before_since_boundary(self) -> None:
+        client = InMemoryIBKRClient(account_id="DU123456", fill_immediately=True, fill_price=101)
+        broker = IBKRBrokerage(make_config(), client=client)
+        broker.connect()
+        broker.submit_order(make_order_request())
+        first = broker.poll_fills()
+        order_id = first[0].order_id
+        client.orders[order_id]["filledQuantity"] = 11
+        client.orders[order_id]["updated_at"] = first[0].timestamp.isoformat()
+
+        before_boundary = broker.poll_fills(since=first[0].timestamp + timedelta(seconds=1))
+
+        self.assertEqual(before_boundary, [])
 
     def test_reply_required_response_is_rejected_fail_closed(self) -> None:
         client = InMemoryIBKRClient(account_id="DU123456", require_order_reply=True)

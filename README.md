@@ -134,6 +134,11 @@ Secrets must not be stored in YAML files. Copy `.env.example` to `.env` for
 local Alpaca paper credentials or IBKR Web API overrides when using real broker
 APIs.
 
+Active runtime configs must explicitly set `runtime.mode`, `symbols`, and
+`timeframe`; `configs/base.yaml` only carries safe shared metadata/defaults.
+If `execution.allow_fractional: false`, use quantity-based risk sizing so
+broker-ready orders do not carry notional-only sizing.
+
 Paper/live templates use `market_data.provider: external_events` because the
 current paper and live scaffolds consume externally supplied `Bar`/`Quote`
 events. Alpaca historical SIP downloads are available through

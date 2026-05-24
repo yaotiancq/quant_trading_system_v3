@@ -80,9 +80,8 @@ ALPACA_SECRET_KEY='def'
             configs = root / "configs"
             (configs / "strategies").mkdir(parents=True)
             (configs / "risk").mkdir()
-            (configs / "strategies" / "sma.yaml").write_text(
+            (configs / "strategies" / "base.yaml").write_text(
                 """
-strategy_id: shared_sma
 strategy_type: sma_crossover
 symbols: [SPY]
 enabled: true
@@ -92,11 +91,28 @@ parameters:
 """,
                 encoding="utf-8",
             )
-            (configs / "risk" / "base.yaml").write_text(
+            (configs / "strategies" / "sma.yaml").write_text(
+                """
+extends: base.yaml
+strategy_id: shared_sma
+parameters:
+  slow_window: 12
+""",
+                encoding="utf-8",
+            )
+            (configs / "risk" / "base_defaults.yaml").write_text(
                 """
 sizing_method: fixed_notional
 sizing_parameters:
   notional_per_trade: 1000
+""",
+                encoding="utf-8",
+            )
+            (configs / "risk" / "base.yaml").write_text(
+                """
+extends: base_defaults.yaml
+sizing_parameters:
+  notional_per_trade: 1500
 """,
                 encoding="utf-8",
             )
@@ -126,7 +142,7 @@ risk:
 portfolio:
   starting_cash: 100000
 execution:
-  allow_fractional: false
+  allow_fractional: true
 """,
                 encoding="utf-8",
             )
@@ -136,6 +152,10 @@ execution:
         self.assertEqual(config.strategies[0].strategy_id, "shared_sma")
         self.assertEqual(config.strategies[0].parameters, {"fast_window": 5, "slow_window": 20})
         self.assertEqual(config.risk.sizing_parameters, {"notional_per_trade": 2500})
+        self.assertIn(str(configs / "strategies" / "base.yaml"), config.metadata["source_files"])
+        self.assertIn(str(configs / "strategies" / "sma.yaml"), config.metadata["source_files"])
+        self.assertIn(str(configs / "risk" / "base_defaults.yaml"), config.metadata["source_files"])
+        self.assertIn(str(configs / "risk" / "base.yaml"), config.metadata["source_files"])
 
     def test_reflects_changes_to_referenced_strategy_snippet(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -237,6 +257,163 @@ execution:
             )
 
             with self.assertRaisesRegex(ConfigurationError, "execution"):
+                load_runtime_config(path, env_path=None)
+
+    def test_runtime_mode_must_be_explicit_in_active_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad.yaml"
+            path.write_text(
+                """
+runtime:
+  timezone: UTC
+symbols: [SPY]
+timeframe: MINUTE
+date_range:
+  start: 2024-01-02T14:30:00Z
+  end: 2024-01-02T14:35:00Z
+market_data:
+  provider: local_csv
+  path: data/bars.csv
+broker:
+  broker_type: backtest
+strategies:
+  - strategy_id: sma
+    strategy_type: sma_crossover
+    symbols: [SPY]
+    parameters:
+      fast_window: 2
+      slow_window: 3
+risk:
+  sizing_method: fixed_quantity
+  sizing_parameters:
+    quantity: 1
+portfolio:
+  starting_cash: 100000
+execution:
+  allow_fractional: false
+""",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ConfigurationError, "runtime.mode"):
+                load_runtime_config(path, env_path=None)
+
+    def test_runtime_symbols_must_be_explicit_in_active_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad.yaml"
+            path.write_text(
+                """
+runtime:
+  mode: BACKTEST
+timeframe: MINUTE
+date_range:
+  start: 2024-01-02T14:30:00Z
+  end: 2024-01-02T14:35:00Z
+market_data:
+  provider: local_csv
+  path: data/bars.csv
+broker:
+  broker_type: backtest
+strategies:
+  - strategy_id: sma
+    strategy_type: sma_crossover
+    symbols: [SPY]
+    parameters:
+      fast_window: 2
+      slow_window: 3
+risk:
+  sizing_method: fixed_quantity
+  sizing_parameters:
+    quantity: 1
+portfolio:
+  starting_cash: 100000
+execution:
+  allow_fractional: false
+""",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ConfigurationError, "symbols"):
+                load_runtime_config(path, env_path=None)
+
+    def test_notional_sizing_requires_fractional_execution_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad.yaml"
+            path.write_text(
+                """
+runtime:
+  mode: BACKTEST
+symbols: [SPY]
+timeframe: MINUTE
+date_range:
+  start: 2024-01-02T14:30:00Z
+  end: 2024-01-02T14:35:00Z
+market_data:
+  provider: local_csv
+  path: data/bars.csv
+broker:
+  broker_type: backtest
+strategies:
+  - strategy_id: sma
+    strategy_type: sma_crossover
+    symbols: [SPY]
+    parameters:
+      fast_window: 2
+      slow_window: 3
+risk:
+  sizing_method: fixed_notional
+  sizing_parameters:
+    notional_per_trade: 1000
+portfolio:
+  starting_cash: 100000
+execution:
+  allow_fractional: false
+""",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ConfigurationError, "quantity-based sizing"):
+                load_runtime_config(path, env_path=None)
+
+    def test_unsupported_reporting_fields_fail_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad.yaml"
+            path.write_text(
+                """
+runtime:
+  mode: BACKTEST
+symbols: [SPY]
+timeframe: MINUTE
+date_range:
+  start: 2024-01-02T14:30:00Z
+  end: 2024-01-02T14:35:00Z
+market_data:
+  provider: local_csv
+  path: data/bars.csv
+broker:
+  broker_type: backtest
+strategies:
+  - strategy_id: sma
+    strategy_type: sma_crossover
+    symbols: [SPY]
+    parameters:
+      fast_window: 2
+      slow_window: 3
+risk:
+  sizing_method: fixed_quantity
+  sizing_parameters:
+    quantity: 1
+portfolio:
+  starting_cash: 100000
+execution:
+  allow_fractional: false
+reporting:
+  benchmark_symbol: SPY
+""",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ConfigurationError, "reporting"):
                 load_runtime_config(path, env_path=None)
 
     def test_invalid_sizing_parameters_fail_at_config_load_time(self) -> None:

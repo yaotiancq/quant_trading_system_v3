@@ -317,6 +317,8 @@ class TradeIntent(DomainModel):
         self.time_in_force = coerce_enum(TimeInForce, self.time_in_force)
         _positive(self.quantity, "quantity")
         _positive(self.notional, "notional")
+        if self.quantity is not None and self.notional is not None:
+            raise ValueError("provide either quantity or notional, not both")
         _validate_order_prices(self.order_type, self.limit_price, self.stop_price)
         self.source_signal_id = _optional_text(self.source_signal_id)
         self.reason = _optional_text(self.reason)
@@ -376,8 +378,8 @@ class OrderRequest(DomainModel):
         self.time_in_force = coerce_enum(TimeInForce, self.time_in_force)
         _positive(self.quantity, "quantity")
         _positive(self.notional, "notional")
-        if self.quantity is None and self.notional is None:
-            raise ValueError("quantity or notional is required")
+        if (self.quantity is None) == (self.notional is None):
+            raise ValueError("exactly one of quantity or notional is required")
         _validate_order_prices(self.order_type, self.limit_price, self.stop_price)
         self.metadata = _dict(self.metadata)
 

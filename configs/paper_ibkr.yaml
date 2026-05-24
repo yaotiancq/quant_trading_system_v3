@@ -10,6 +10,13 @@ runtime:
   # Options: BACKTEST, PAPER, LIVE. Paper engine requires PAPER.
   mode: PAPER
 
+# Runtime universe. This must be explicit; strategy-level symbols can narrow it.
+symbols: [SPY]
+
+# Domain timeframe for locally normalized bars.
+# Options: SECOND, MINUTE, HOUR, DAY.
+timeframe: MINUTE
+
 # Paper runtime event source.
 market_data:
   # Options for this runtime scaffold: external_events.

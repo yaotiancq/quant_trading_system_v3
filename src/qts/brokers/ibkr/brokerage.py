@@ -202,7 +202,7 @@ class IBKRBrokerage:
             self._filled_quantities_by_order_id[order.order_id] = order.filled_quantity
             if fill is None:
                 continue
-            if since is not None and fill.timestamp < normalize_timestamp(since):
+            if since is not None and fill.timestamp <= normalize_timestamp(since):
                 continue
             fills.append(fill)
         return fills

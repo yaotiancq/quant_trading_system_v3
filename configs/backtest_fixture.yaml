@@ -13,6 +13,13 @@ runtime:
   # Options: BACKTEST, PAPER, LIVE. Fixture runs must use BACKTEST.
   mode: BACKTEST
 
+# Runtime universe. This must be explicit; strategy-level symbols can narrow it.
+symbols: [SPY]
+
+# Domain timeframe for locally normalized bars.
+# Options: SECOND, MINUTE, HOUR, DAY.
+timeframe: MINUTE
+
 # Fixture data window. ISO-8601 UTC timestamps are safest.
 date_range:
   # First bar timestamp included by the local provider.

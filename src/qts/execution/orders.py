@@ -23,7 +23,13 @@ def build_order_request(
         raise ExecutionError("risk decision has no approved intent")
 
     intent = risk_decision.approved_intent
+    _validate_quantity_notional(intent.quantity, intent.notional)
     _validate_fractional_quantity(intent.quantity, allow_fractional=allow_fractional)
+    if intent.notional is not None and not allow_fractional:
+        raise ExecutionError(
+            "notional orders require execution.allow_fractional=true; "
+            "use quantity-based sizing for whole-share execution"
+        )
     request_metadata: dict[str, Any] = {
         "risk_decision_id": risk_decision.decision_id,
         "risk_status": risk_decision.status.value,
@@ -57,6 +63,13 @@ def _validate_fractional_quantity(quantity: float | None, *, allow_fractional: b
         return
     if abs(quantity - round(quantity)) > 1e-9:
         raise ExecutionError("fractional quantities are disabled by execution config")
+
+
+def _validate_quantity_notional(quantity: float | None, notional: float | None) -> None:
+    if quantity is not None and notional is not None:
+        raise ExecutionError("provide either quantity or notional, not both")
+    if quantity is None and notional is None:
+        raise ExecutionError("quantity or notional is required")
 
 
 __all__ = ["build_order_request"]

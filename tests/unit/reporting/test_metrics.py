@@ -68,6 +68,42 @@ class ReportingMetricTests(unittest.TestCase):
         self.assertEqual(metrics["profit_factor"], 2.0)
         self.assertEqual(metrics["number_of_trades"], 2)
 
+    def test_calculate_metrics_uses_reporting_annualization_settings(self) -> None:
+        snapshots = [
+            snapshot(0, 100),
+            snapshot(1, 102),
+            snapshot(2, 101),
+        ]
+
+        default_metrics = calculate_metrics(snapshots, [])
+        configured_metrics = calculate_metrics(
+            snapshots,
+            [],
+            annualization_factor=252,
+            risk_free_rate=0.05,
+        )
+
+        self.assertIsNone(default_metrics["annualized_return"])
+        self.assertIsNotNone(configured_metrics["annualized_return"])
+        self.assertIsNotNone(configured_metrics["sharpe_ratio"])
+        self.assertNotEqual(default_metrics["sharpe_ratio"], configured_metrics["sharpe_ratio"])
+
+    def test_reporter_passes_configured_reporting_metrics_settings(self) -> None:
+        config = load_runtime_config(
+            ROOT / "configs" / "backtest_fixture.yaml",
+            env_path=None,
+            overrides={"reporting": {"annualization_factor": 252, "risk_free_rate": 0.05}},
+        )
+        snapshots = [
+            snapshot(0, 100),
+            snapshot(1, 102),
+            snapshot(2, 101),
+        ]
+
+        metrics = BacktestReporter().generate_metrics(snapshots, [], config)
+
+        self.assertIsNotNone(metrics["annualized_return"])
+
     def test_reporter_exports_metrics_ledgers_equity_curve_and_summary(self) -> None:
         config = load_runtime_config(ROOT / "configs" / "backtest_fixture.yaml", env_path=None)
         snapshots = [snapshot(0, 100000), snapshot(1, 100100, gross=1000)]

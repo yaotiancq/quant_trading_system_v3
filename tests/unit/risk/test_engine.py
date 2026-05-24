@@ -14,7 +14,8 @@ from qts.domain import (
     SignalDirection,
     TradeIntent,
 )
-from qts.risk import RiskEngine
+from qts.risk import CooldownRule, RiskEngine
+from qts.risk.rules import projected_symbol_exposure
 
 
 UTC = timezone.utc
@@ -28,6 +29,7 @@ def snapshot(
     gross_exposure: float = 0.0,
     positions_value: float | None = None,
     realized_pnl: float = 0.0,
+    unrealized_pnl: float = 0.0,
     buying_power: float | None = None,
     positions: list[Position] | None = None,
 ) -> PortfolioSnapshot:
@@ -40,7 +42,7 @@ def snapshot(
         equity=equity,
         positions_value=gross_exposure if positions_value is None else positions_value,
         realized_pnl=realized_pnl,
-        unrealized_pnl=0.0,
+        unrealized_pnl=unrealized_pnl,
         gross_exposure=gross_exposure,
         net_exposure=gross_exposure,
         positions=list(positions or []),
@@ -57,10 +59,14 @@ def risk_config(**overrides: object) -> RiskConfig:
     return RiskConfig(**values)
 
 
-def signal(timestamp: datetime = NOW, symbol: str = "SPY") -> Signal:
+def signal(
+    timestamp: datetime = NOW,
+    symbol: str = "SPY",
+    strategy_id: str = "strategy-1",
+) -> Signal:
     return Signal(
         signal_id=f"sig-{symbol}-{timestamp.strftime('%H%M%S')}",
-        strategy_id="strategy-1",
+        strategy_id=strategy_id,
         symbol=symbol,
         timestamp=timestamp,
         direction=SignalDirection.BUY,
@@ -229,9 +235,58 @@ class RiskEngineTests(unittest.TestCase):
         self.assertEqual(decision.status, RiskDecisionStatus.REJECTED)
         self.assertIn("outside_trading_session", decision.reasons)
 
-    def test_cooldown_rule_rejects_recent_follow_up_after_fill(self) -> None:
+    def test_trading_session_rule_allows_open_and_rejects_close_boundary(self) -> None:
+        engine = RiskEngine(
+            risk_config(
+                session_rules={
+                    "enabled": True,
+                    "market_open": "14:30",
+                    "market_close": "21:00",
+                    "weekdays": [0, 1, 2, 3, 4],
+                }
+            )
+        )
+        open_time = datetime(2026, 1, 5, 14, 30, tzinfo=UTC)
+        close_time = datetime(2026, 1, 5, 21, 0, tzinfo=UTC)
+
+        open_decision = engine.evaluate(signal(timestamp=open_time), snapshot(), {"timestamp": open_time})
+        close_decision = engine.evaluate(signal(timestamp=close_time), snapshot(), {"timestamp": close_time})
+
+        self.assertNotEqual(open_decision.status, RiskDecisionStatus.REJECTED)
+        self.assertEqual(close_decision.status, RiskDecisionStatus.REJECTED)
+        self.assertIn("outside_trading_session", close_decision.reasons)
+
+    def test_cooldown_rule_rejects_same_strategy_symbol_follow_up(self) -> None:
         engine = RiskEngine(risk_config(cooldown_seconds=60))
-        engine.update_after_fill(
+        first_decision = engine.evaluate(signal(), snapshot(), {"timestamp": NOW})
+        follow_up_time = NOW + timedelta(seconds=30)
+
+        decision = engine.evaluate(
+            signal(timestamp=follow_up_time),
+            snapshot(),
+            {"timestamp": follow_up_time},
+        )
+
+        self.assertNotEqual(first_decision.status, RiskDecisionStatus.REJECTED)
+        self.assertEqual(decision.status, RiskDecisionStatus.REJECTED)
+        self.assertIn("cooldown_active", decision.reasons)
+
+    def test_cooldown_rule_is_scoped_by_strategy_and_symbol(self) -> None:
+        engine = RiskEngine(risk_config(cooldown_seconds=60))
+        engine.evaluate(signal(strategy_id="strategy-a"), snapshot(), {"timestamp": NOW})
+        follow_up_time = NOW + timedelta(seconds=30)
+
+        decision = engine.evaluate(
+            signal(timestamp=follow_up_time, strategy_id="strategy-b"),
+            snapshot(),
+            {"timestamp": follow_up_time},
+        )
+
+        self.assertNotEqual(decision.status, RiskDecisionStatus.REJECTED)
+
+    def test_cooldown_fill_fallback_strategy_key_is_deterministic(self) -> None:
+        rule = CooldownRule()
+        rule.record_fill(
             Fill(
                 fill_id="fill-1",
                 order_id="order-1",
@@ -242,27 +297,141 @@ class RiskEngineTests(unittest.TestCase):
                 price=100,
                 commission=0,
                 source="unit_test",
-            ),
-            snapshot(),
+            )
         )
         follow_up_time = NOW + timedelta(seconds=30)
-
-        decision = engine.evaluate(
-            signal(timestamp=follow_up_time),
-            snapshot(),
-            {"timestamp": follow_up_time},
+        intent = TradeIntent(
+            intent_id="unknown-strategy-intent",
+            strategy_id="__unknown_strategy__",
+            symbol="SPY",
+            timestamp=follow_up_time,
+            side=OrderSide.BUY,
+            quantity=1,
         )
 
-        self.assertEqual(decision.status, RiskDecisionStatus.REJECTED)
-        self.assertIn("cooldown_active", decision.reasons)
+        result = rule.evaluate(
+            intent,
+            snapshot(),
+            {"timestamp": follow_up_time},
+            risk_config(cooldown_seconds=60),
+        )
 
-    def test_daily_loss_placeholder_rejects_when_limit_reached(self) -> None:
+        self.assertEqual(result.status, RiskDecisionStatus.REJECTED)
+        self.assertEqual(result.reason, "cooldown_active")
+
+    def test_daily_loss_rejects_when_realized_limit_reached(self) -> None:
         engine = RiskEngine(risk_config(daily_loss_limit=500))
 
         decision = engine.evaluate(signal(), snapshot(realized_pnl=-600), {"timestamp": NOW})
 
         self.assertEqual(decision.status, RiskDecisionStatus.REJECTED)
         self.assertIn("daily_loss_limit_reached", decision.reasons)
+
+    def test_daily_loss_rejects_when_unrealized_limit_reached(self) -> None:
+        engine = RiskEngine(risk_config(daily_loss_limit=500))
+
+        decision = engine.evaluate(signal(), snapshot(unrealized_pnl=-600), {"timestamp": NOW})
+
+        self.assertEqual(decision.status, RiskDecisionStatus.REJECTED)
+        self.assertIn("daily_loss_limit_reached", decision.reasons)
+
+    def test_daily_loss_includes_unrealized_pnl(self) -> None:
+        engine = RiskEngine(risk_config(daily_loss_limit=500))
+
+        decision = engine.evaluate(
+            signal(),
+            snapshot(realized_pnl=-100, unrealized_pnl=-450),
+            {"timestamp": NOW},
+        )
+
+        self.assertEqual(decision.status, RiskDecisionStatus.REJECTED)
+        self.assertIn("daily_loss_limit_reached", decision.reasons)
+
+    def test_daily_loss_allows_losses_within_limit(self) -> None:
+        engine = RiskEngine(risk_config(daily_loss_limit=500))
+
+        decision = engine.evaluate(
+            signal(),
+            snapshot(realized_pnl=-100, unrealized_pnl=-200),
+            {"timestamp": NOW},
+        )
+
+        self.assertNotEqual(decision.status, RiskDecisionStatus.REJECTED)
+
+    def test_buy_notional_without_price_increases_projected_exposure(self) -> None:
+        intent = TradeIntent(
+            intent_id="buy-notional",
+            strategy_id="strategy-1",
+            symbol="SPY",
+            timestamp=NOW,
+            side=OrderSide.BUY,
+            notional=500,
+        )
+        current_position = Position(
+            symbol="SPY",
+            quantity=20,
+            average_cost=100,
+            market_value=2000,
+            updated_at=NOW,
+        )
+
+        exposure = projected_symbol_exposure(
+            intent,
+            snapshot(gross_exposure=2000, positions_value=2000, positions=[current_position]),
+            {"timestamp": NOW},
+        )
+
+        self.assertEqual(exposure, (2000, 2500))
+
+    def test_sell_notional_without_price_reduces_projected_exposure(self) -> None:
+        intent = TradeIntent(
+            intent_id="sell-notional",
+            strategy_id="strategy-1",
+            symbol="SPY",
+            timestamp=NOW,
+            side=OrderSide.SELL,
+            notional=500,
+        )
+        current_position = Position(
+            symbol="SPY",
+            quantity=20,
+            average_cost=100,
+            market_value=2000,
+            updated_at=NOW,
+        )
+
+        exposure = projected_symbol_exposure(
+            intent,
+            snapshot(gross_exposure=2000, positions_value=2000, positions=[current_position]),
+            {"timestamp": NOW},
+        )
+
+        self.assertEqual(exposure, (2000, 1500))
+
+    def test_sell_notional_with_price_reduces_projected_exposure(self) -> None:
+        intent = TradeIntent(
+            intent_id="sell-notional-price",
+            strategy_id="strategy-1",
+            symbol="SPY",
+            timestamp=NOW,
+            side=OrderSide.SELL,
+            notional=500,
+        )
+        current_position = Position(
+            symbol="SPY",
+            quantity=20,
+            average_cost=100,
+            market_value=2000,
+            updated_at=NOW,
+        )
+
+        exposure = projected_symbol_exposure(
+            intent,
+            snapshot(gross_exposure=2000, positions_value=2000, positions=[current_position]),
+            {"timestamp": NOW, "price": 100},
+        )
+
+        self.assertEqual(exposure, (2000, 1500))
 
 
 if __name__ == "__main__":

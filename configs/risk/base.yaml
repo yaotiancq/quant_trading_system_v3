@@ -36,9 +36,10 @@ cooldown_seconds: 60
 # Trading-session guard evaluated in UTC unless another layer converts times.
 session_rules:
   # true enforces session window and weekday rules; false disables them.
-  enabled: true
-  # Inclusive UTC market open time. 14:30 UTC corresponds to 09:30 ET outside
-  # daylight saving time; adjust for your session/date if needed.
+  # The reusable base keeps this disabled because fixed UTC session times are
+  # daylight-saving-sensitive. Runtime configs should opt in explicitly.
+  enabled: false
+  # Inclusive UTC market open time when session rules are enabled.
   market_open: "14:30"
   # Exclusive UTC market close time.
   market_close: "21:00"

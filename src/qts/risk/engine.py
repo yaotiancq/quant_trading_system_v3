@@ -77,7 +77,7 @@ class RiskEngine:
                 candidate = result.intent
                 modified = True
 
-        return RiskDecision(
+        decision = RiskDecision(
             decision_id=_decision_id(original_intent, timestamp),
             timestamp=timestamp,
             status=RiskDecisionStatus.MODIFIED if modified else RiskDecisionStatus.APPROVED,
@@ -87,6 +87,8 @@ class RiskEngine:
             rule_results=rule_results,
             sizing_details=sizing.details,
         )
+        self._record_approved_intent(candidate)
+        return decision
 
     def evaluate_many(
         self,
@@ -107,6 +109,12 @@ class RiskEngine:
             record_fill = getattr(rule, "record_fill", None)
             if callable(record_fill):
                 record_fill(fill)
+
+    def _record_approved_intent(self, intent: TradeIntent) -> None:
+        for rule in self.rules:
+            record_intent = getattr(rule, "record_intent", None)
+            if callable(record_intent):
+                record_intent(intent)
 
 
 def _request_timestamp(request: Signal | TargetPosition | TradeIntent) -> datetime:

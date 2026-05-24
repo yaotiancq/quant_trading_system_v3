@@ -11,6 +11,9 @@ from qts.domain import PortfolioSnapshot, TradeLedgerEntry
 def calculate_metrics(
     portfolio_snapshots: list[PortfolioSnapshot],
     trade_ledger: list[TradeLedgerEntry],
+    *,
+    annualization_factor: float | None = None,
+    risk_free_rate: float = 0.0,
 ) -> dict[str, float | int | None | dict[str, float]]:
     if not portfolio_snapshots:
         return {
@@ -32,7 +35,15 @@ def calculate_metrics(
     total_return = (last.equity / first.equity - 1.0) if first.equity else 0.0
     returns = _equity_returns(portfolio_snapshots)
     volatility = stdev(returns) if len(returns) > 1 else 0.0
-    sharpe_ratio = (mean(returns) / volatility * math.sqrt(len(returns))) if volatility else None
+    period_risk_free_rate = (
+        risk_free_rate / annualization_factor if annualization_factor and annualization_factor > 0 else 0.0
+    )
+    sharpe_scale = math.sqrt(annualization_factor) if annualization_factor else math.sqrt(len(returns))
+    sharpe_ratio = (
+        ((mean(returns) - period_risk_free_rate) / volatility * sharpe_scale)
+        if volatility
+        else None
+    )
     realized_pnls = [
         entry.realized_pnl_delta or 0.0
         for entry in trade_ledger
@@ -47,10 +58,11 @@ def calculate_metrics(
     )
     profit_factor = gross_profit / gross_loss if gross_loss else None
     elapsed_days = (last.timestamp - first.timestamp).total_seconds() / 86400.0
-    annualized_return = (
-        (1.0 + total_return) ** (365.0 / elapsed_days) - 1.0
-        if elapsed_days >= 1.0 and total_return > -1.0
-        else None
+    annualized_return = _annualized_return(
+        total_return,
+        elapsed_days=elapsed_days,
+        return_count=len(returns),
+        annualization_factor=annualization_factor,
     )
     gross_exposures = [snapshot.gross_exposure for snapshot in portfolio_snapshots]
     net_exposures = [snapshot.net_exposure for snapshot in portfolio_snapshots]
@@ -95,6 +107,24 @@ def _equity_returns(snapshots: list[PortfolioSnapshot]) -> list[float]:
         if previous.equity:
             returns.append(current.equity / previous.equity - 1.0)
     return returns
+
+
+def _annualized_return(
+    total_return: float,
+    *,
+    elapsed_days: float,
+    return_count: int,
+    annualization_factor: float | None,
+) -> float | None:
+    if total_return <= -1.0:
+        return None
+    if annualization_factor is not None:
+        if annualization_factor <= 0 or return_count <= 0:
+            return None
+        return (1.0 + total_return) ** (annualization_factor / return_count) - 1.0
+    if elapsed_days >= 1.0:
+        return (1.0 + total_return) ** (365.0 / elapsed_days) - 1.0
+    return None
 
 
 def _max_drawdown(snapshots: list[PortfolioSnapshot]) -> float:

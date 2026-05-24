@@ -242,7 +242,7 @@ class TradingSessionRule:
         open_time = _parse_hhmm(str(rules.get("market_open", "14:30")))
         close_time = _parse_hhmm(str(rules.get("market_close", "21:00")))
         current_time = timestamp.astimezone(timezone.utc).time().replace(tzinfo=None)
-        if current_time < open_time or current_time > close_time:
+        if current_time < open_time or current_time >= close_time:
             return _reject(
                 self.name,
                 "outside_trading_session",
@@ -266,18 +266,24 @@ class DailyLossLimitRule:
         limit = risk_config.daily_loss_limit
         if limit is None:
             return _approve(self.name, "daily_loss_limit_not_configured")
-        if portfolio_snapshot.realized_pnl <= -abs(limit):
+        total_pnl = portfolio_snapshot.realized_pnl + portfolio_snapshot.unrealized_pnl
+        if total_pnl <= -abs(limit):
             return _reject(
                 self.name,
                 "daily_loss_limit_reached",
-                {"realized_pnl": portfolio_snapshot.realized_pnl, "limit": limit},
+                {
+                    "realized_pnl": portfolio_snapshot.realized_pnl,
+                    "unrealized_pnl": portfolio_snapshot.unrealized_pnl,
+                    "total_pnl": total_pnl,
+                    "limit": limit,
+                },
             )
-        return _approve(self.name, "daily_loss_limit_ok")
+        return _approve(self.name, "daily_loss_limit_ok", {"total_pnl": total_pnl})
 
 
 class CooldownRule:
     def __init__(self) -> None:
-        self._last_trade_time_by_symbol: dict[str, datetime] = {}
+        self._last_trade_time_by_strategy_symbol: dict[tuple[str, str], datetime] = {}
 
     @property
     def name(self) -> str:
@@ -293,7 +299,8 @@ class CooldownRule:
         cooldown_seconds = risk_config.cooldown_seconds
         if not cooldown_seconds:
             return _approve(self.name, "cooldown_not_configured")
-        last_trade_time = self._last_trade_time_by_symbol.get(trade_intent.symbol)
+        key = _cooldown_key(trade_intent.strategy_id, trade_intent.symbol)
+        last_trade_time = self._last_trade_time_by_strategy_symbol.get(key)
         if last_trade_time is None:
             return _approve(self.name, "cooldown_no_previous_trade")
         timestamp = normalize_timestamp(market_context.get("timestamp", trade_intent.timestamp))
@@ -307,10 +314,17 @@ class CooldownRule:
         return _approve(self.name, "cooldown_elapsed", {"elapsed_seconds": elapsed})
 
     def record_fill(self, fill: Fill) -> None:
-        self._last_trade_time_by_symbol[fill.symbol] = fill.timestamp
+        self._last_trade_time_by_strategy_symbol[
+            _cooldown_key("__unknown_strategy__", fill.symbol)
+        ] = fill.timestamp
+
+    def record_intent(self, trade_intent: TradeIntent) -> None:
+        self._last_trade_time_by_strategy_symbol[
+            _cooldown_key(trade_intent.strategy_id, trade_intent.symbol)
+        ] = trade_intent.timestamp
 
     def reset_daily_state(self) -> None:
-        self._last_trade_time_by_symbol.clear()
+        self._last_trade_time_by_strategy_symbol.clear()
 
 
 def default_risk_rules() -> list[RiskRule]:
@@ -345,7 +359,10 @@ def projected_symbol_exposure(
     price = market_price(trade_intent, market_context)
     current_exposure = _current_position_exposure(portfolio_snapshot, trade_intent.symbol, price)
     if price is None and trade_intent.notional is not None:
-        projected = current_exposure + float(trade_intent.notional)
+        if trade_intent.side == OrderSide.SELL:
+            projected = max(current_exposure - float(trade_intent.notional), 0.0)
+        else:
+            projected = current_exposure + float(trade_intent.notional)
         return current_exposure, projected
     if price is None:
         return None
@@ -412,6 +429,11 @@ def _current_position_exposure(
         elif position.market_price is not None:
             exposure += abs(float(position.quantity) * position.market_price)
     return exposure
+
+
+def _cooldown_key(strategy_id: str | None, symbol: str) -> tuple[str, str]:
+    strategy = str(strategy_id or "__unknown_strategy__").strip() or "__unknown_strategy__"
+    return strategy, normalize_symbol(symbol)
 
 
 def _approve(name: str, reason: str, details: dict | None = None) -> RuleResult:

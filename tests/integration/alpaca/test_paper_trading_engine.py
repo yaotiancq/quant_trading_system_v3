@@ -177,6 +177,13 @@ class PaperTradingEngineIntegrationTests(unittest.TestCase):
         self.assertEqual(engine.portfolio.get_position("SPY").quantity, 10)
         self.assertEqual(strategy.fills_seen, 1)
 
+    def test_paper_engine_rejects_mismatched_injected_strategy_count(self) -> None:
+        config = load_paper_config()
+        engine = PaperTradingEngine(config, strategies=[])
+
+        with self.assertRaisesRegex(ConfigurationError, "injected strategy count"):
+            engine.initialize()
+
 
 if __name__ == "__main__":
     unittest.main()

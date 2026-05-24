@@ -43,6 +43,14 @@ runtime config validation, deterministic path resolution, effective-config CLI
 inspection commands, exact `bar_interval` filtering, and data-adjustment
 validation for local historical bars.
 
+The latest post-review correctness pass removes inherited active runtime
+defaults from the shared base config, preserves full referenced-profile
+provenance, propagates configured timeframes into local CSV/Parquet providers,
+enforces quantity/notional exclusivity, validates fixed-notional sizing against
+the fractional execution policy, tightens session/cooldown/daily-loss risk
+rules, rejects mismatched injected strategy lists, supports explicit reporting
+annualization settings, and fixes the IBKR fill polling `since` boundary.
+
 Real live broker order submission remains disabled by default. Phase 8 provides
 guarded dry-run initialization and safety validation only.
 

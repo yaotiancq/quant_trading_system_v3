@@ -131,8 +131,8 @@ Core fields:
 | Field | Meaning |
 |---|---|
 | `runtime.mode` | `BACKTEST`, `PAPER`, or `LIVE`. |
-| `symbols` | Default symbol universe inherited from `base.yaml`. |
-| `timeframe` | Current default is `MINUTE`. |
+| `symbols` | Runtime symbol universe. Active configs must set this explicitly. |
+| `timeframe` | Runtime bar timeframe. Active configs must set this explicitly. |
 | `market_data` | Provider and path/settings. |
 | `broker` | Broker implementation and safety settings. |
 | `strategies` | Strategy definitions and parameters. |
@@ -522,7 +522,10 @@ risk:
     notional_per_trade: 1000
 ```
 
-IBKR currently requires quantity-based order requests.
+If `execution.allow_fractional: false`, use quantity-based sizing. Fixed
+notional and percent-of-equity sizing produce notional orders and require
+fractional/notional execution support. IBKR currently requires quantity-based
+order requests.
 
 ### Change Symbols
 

@@ -10,6 +10,13 @@ runtime:
   # Options: BACKTEST, PAPER, LIVE. Paper engine requires PAPER.
   mode: PAPER
 
+# Runtime universe. This must be explicit; strategy-level symbols can narrow it.
+symbols: [SPY]
+
+# Domain timeframe for locally normalized bars.
+# Options: SECOND, MINUTE, HOUR, DAY.
+timeframe: MINUTE
+
 # Paper/live runtimes currently receive bars/events from an external event loop.
 market_data:
   # Options for this runtime: external_events.
@@ -58,8 +65,8 @@ risk:
 # Execution settings.
 execution:
   # Alpaca can support fractional shares for eligible assets, but this template
-  # keeps whole-share behavior by default.
-  allow_fractional: false
+  # uses fixed-notional sizing, so fractional/notional order behavior is enabled.
+  allow_fractional: true
 
 # Runtime health/telemetry toggle.
 monitoring:

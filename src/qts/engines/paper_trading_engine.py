@@ -45,6 +45,7 @@ class PaperTradingEngine:
         self.brokerage = brokerage
         self.feature_pipeline = feature_pipeline
         self.strategies = list(strategies or [])
+        self._strategies_injected = strategies is not None
         self.clock = clock or RealClock()
         self.data_portal = _PaperDataPortal()
         self.market_data_provider_name: str | None = None
@@ -92,16 +93,20 @@ class PaperTradingEngine:
             OrderRouter(self.brokerage),
             allow_fractional=bool(self.config.execution.get("allow_fractional", True)),
         )
-        if not self.strategies:
+        enabled_strategy_configs = [config for config in self.config.strategies if config.enabled]
+        if self._strategies_injected and len(self.strategies) != len(enabled_strategy_configs):
+            raise ConfigurationError(
+                "injected strategy count does not match enabled strategy config count"
+            )
+        if not self._strategies_injected:
             self.strategies = [
                 create_strategy(strategy_config)
-                for strategy_config in self.config.strategies
-                if strategy_config.enabled
+                for strategy_config in enabled_strategy_configs
             ]
         for strategy, strategy_config in zip(
             self.strategies,
-            [config for config in self.config.strategies if config.enabled],
-            strict=False,
+            enabled_strategy_configs,
+            strict=True,
         ):
             strategy.initialize(strategy_config, self.data_portal, {"runtime_config": self.config})
         self._initialized = True

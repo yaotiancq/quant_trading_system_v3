@@ -21,7 +21,15 @@ class BacktestReporter:
         trades: list[TradeLedgerEntry],
         config: Any | None = None,
     ) -> dict[str, Any]:
-        return dict(calculate_metrics(portfolio_snapshots, trades))
+        reporting = getattr(config, "reporting", {}) or {}
+        return dict(
+            calculate_metrics(
+                portfolio_snapshots,
+                trades,
+                annualization_factor=_optional_float(reporting.get("annualization_factor")),
+                risk_free_rate=float(reporting.get("risk_free_rate", 0.0)),
+            )
+        )
 
     def generate_plots(self, backtest_result: BacktestResult, output_path: str | Path) -> list[Path]:
         return []
@@ -106,6 +114,12 @@ def _format_percent(value: Any) -> str:
 
 def _format_number(value: Any) -> str:
     return "n/a" if value is None else f"{float(value):.4f}"
+
+
+def _optional_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    return float(value)
 
 
 __all__ = ["BacktestReporter"]

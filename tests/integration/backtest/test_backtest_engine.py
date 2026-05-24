@@ -4,8 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from qts.core import load_runtime_config
+from qts.core import ConfigurationError, load_runtime_config
 from qts.engines import BacktestEngine
+from qts.strategies import create_strategy
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -81,6 +82,25 @@ class BacktestEngineIntegrationTests(unittest.TestCase):
             [entry.to_dict() for entry in second.trade_ledger],
         )
         self.assertEqual(first.metrics, second.metrics)
+
+    def test_backtest_engine_rejects_too_few_injected_strategies(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            engine = BacktestEngine(load_config(tmp), strategies=[])
+
+            with self.assertRaisesRegex(ConfigurationError, "injected strategy count"):
+                engine.initialize()
+
+    def test_backtest_engine_rejects_too_many_injected_strategies(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            config = load_config(tmp)
+            strategies = [
+                create_strategy(config.strategies[0]),
+                create_strategy(config.strategies[0]),
+            ]
+            engine = BacktestEngine(config, strategies=strategies)
+
+            with self.assertRaisesRegex(ConfigurationError, "injected strategy count"):
+                engine.initialize()
 
 
 if __name__ == "__main__":

@@ -8,6 +8,54 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Post-Review Correctness Fixes] - 2026-05-23
+
+### Added
+
+- Added tests for explicit runtime mode/universe validation, referenced config
+  provenance, configured timeframe propagation, strategy-injection count checks,
+  reporting annualization options, IBKR fill polling boundaries, and risk-rule
+  edge cases.
+
+### Changed
+
+- `configs/base.yaml` no longer provides inherited `runtime.mode`, `symbols`, or
+  `timeframe`; active runtime configs now declare those operational fields
+  explicitly.
+- Backtest and Alpaca paper templates now allow fractional/notional execution
+  when using fixed-notional risk sizing, while the IBKR paper template remains
+  quantity-based.
+- Reusable risk session defaults are disabled to avoid implying fixed UTC
+  regular-session hours across daylight-saving changes.
+- Local CSV and Parquet providers now receive the configured default timeframe
+  from the backtest engine and ML training script.
+- Reporting metrics now support configured `annualization_factor` and
+  `risk_free_rate`, and unsupported reporting fields fail validation.
+
+### Fixed
+
+- Fixed referenced strategy/risk profile provenance so profiles that use
+  `extends` include their full source-file chain in runtime metadata.
+- Fixed notional sizing compatibility with `execution.allow_fractional: false`
+  by failing fast unless the runtime uses quantity-compatible sizing or an
+  explicitly disabled template.
+- Fixed order construction so `quantity` and `notional` are mutually exclusive
+  before broker payload generation.
+- Fixed trading-session close semantics so `market_close` is exclusive.
+- Fixed cooldown enforcement to apply per `(strategy_id, symbol)` instead of
+  per symbol only.
+- Fixed daily loss checks to include realized plus unrealized PnL.
+- Fixed projected exposure for SELL notional intents when no price is available.
+- Fixed injected strategy handling so backtest and paper engines reject too few
+  or too many injected strategy instances.
+- Fixed IBKR fill polling so fills exactly at the `since` boundary are excluded.
+
+### Removed
+
+- Removed inherited active runtime defaults from the shared base config.
+
+---
+
 ## [Post-Review Config Hardening] - 2026-05-23
 
 ### Added

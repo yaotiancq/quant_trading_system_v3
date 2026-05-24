@@ -8,10 +8,13 @@ from qts.brokers.backtest import BacktestBrokerage
 from qts.domain import (
     Bar,
     BarTimeframe,
+    OrderRequest,
     OrderSide,
     OrderStatus,
+    OrderType,
     RiskDecision,
     RiskDecisionStatus,
+    TimeInForce,
     TradeIntent,
 )
 from qts.execution import ExecutionEngine, OrderManager, OrderRouter, build_order_request
@@ -33,10 +36,33 @@ def make_intent(quantity: float = 10.0) -> TradeIntent:
     )
 
 
+def make_notional_intent(notional: float = 1000.0) -> TradeIntent:
+    return TradeIntent(
+        intent_id="intent-notional",
+        strategy_id="strategy-1",
+        symbol="SPY",
+        timestamp=NOW,
+        side=OrderSide.BUY,
+        notional=notional,
+        reason="unit_test",
+    )
+
+
 def approved_decision(quantity: float = 10.0) -> RiskDecision:
     intent = make_intent(quantity)
     return RiskDecision(
         decision_id="risk-1",
+        timestamp=NOW,
+        status=RiskDecisionStatus.APPROVED,
+        original_intent=intent,
+        approved_intent=intent,
+    )
+
+
+def approved_notional_decision(notional: float = 1000.0) -> RiskDecision:
+    intent = make_notional_intent(notional)
+    return RiskDecision(
+        decision_id="risk-notional",
         timestamp=NOW,
         status=RiskDecisionStatus.APPROVED,
         original_intent=intent,
@@ -89,6 +115,44 @@ class ExecutionTests(unittest.TestCase):
 
         with self.assertRaises(ExecutionError):
             build_order_request(approved_decision(10.5), allow_fractional=False)
+
+    def test_notional_order_requires_fractional_execution_policy(self) -> None:
+        request = build_order_request(approved_notional_decision(), allow_fractional=True)
+
+        self.assertEqual(request.notional, 1000)
+        self.assertIsNone(request.quantity)
+
+        with self.assertRaisesRegex(ExecutionError, "notional orders require"):
+            build_order_request(approved_notional_decision(), allow_fractional=False)
+
+    def test_trade_intent_rejects_quantity_and_notional_together(self) -> None:
+        with self.assertRaisesRegex(ValueError, "either quantity or notional"):
+            TradeIntent(
+                intent_id="invalid-intent",
+                strategy_id="strategy-1",
+                symbol="SPY",
+                timestamp=NOW,
+                side=OrderSide.BUY,
+                quantity=1,
+                notional=100,
+            )
+
+    def test_order_request_requires_exactly_one_quantity_or_notional(self) -> None:
+        base = {
+            "client_order_id": "coid-invalid",
+            "strategy_id": "strategy-1",
+            "symbol": "SPY",
+            "timestamp": NOW,
+            "side": OrderSide.BUY,
+            "order_type": OrderType.MARKET,
+            "time_in_force": TimeInForce.DAY,
+        }
+
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            OrderRequest(**base)
+
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            OrderRequest(**base, quantity=1, notional=100)
 
     def test_execution_engine_routes_order_and_tracks_fill(self) -> None:
         broker = BacktestBrokerage(starting_cash=10000)

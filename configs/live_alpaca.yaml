@@ -10,6 +10,13 @@ runtime:
   # Options: BACKTEST, PAPER, LIVE. Live engine requires LIVE.
   mode: LIVE
 
+# Runtime universe. This must be explicit; strategy-level symbols can narrow it.
+symbols: [SPY]
+
+# Domain timeframe for locally normalized bars.
+# Options: SECOND, MINUTE, HOUR, DAY.
+timeframe: MINUTE
+
 # Live runtime event source.
 market_data:
   # Options for this runtime scaffold: external_events.

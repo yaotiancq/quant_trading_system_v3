@@ -256,6 +256,10 @@ Aggregate risk rules and sizing decisions.
 - risk rule results,
 - sizing result.
 
+Risk rules use explicit operational semantics: trading-session open is
+inclusive and close is exclusive, daily loss includes realized plus unrealized
+PnL, and cooldown state is scoped by `(strategy_id, symbol)`.
+
 ## 12. ExecutionEngine
 
 ### Purpose
@@ -268,6 +272,11 @@ Convert approved risk decisions into orders and process order/fill events.
 |---|---|---|---|
 | `submit` | `RiskDecision` | `Order` or submission result | Builds and routes order request. |
 | `submit_many` | list of `RiskDecision` | list of results | Batch submission. |
+
+Order request construction must produce exactly one sizing field: `quantity` or
+`notional`, never both. Notional order requests require a runtime execution
+policy that permits fractional/notional behavior; whole-share-only runtime
+configs must use quantity-based sizing before broker payload generation.
 | `on_order_update` | `Order` | none | Updates order manager. |
 | `on_fill` | `Fill` | none | Handles fill and notifies portfolio/strategy as configured. |
 | `cancel_order` | order ID | cancel result | Delegates to router/broker. |

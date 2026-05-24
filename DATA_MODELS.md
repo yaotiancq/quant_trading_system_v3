@@ -294,7 +294,10 @@ Represents a strategy's requested trade before final risk approval and order con
 
 ### Validation Rules
 
-- Either `quantity` or `notional` should be present before order submission.
+- `quantity` and `notional` are mutually exclusive.
+- An unsized intent may omit both fields before risk sizing.
+- Exactly one of `quantity` or `notional` must be present before order
+  submission.
 - `limit_price` is required for `LIMIT` and `STOP_LIMIT`.
 - `stop_price` is required for `STOP` and `STOP_LIMIT`.
 
@@ -395,7 +398,11 @@ Normalized order request ready for brokerage submission.
 
 ### Validation Rules
 
-Same as `TradeIntent`, but all broker-required fields must be complete.
+- Exactly one of `quantity` or `notional` must be present.
+- Quantity and notional order semantics are mutually exclusive.
+- All broker-required fields must be complete before adapter mapping.
+- `limit_price` is required for `LIMIT` and `STOP_LIMIT`.
+- `stop_price` is required for `STOP` and `STOP_LIMIT`.
 
 ### Example
 
@@ -1007,6 +1014,13 @@ Configuration for risk rules and sizing.
 | `sizing_parameters` | dict | yes | method-specific |
 | `cooldown_seconds` | int | no | non-negative |
 | `session_rules` | dict | no | market/session config |
+| `disabled_until_configured` | bool | no | explicit guard for incomplete templates |
+
+Risk-rule semantics:
+
+- `daily_loss_limit` is checked against realized plus unrealized PnL.
+- `cooldown_seconds` is applied per `(strategy_id, symbol)` path.
+- `session_rules.market_open` is inclusive and `market_close` is exclusive.
 
 ### Example
 
@@ -1102,6 +1116,11 @@ Top-level configuration for a run.
 | `execution` | dict | yes | order/execution config, including `allow_fractional` |
 | `reporting` | dict | no | output config |
 | `monitoring` | dict | no | runtime monitoring config |
+
+Active runtime YAML files must explicitly set `runtime.mode`, `symbols`, and
+`timeframe`; these operational fields are not inherited from `configs/base.yaml`.
+Supported `reporting` keys are `output_dir`, `generate_plots`,
+`annualization_factor`, and `risk_free_rate`.
 
 ### Example
 

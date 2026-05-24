@@ -39,7 +39,7 @@ def load_runtime_config(
         "config_file": str(path.resolve()),
         "config_dir": str(path.resolve().parent),
         "project_root": str(project_root),
-        "source_files": [str(item) for item in [*source_files, *reference_sources]],
+        "source_files": [str(item) for item in _unique_paths([*source_files, *reference_sources])],
     }
     return build_runtime_config(raw, env_values=env_values, metadata=metadata)
 
@@ -210,11 +210,11 @@ def resolve_runtime_references(
             strategies.append(item)
             continue
         ref_path = resolve_config_reference(str(item["config_ref"]), config_path=config_file)
-        snippet = load_layered_mapping(ref_path)
+        snippet, snippet_sources = _load_layered_mapping(ref_path)
         overrides = dict(item)
         overrides.pop("config_ref", None)
         strategies.append(deep_merge(snippet, overrides))
-        source_files.append(ref_path.resolve())
+        source_files.extend(snippet_sources)
     if "strategies" in resolved:
         resolved["strategies"] = strategies
 
@@ -225,15 +225,15 @@ def resolve_runtime_references(
         risk = {key: value for key, value in risk.items() if key != "config_ref"}
     if risk_ref:
         ref_path = resolve_config_reference(str(risk_ref), config_path=config_file)
-        snippet = load_layered_mapping(ref_path)
+        snippet, snippet_sources = _load_layered_mapping(ref_path)
         overrides = dict(risk) if isinstance(risk, Mapping) else {}
         merged_risk = deep_merge(snippet, overrides)
         if "sizing_parameters" in overrides:
             merged_risk["sizing_parameters"] = overrides["sizing_parameters"]
         resolved["risk"] = merged_risk
-        source_files.append(ref_path.resolve())
+        source_files.extend(snippet_sources)
 
-    return resolved, source_files
+    return resolved, _unique_paths(source_files)
 
 
 def _preserve_explicit_sizing_parameters(raw: dict[str, Any], overrides: Mapping[str, Any]) -> None:
@@ -243,6 +243,18 @@ def _preserve_explicit_sizing_parameters(raw: dict[str, Any], overrides: Mapping
     risk = raw.get("risk")
     if isinstance(risk, dict):
         risk["sizing_parameters"] = risk_override["sizing_parameters"]
+
+
+def _unique_paths(paths: Sequence[Path]) -> list[Path]:
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for path in paths:
+        resolved = path.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        unique.append(resolved)
+    return unique
 
 
 def resolve_runtime_paths(raw: Mapping[str, Any], *, project_root: Path) -> dict[str, Any]:
@@ -326,6 +338,13 @@ def validate_runtime_mapping(raw: Mapping[str, Any]) -> None:
         "runtime config",
     )
     _reject_unknown_keys(_mapping(raw.get("runtime"), "runtime"), {"mode", "timezone", "run_id"}, "runtime")
+    runtime = _mapping(raw.get("runtime"), "runtime")
+    if not runtime.get("mode"):
+        raise ConfigurationError("runtime.mode is required in active runtime configs")
+    if not raw.get("symbols"):
+        raise ConfigurationError("symbols must be explicitly configured in active runtime configs")
+    if not raw.get("timeframe"):
+        raise ConfigurationError("timeframe must be explicitly configured in active runtime configs")
     _reject_unknown_keys(
         _mapping(raw.get("date_range"), "date_range", required=False),
         {"start", "end"},
@@ -442,8 +461,6 @@ def _validate_reporting(config: Mapping[str, Any]) -> None:
             "generate_plots",
             "annualization_factor",
             "risk_free_rate",
-            "benchmark_symbol",
-            "metrics_frequency",
         },
         "reporting",
     )
@@ -550,6 +567,7 @@ def _validate_mode_specific(raw: Mapping[str, Any]) -> None:
     mode = str(runtime.get("mode") or raw.get("runtime_mode") or "").upper()
     market_data = _mapping(raw.get("market_data"), "market_data")
     broker = _mapping(raw.get("broker"), "broker")
+    _validate_fractional_sizing_compatibility(raw)
     if mode == "BACKTEST":
         if not raw.get("start") and not _mapping(raw.get("date_range"), "date_range", required=False).get("start"):
             raise ConfigurationError("BACKTEST configs require date_range.start")
@@ -575,6 +593,21 @@ def _validate_mode_specific(raw: Mapping[str, Any]) -> None:
             raise ConfigurationError("LIVE configs currently require market_data.provider=external_events")
     else:
         raise ConfigurationError(f"unsupported runtime.mode: {mode}")
+
+
+def _validate_fractional_sizing_compatibility(raw: Mapping[str, Any]) -> None:
+    execution = _mapping(raw.get("execution"), "execution")
+    if bool(execution.get("allow_fractional", True)):
+        return
+    risk = _mapping(raw.get("risk"), "risk")
+    if bool(risk.get("disabled_until_configured", False)):
+        return
+    method = str(risk.get("sizing_method") or "").lower()
+    if method in {"fixed_notional", "fixed_dollar", "percent_equity", "percent_of_equity"}:
+        raise ConfigurationError(
+            "execution.allow_fractional=false requires quantity-based sizing; "
+            f"{method} produces notional orders"
+        )
 
 
 def _require_positive_sizing_value(

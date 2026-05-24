@@ -783,3 +783,49 @@ network access by mocking the HTTP transport.
 - Require Alpaca's Python SDK.
 - Change the public `BarTimeframe` enum to add `5Min` and `15Min` immediately.
 - Write directly to a database instead of normalized local files.
+
+---
+
+## ADR-023: Treat Runtime Mode, Universe, and Sizing Policy as Explicit Runtime Contracts
+
+### Context
+
+Operational fields such as runtime mode, symbol universe, timeframe, and order
+sizing semantics materially affect what the system trades and how broker orders
+are formed. Inherited defaults for these fields can hide incomplete runtime
+configuration, and notional sizing combined with whole-share execution settings
+can create broker-specific ambiguity.
+
+### Decision
+
+Shared base runtime configs may carry safe metadata and path/logging defaults,
+but active runtime configs must explicitly declare `runtime.mode`, `symbols`,
+and `timeframe`. The config loader fails fast when those fields are missing.
+
+Order sizing also has a deterministic boundary: `TradeIntent` and
+`OrderRequest` cannot carry both `quantity` and `notional`, and broker-ready
+`OrderRequest` objects must carry exactly one of them. Runtime configs with
+`execution.allow_fractional: false` must use quantity-compatible sizing unless
+the risk profile is explicitly marked `disabled_until_configured`.
+
+### Rationale
+
+The configuration file is the operator contract for a run. Failing early on
+missing active runtime fields and incompatible sizing policies is safer than
+allowing defaults to silently select a mode, universe, or broker order semantic.
+
+### Consequences
+
+- Active runtime YAML files are slightly more verbose but self-contained.
+- Backtest and Alpaca paper templates use `allow_fractional: true` when they use
+  fixed-notional sizing.
+- IBKR paper remains quantity-based because the adapter requires quantity order
+  payloads.
+- Reusable live templates can remain intentionally incomplete only when marked
+  `disabled_until_configured`.
+
+### Alternatives Considered
+
+- Keep inherited `BACKTEST` and `[SPY]` defaults in `configs/base.yaml`.
+- Convert notional sizing to rounded whole-share quantities automatically.
+- Let broker adapters handle ambiguous quantity/notional requests late.

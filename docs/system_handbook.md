@@ -233,7 +233,7 @@ Add new risk controls as rules, then compose them in the engine or factory.
 
 | File | Purpose |
 |---|---|
-| `src/qts/execution/orders.py` | Builds `OrderRequest` objects from approved risk decisions and enforces fractional policy. |
+| `src/qts/execution/orders.py` | Builds `OrderRequest` objects from approved risk decisions and enforces fractional plus quantity/notional exclusivity policy. |
 | `src/qts/execution/manager.py` | Tracks normalized order lifecycle and open-order state. |
 | `src/qts/execution/router.py` | Thin router that delegates to a configured `Brokerage`. |
 | `src/qts/execution/fills.py` | Simple fill handler hook. |

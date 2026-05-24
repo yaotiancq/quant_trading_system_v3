@@ -103,9 +103,9 @@ def _provider_from_config(config: Mapping[str, Any]):
     if not path:
         raise ConfigurationError("market_data.path is required for ML training")
     if provider_name in {"csv", "local_csv", "fixture_csv"}:
-        return CSVBarProvider(Path(path))
+        return CSVBarProvider(Path(path), default_timeframe=config.get("timeframe", "MINUTE"))
     if provider_name in {"parquet", "local_parquet"}:
-        return LocalParquetProvider(Path(path))
+        return LocalParquetProvider(Path(path), default_timeframe=config.get("timeframe", "MINUTE"))
     raise ConfigurationError(f"unsupported ML market data provider: {provider_name}")
 
 
