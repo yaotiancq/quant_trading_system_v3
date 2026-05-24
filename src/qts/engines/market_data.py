@@ -7,6 +7,9 @@ from qts.domain import RuntimeConfig
 
 
 EVENT_DRIVEN_MARKET_DATA_PROVIDERS = {
+    "alpaca_iex_stream",
+    "alpaca_sip_stream",
+    "alpaca_stream",
     "external",
     "external_events",
     "externally_supplied",

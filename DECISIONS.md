@@ -919,3 +919,45 @@ risk, execution, brokerage, and portfolio interfaces.
 - Implement Alpaca/IBKR websocket adapters first.
 - Keep the runtime loop entirely inside `PaperTradingEngine`.
 - Allow unordered event streams and rely on strategies to detect anomalies.
+
+---
+
+## ADR-026: Keep Vendor Stream Payloads at the Market Data Boundary
+
+### Context
+
+Phase B needs vendor streaming support, but engine code should continue to see
+only normalized domain events. Alpaca stream payloads use compact vendor field
+names such as `T`, `S`, `bp`, `ap`, `o`, `h`, `l`, `c`, and `v`; allowing those
+payloads to leak into paper/live engines would couple runtime orchestration to
+one vendor.
+
+### Decision
+
+Add `qts.market_data.streaming` as the owner of Alpaca stream payload
+normalization. The first adapter is `AlpacaStreamEventSource`, which consumes an
+`AlpacaStreamClient` protocol and yields internal `Bar`/`Quote` models.
+
+The implemented client for this phase is `InMemoryAlpacaStreamClient` so tests
+and smoke runs stay deterministic and network-free. Real websocket transport,
+heartbeat/reconnect behavior, and guarded live decision dispatch remain in the
+next sub-phase.
+
+### Rationale
+
+This preserves the system rule that market data is separate from brokerage and
+that engines receive normalized events. It also makes the adapter contract
+testable before real streaming transport is introduced.
+
+### Consequences
+
+- Paper runtimes can use `market_data.provider: alpaca_stream` only when mock
+  messages or an injected stream client are available.
+- Missing real stream transport fails closed with a configuration error.
+- Engine code does not parse Alpaca vendor payloads directly.
+
+### Alternatives Considered
+
+- Parse Alpaca payloads inside `PaperTradingEngine`.
+- Add a real websocket client immediately.
+- Treat Alpaca stream payloads as already-normalized events.

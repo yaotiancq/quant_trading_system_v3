@@ -204,6 +204,7 @@ Owns market data interfaces and implementations:
 - `DataPortal`,
 - local Parquet/CSV providers,
 - Alpaca SIP historical bar downloader,
+- Alpaca stream adapter boundary,
 - historical data loaders,
 - replay data provider,
 - live data provider abstractions,
@@ -216,6 +217,8 @@ Rules:
 - Does not submit orders.
 - Does not own brokerage state.
 - Does not call execution directly.
+- Vendor stream payloads must be normalized to internal `Bar`/`Quote` models
+  before leaving this layer.
 
 ### `features/`
 

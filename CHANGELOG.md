@@ -8,6 +8,39 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Major Architecture Phase B2a] - 2026-05-23
+
+### Added
+
+- Added `qts.market_data.streaming` with an Alpaca stream client protocol,
+  `InMemoryAlpacaStreamClient`, `AlpacaStreamEventSource`, and Alpaca
+  bar/quote payload normalization helpers.
+- Added `configs/paper_alpaca_stream_mock.yaml` for credential-free Alpaca
+  stream adapter smoke tests.
+- Added tests for Alpaca bar/quote message normalization, control/error
+  payload handling, stream subscription filtering, config loading, and paper
+  runtime execution through mock Alpaca stream payloads.
+
+### Changed
+
+- `PaperTradingEngine` can now build a market event source from
+  `market_data.provider: alpaca_stream` when mock messages or an injected
+  stream client are supplied.
+- `PAPER` runtime configs now accept `alpaca_stream`, `alpaca_sip_stream`, and
+  `alpaca_iex_stream` provider names in addition to B1 providers.
+- `PHASE_PLAN.md` now splits B2 into B2a and B2b so real stream transport,
+  heartbeat/reconnect policy, and guarded live decision preview remain separate.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+---
+
 ## [Major Architecture Phase B1] - 2026-05-23
 
 ### Added

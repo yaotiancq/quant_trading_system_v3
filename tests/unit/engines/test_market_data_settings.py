@@ -70,6 +70,14 @@ class EngineMarketDataSettingsTests(unittest.TestCase):
 
         self.assertEqual(provider, "fake_stream")
 
+    def test_alpaca_stream_market_data_provider_is_selected_from_config(self) -> None:
+        provider = resolve_event_market_data_provider(
+            make_config("alpaca_stream"),
+            engine_name="PaperTradingEngine",
+        )
+
+        self.assertEqual(provider, "alpaca_stream")
+
     def test_unsupported_event_market_data_provider_raises(self) -> None:
         with self.assertRaises(ConfigurationError):
             resolve_event_market_data_provider(

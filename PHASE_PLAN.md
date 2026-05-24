@@ -1002,7 +1002,8 @@ time after Phase A is stable:
 | Phase | Status | Notes |
 |---|---|---|
 | Phase B1 - Deterministic Runtime Event Loop and Fake Stream | Complete | Added event-source abstraction, finite fake stream, paper-engine loop wiring, and deterministic tests. |
-| Phase B2 - Vendor Streaming Adapters for Paper/Live Runtime | Planned | Add real provider adapters and guarded live decision-loop integration. |
+| Phase B2a - Alpaca Stream Adapter Boundary for Paper Runtime | Complete | Added mockable Alpaca stream payload adapter, paper-engine source factory wiring, config template, and tests. |
+| Phase B2b - Runtime Reconnect/Heartbeat and Guarded Live Decision Preview | Planned | Add stream disconnect policy, observable heartbeat/reconnect behavior, and guarded live dry-run decision dispatch. |
 | Phase C - Broker Event Stream and Order Lifecycle Synchronization | Planned | Add normalized broker event stream, idempotent lifecycle updates, and polling fallback. |
 | Phase D - Production Live-Trading Enablement | Blocked until A-C complete | Enable real live submission only behind strict fail-closed safety gates. |
 | Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned | Add optional static chart artifacts for backtest reports. |
@@ -1041,3 +1042,38 @@ strategy/risk/execution path.
   can fail closed when configured, and session filtering uses
   `MarketSessionService`.
 - Tests pass without network access.
+
+## Major Architecture Phase B2a - Alpaca Stream Adapter Boundary for Paper Runtime
+
+### Goal
+
+Introduce a vendor-specific market-data stream adapter boundary without adding
+network-dependent websocket code or changing strategy/risk/execution contracts.
+This sub-phase makes Alpaca-shaped stream payloads testable through the same
+paper runtime event loop introduced in B1.
+
+### Scope
+
+- Add an Alpaca stream client protocol and in-memory Alpaca-shaped stream client
+  for deterministic tests.
+- Add an `AlpacaStreamEventSource` that maps Alpaca bar/quote stream payloads
+  into normalized `Bar` and `Quote` models.
+- Allow `PAPER` configs to use `market_data.provider: alpaca_stream`.
+- Add a commented `configs/paper_alpaca_stream_mock.yaml` template.
+- Wire `PaperTradingEngine` to build the Alpaca stream source from config or an
+  injected stream client.
+
+### Out of Scope
+
+- Real websocket transport and credentials-based stream connection.
+- Live strategy/risk/execution decision preview.
+- Runtime heartbeat/reconnect policy.
+- Broker event streams and order lifecycle synchronization.
+
+### Acceptance Criteria
+
+- Alpaca-shaped bar and quote messages normalize to internal domain models.
+- Paper runtime can process a finite mock Alpaca stream through the same event
+  loop and execution path.
+- Missing real stream transport fails closed with a clear configuration error.
+- Tests remain deterministic and network-free.

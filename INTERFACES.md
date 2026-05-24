@@ -489,6 +489,9 @@ through paper/live engine callbacks after safety checks.
 | `MarketEventSource.iter_events` | none | iterator of `Bar`/`Quote` | Source may be finite or streaming. |
 | `MarketEventSource.close` | none | none | Must release provider resources. |
 | `RuntimeEventLoop.run` | optional `max_events` | `RuntimeEventLoopResult` | Dispatches events after validation. |
+| `AlpacaStreamClient.connect` | symbols, event types, feed | none | Adapter boundary for Alpaca stream clients. |
+| `AlpacaStreamClient.iter_messages` | none | raw Alpaca payload mappings | Must not leak beyond market data adapter. |
+| `AlpacaStreamEventSource.iter_events` | none | iterator of `Bar`/`Quote` | Normalizes Alpaca stream payloads. |
 
 ### Validation Contract
 
@@ -499,6 +502,8 @@ through paper/live engine callbacks after safety checks.
 - Optional session filtering uses `MarketSessionService`.
 - Provider-specific streaming adapters must convert vendor payloads to internal
   `Bar`/`Quote` models before yielding events.
+- Real stream transports must fail closed on provider error payloads or missing
+  transport implementation.
 
 ## 20. LiveEngine
 

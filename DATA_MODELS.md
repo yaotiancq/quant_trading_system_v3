@@ -1165,10 +1165,14 @@ Supported `reporting` keys are `output_dir`, `generate_plots`,
 Supported `market_session` keys are `exchange`, `timezone`,
 `regular_session_only`, `extended_hours`, `fail_closed`, `calendar_provider`,
 `regular_open`, and `regular_close`.
-Supported paper `market_data.provider` values are `external_events` and
-`fake_stream`. For `fake_stream`, `market_data.events` is a list of bar or quote
-event mappings; optional keys include `event_types`, `session_filter`,
-`deduplicate`, `fail_on_out_of_order`, and `max_staleness_seconds`.
+Supported paper `market_data.provider` values are `external_events`,
+`fake_stream`, `alpaca_stream`, `alpaca_sip_stream`, and `alpaca_iex_stream`.
+For `fake_stream`, `market_data.events` is a list of normalized bar or quote
+event mappings. For `alpaca_stream`, `market_data.mock_messages` is an optional
+list of Alpaca-shaped stream payloads used by the in-memory stream client;
+production websocket transport is still a future phase. Optional keys include
+`event_types`, `feed`, `symbols`, `session_filter`, `deduplicate`,
+`fail_on_out_of_order`, and `max_staleness_seconds`.
 
 ### Example
 

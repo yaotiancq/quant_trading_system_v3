@@ -22,6 +22,7 @@ from qts.domain import (
 )
 from qts.execution import ExecutionEngine, OrderRouter
 from qts.features import FeaturePipeline
+from qts.market_data import AlpacaStreamClient, alpaca_stream_event_source_from_config
 from qts.portfolio import DefaultPortfolio
 from qts.risk import RiskEngine
 from qts.strategies import BaseStrategy, create_strategy
@@ -46,6 +47,7 @@ class PaperTradingEngine:
         feature_pipeline: FeaturePipeline | None = None,
         strategies: Sequence[BaseStrategy] | None = None,
         market_event_source: MarketEventSource | None = None,
+        market_stream_client: AlpacaStreamClient | None = None,
         clock: Clock | None = None,
     ) -> None:
         self.config = runtime_config
@@ -54,6 +56,7 @@ class PaperTradingEngine:
         self.strategies = list(strategies or [])
         self._strategies_injected = strategies is not None
         self.market_event_source = market_event_source
+        self.market_stream_client = market_stream_client
         self.clock = clock or RealClock()
         self.session_service: MarketSessionService | None = None
         self.data_portal = _PaperDataPortal()
@@ -79,6 +82,15 @@ class PaperTradingEngine:
         )
         if self.market_data_provider_name == "fake_stream" and self.market_event_source is None:
             self.market_event_source = event_source_from_market_data_config(self.config.market_data)
+        if (
+            self.market_data_provider_name
+            in {"alpaca_stream", "alpaca_sip_stream", "alpaca_iex_stream"}
+            and self.market_event_source is None
+        ):
+            self.market_event_source = alpaca_stream_event_source_from_config(
+                self.config,
+                client=self.market_stream_client,
+            )
         if self.feature_pipeline is None:
             feature_specs, schema_version = feature_pipeline_settings_from_strategies(
                 self.config.strategies
@@ -126,8 +138,8 @@ class PaperTradingEngine:
     def start(self, *, max_events: int = 0) -> dict[str, object]:
         """Start the paper engine.
 
-        Phase B1 supports finite fake-stream runs for deterministic paper
-        testing. Vendor streaming adapters remain a later phase.
+        Phase B supports finite fake streams and mockable Alpaca stream adapter
+        runs for deterministic paper testing.
         """
         if not self._initialized:
             self.initialize()
@@ -138,7 +150,7 @@ class PaperTradingEngine:
             return self.health_check()
         if self.market_event_source is None:
             raise ConfigurationError(
-                "paper runtime event loop requires market_data.provider=fake_stream "
+                "paper runtime event loop requires a streaming market-data provider "
                 "or an injected market_event_source"
             )
         loop = RuntimeEventLoop(

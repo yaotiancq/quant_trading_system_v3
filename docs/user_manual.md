@@ -25,7 +25,7 @@ This system is built around explicit mode boundaries:
 | Mode | Config | Current Behavior |
 |---|---|---|
 | Backtest | `configs/backtest.yaml`, `configs/backtest_fixture.yaml` | Runs deterministic local bar replay with simulated brokerage fills. |
-| Paper | `configs/paper_alpaca.yaml`, `configs/paper_ibkr.yaml`, `configs/paper_fake_stream.yaml` | Initializes a paper brokerage path. Mock mode and fake stream work without credentials. |
+| Paper | `configs/paper_alpaca.yaml`, `configs/paper_ibkr.yaml`, `configs/paper_fake_stream.yaml`, `configs/paper_alpaca_stream_mock.yaml` | Initializes a paper brokerage path. Mock mode, fake stream, and mock Alpaca stream payloads work without credentials. |
 | Live | `configs/live_alpaca.yaml` | Guarded dry-run scaffold only. Real live submission is disabled. |
 
 Important safety constraints:
@@ -413,6 +413,9 @@ Current limitations:
   are available through `scripts/download_data.py`.
 - Paper events can be externally supplied to `PaperTradingEngine`, or provided
   by the deterministic `fake_stream` config for finite local smoke tests.
+- Alpaca-shaped stream payloads can be exercised with
+  `configs/paper_alpaca_stream_mock.yaml`. This tests the adapter boundary but
+  does not open a real websocket.
 - Fill updates are derived from polling filled-quantity deltas.
 
 Run the deterministic fake-stream paper template:
@@ -421,6 +424,15 @@ Run the deterministic fake-stream paper template:
 PYTHONPATH=src .venv/bin/python scripts/run_paper_trading.py \
   --config configs/paper_fake_stream.yaml \
   --max-events 2 \
+  --dry-run
+```
+
+Run the mock Alpaca stream adapter template:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_paper_trading.py \
+  --config configs/paper_alpaca_stream_mock.yaml \
+  --max-events 3 \
   --dry-run
 ```
 
@@ -594,7 +606,7 @@ broker:
 | CSV data validation error | Missing or invalid bar columns. | Check required columns and timestamp format. |
 | Alpaca data download returns 403 | Missing credentials, invalid credentials, or SIP permission issue. | Check `.env`, Alpaca account permissions, and subscription. |
 | Alpaca download level rejected | Unsupported K-line level. | Use `1min`, `5min`, `15min`, `1hour`, or `1day`. |
-| Paper engine rejects market data provider | Paper supports `external_events` and `fake_stream`; live still requires `external_events`. | Set a supported `market_data.provider`. |
+| Paper engine rejects market data provider | Paper supports `external_events`, `fake_stream`, and mockable `alpaca_stream`; live still requires `external_events`. | Set a supported `market_data.provider`. |
 | Alpaca paper fails without credentials | Real adapter selected without env vars. | Use `--mock` or populate `.env`. |
 | IBKR requires conid | No IBKR contract mapping for symbol. | Add `broker.safety.symbol_conids`. |
 | IBKR rejects notional orders | Adapter currently supports quantity orders only. | Use fixed quantity sizing. |

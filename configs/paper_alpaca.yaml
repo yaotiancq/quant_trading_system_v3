@@ -32,9 +32,10 @@ market_session:
 
 # Paper runtimes receive bars/events from an event source. Use external_events
 # when another process calls engine.on_market_event(); use fake_stream for a
-# finite in-memory event list during local smoke tests.
+# finite normalized in-memory event list; use alpaca_stream when an Alpaca
+# stream adapter client or mock Alpaca-shaped messages are configured.
 market_data:
-  # Options for PAPER: external_events, fake_stream.
+  # Options for PAPER: external_events, fake_stream, alpaca_stream.
   provider: external_events
 
 # Alpaca paper brokerage settings.

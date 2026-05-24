@@ -71,11 +71,12 @@ Each layer owns a small responsibility:
 
 1. `scripts/run_paper_trading.py` loads a paper config.
 2. `PaperTradingEngine` validates `PAPER` mode and an event-driven market-data
-   provider: `external_events` or `fake_stream`.
+   provider: `external_events`, `fake_stream`, or mockable `alpaca_stream`.
 3. The engine selects `AlpacaBrokerage` or `IBKRBrokerage`.
 4. The broker adapter connects to a real or in-memory client.
 5. The portfolio reconciles against broker account and positions.
-6. Externally supplied `Bar`/`Quote` events, or finite fake-stream events, are
+6. Externally supplied `Bar`/`Quote` events, finite fake-stream events, or mock
+   Alpaca stream payloads normalized by `qts.market_data.streaming` are
    processed through the same feature, strategy, risk, and execution path.
 
 ### Live Dry-Run Flow
@@ -134,6 +135,7 @@ generated egg-info metadata are not part of the source contract.
 | `configs/paper_alpaca.yaml` | Alpaca paper runtime template using external market events. |
 | `configs/paper_ibkr.yaml` | IBKR paper runtime template using external market events and `symbol_conids`. |
 | `configs/paper_fake_stream.yaml` | Deterministic paper runtime template using finite in-memory market events. |
+| `configs/paper_alpaca_stream_mock.yaml` | Deterministic paper runtime template using Alpaca-shaped mock stream payloads. |
 | `configs/live_alpaca.yaml` | Guarded live dry-run template. Real live submission remains disabled. |
 | `configs/ml/directional_baseline.yaml` | Offline ML fixture training configuration. |
 | `configs/risk/base.yaml` | Reusable risk sizing and rule defaults imported with `risk_ref`. |
@@ -204,6 +206,7 @@ local-clock checks directly.
 | `src/qts/market_data/normalization.py` | CSV reading, bar schema validation, timestamp/symbol normalization, filtering. |
 | `src/qts/market_data/providers.py` | CSV provider, optional Parquet provider, partitioned directory loading, replay provider. |
 | `src/qts/market_data/portal.py` | Default data portal with replay-bounded reads. |
+| `src/qts/market_data/streaming.py` | Alpaca stream adapter boundary, in-memory stream client, and payload normalization. |
 | `src/qts/market_data/__init__.py` | Public market data exports. |
 
 Add new data providers here, not in brokers.
@@ -382,7 +385,7 @@ Keep these empty until there is a clear owner for new behavior.
 | `tests/fixtures/market_data/ml_directional.csv` | Fixture for ML workflow tests. |
 | `tests/unit/domain/` | Domain model and enum tests. |
 | `tests/unit/core/` | Config, clocks, and logging tests. |
-| `tests/unit/market_data/` | CSV provider and data portal tests. |
+| `tests/unit/market_data/` | CSV provider, data portal, downloader, and streaming adapter tests. |
 | `tests/unit/features/` | Indicator and feature pipeline tests. |
 | `tests/unit/strategies/` | Rule-based and ML strategy tests. |
 | `tests/unit/risk/` | Sizing and risk engine tests. |
@@ -420,6 +423,7 @@ Detailed test file index:
 | `tests/unit/market_data/__init__.py` | Market data test package marker. |
 | `tests/unit/market_data/test_alpaca_downloader.py` | Tests Alpaca SIP timeframe normalization, pagination, CSV/Parquet writing, partitioned datasets, and config loading. |
 | `tests/unit/market_data/test_csv_provider.py` | Tests CSV provider, normalization errors, replay ordering, and data portal behavior. |
+| `tests/unit/market_data/test_streaming.py` | Tests Alpaca stream payload normalization, filtering, config factory, and fail-closed errors. |
 | `tests/unit/features/__init__.py` | Feature test package marker. |
 | `tests/unit/features/test_indicators.py` | Known-value tests for indicators. |
 | `tests/unit/features/test_pipeline.py` | Tests feature specs, schemas, batch transform, online updates, and empty feature behavior. |

@@ -403,8 +403,11 @@ def _validate_market_data(config: Mapping[str, Any]) -> None:
             "bar_interval",
             "events",
             "event_types",
+            "feed",
             "max_staleness_seconds",
+            "mock_messages",
             "session_filter",
+            "symbols",
             "deduplicate",
             "fail_on_out_of_order",
         },
@@ -427,6 +430,18 @@ def _validate_market_data(config: Mapping[str, Any]) -> None:
         events = config["events"]
         if not isinstance(events, Sequence) or isinstance(events, (str, bytes, bytearray)):
             raise ConfigurationError("market_data.events must be a list")
+    if "mock_messages" in config:
+        messages = config["mock_messages"]
+        if not isinstance(messages, Sequence) or isinstance(messages, (str, bytes, bytearray)):
+            raise ConfigurationError("market_data.mock_messages must be a list")
+    if "symbols" in config:
+        symbols = config["symbols"]
+        if not isinstance(symbols, Sequence) or isinstance(symbols, (str, bytes, bytearray)):
+            raise ConfigurationError("market_data.symbols must be a list")
+    if "feed" in config:
+        feed = str(config["feed"]).lower()
+        if feed not in {"iex", "sip"}:
+            raise ConfigurationError("market_data.feed must be iex or sip")
 
 
 def _validate_broker(config: Mapping[str, Any]) -> None:
@@ -644,9 +659,16 @@ def _validate_mode_specific(raw: Mapping[str, Any]) -> None:
         if broker_type not in {"alpaca_paper", "ibkr_paper"}:
             raise ConfigurationError("PAPER configs require broker.broker_type=alpaca_paper or ibkr_paper")
         provider = str(market_data.get("provider") or "").lower()
-        if provider not in {"external_events", "fake_stream"}:
+        if provider not in {
+            "external_events",
+            "fake_stream",
+            "alpaca_stream",
+            "alpaca_sip_stream",
+            "alpaca_iex_stream",
+        }:
             raise ConfigurationError(
-                "PAPER configs require market_data.provider=external_events or fake_stream"
+                "PAPER configs require market_data.provider=external_events, "
+                "fake_stream, or alpaca_stream"
             )
         if provider == "fake_stream" and "events" not in market_data:
             raise ConfigurationError("PAPER fake_stream configs require market_data.events")

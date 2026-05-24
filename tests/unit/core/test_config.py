@@ -42,6 +42,18 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.risk.sizing_method, "fixed_quantity")
         self.assertFalse(config.execution["allow_fractional"])
 
+    def test_load_paper_alpaca_stream_mock_config(self) -> None:
+        config = load_runtime_config(
+            ROOT / "configs" / "paper_alpaca_stream_mock.yaml",
+            env_path=None,
+        )
+
+        self.assertEqual(config.runtime_mode, RuntimeMode.PAPER)
+        self.assertEqual(config.market_data["provider"], "alpaca_stream")
+        self.assertEqual(config.market_data["feed"], "sip")
+        self.assertEqual(config.market_data["event_types"], ["bars", "quotes"])
+        self.assertEqual(len(config.market_data["mock_messages"]), 5)
+
     def test_invalid_config_raises_configuration_error(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bad.yaml"

@@ -64,6 +64,12 @@ finite fake streams can drive `PaperTradingEngine.start(max_events=...)`, and
 the loop applies duplicate suppression, out-of-order fail-closed checks,
 optional freshness checks, and `MarketSessionService` filtering before dispatch.
 
+Major Architecture Phase B2a has added a mockable Alpaca stream adapter
+boundary. Paper configs can now use `market_data.provider: alpaca_stream` with
+Alpaca-shaped `mock_messages` or an injected stream client; the adapter
+normalizes Alpaca bar/quote payloads into internal `Bar`/`Quote` events before
+they enter the runtime event loop.
+
 Real live broker order submission remains disabled by default. Phase 8 provides
 guarded dry-run initialization and safety validation only.
 
@@ -71,11 +77,11 @@ Post-Phase 8 design review fixes have been applied for replay-bounded backtest
 data portal reads, broker/execution dependency direction, and explicit ML
 runtime feature schema wiring. ADR-007 follow-up fixes made the original
 paper/live market-data mode explicit through `market_data.provider:
-external_events`; Phase B1 adds paper-only `fake_stream` support while live
-remains external-event driven. Runtime order validation also enforces
-`execution.allow_fractional`.
+external_events`; Phase B1 adds paper-only `fake_stream` support, and Phase B2a
+adds paper-only `alpaca_stream` adapter support. Live remains external-event
+driven. Runtime order validation also enforces `execution.allow_fractional`.
 
-- **Current phase:** Major Architecture Phase B1 complete
+- **Current phase:** Major Architecture Phase B2a complete
 - **Completed phases:**
   - Phase 0 - Documentation and repository scaffold initialization
   - Phase 1 - Project Skeleton and Core Domain Models
@@ -90,9 +96,10 @@ remains external-event driven. Runtime order validation also enforces
   - Phase 10 - Alpaca SIP Historical Data Download
   - Major Architecture Phase A - Exchange Calendar and Market Session Service
   - Major Architecture Phase B1 - Deterministic Runtime Event Loop and Fake Stream
+  - Major Architecture Phase B2a - Alpaca Stream Adapter Boundary for Paper Runtime
 - **In-progress phase:** None
-- **Next recommended task:** Major Architecture Phase B2 - Vendor Streaming
-  Adapters for Paper/Live Runtime.
+- **Next recommended task:** Major Architecture Phase B2b - Runtime
+  Reconnect/Heartbeat and Guarded Live Decision Preview.
 
 ## 2. Completed Phases
 
@@ -111,12 +118,13 @@ remains external-event driven. Runtime order validation also enforces
 | Phase 10 | Complete | Implemented config-driven Alpaca SIP historical bar downloader, partitioned CSV/Parquet output, download script, data config template, docs, and tests. |
 | Major Architecture Phase A | Complete | Implemented shared US equity calendar/session service, runtime config validation, Alpaca filtering integration, paper/live health checks, live order safety, and tests. |
 | Major Architecture Phase B1 | Complete | Implemented deterministic runtime event-loop primitives, fake in-memory stream support, paper-engine finite stream execution, config template, and tests. |
+| Major Architecture Phase B2a | Complete | Implemented mockable Alpaca stream payload adapter, paper-engine stream source wiring, config template, and tests. |
 
 ## 3. Pending Phases
 
 | Phase | Status |
 |---|---|
-| Major Architecture Phase B2 - Vendor Streaming Adapters for Paper/Live Runtime | Planned |
+| Major Architecture Phase B2b - Runtime Reconnect/Heartbeat and Guarded Live Decision Preview | Planned |
 | Major Architecture Phase C - Broker Event Stream and Order Lifecycle Synchronization | Planned |
 | Major Architecture Phase D - Production Live-Trading Enablement | Blocked until A-C complete |
 | Major Architecture Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned |
@@ -147,6 +155,7 @@ Repository scaffold exists:
 - `configs/paper_alpaca.yaml`
 - `configs/paper_ibkr.yaml`
 - `configs/paper_fake_stream.yaml`
+- `configs/paper_alpaca_stream_mock.yaml`
 - `configs/live_alpaca.yaml`
 - `configs/ml/directional_baseline.yaml`
 - `configs/strategies/ml_directional.yaml`
@@ -184,6 +193,7 @@ Market data layer implemented:
 - `src/qts/market_data/normalization.py`
 - `src/qts/market_data/providers.py`
 - `src/qts/market_data/portal.py`
+- `src/qts/market_data/streaming.py`
 - `src/qts/market_data/__init__.py`
 
 Feature layer implemented:
@@ -345,14 +355,15 @@ Future functionality outside the current phase plan remains missing:
 
 - The current foundation has a deterministic bar-driven backtest path and
   mockable Alpaca and IBKR paper initialization/event-handling paths, plus a
-  finite fake-stream paper event loop for deterministic local testing.
+  finite fake-stream paper event loop and mock Alpaca stream adapter path for
+  deterministic local testing.
 - `PaperTradingEngine` does not yet own a vendor-backed continuous live
   market-data stream; it handles externally supplied `Bar`/`Quote` events,
-  finite fake streams, and dry-run initialization.
+  finite fake streams, mock Alpaca stream payloads, and dry-run initialization.
 - Live Alpaca market data provider support is not implemented. Phase 10 adds
   historical SIP downloads only; live scaffolds still validate
   `market_data.provider: external_events`, while paper also supports
-  `fake_stream` for finite local runs.
+  `fake_stream` and `alpaca_stream` for finite local runs.
 - Alpaca and IBKR order/fill updates currently use polling and filled-quantity
   deltas; streaming trade updates remain future operational-readiness work.
 - IBKR paper order submission requires `broker.account_id` and

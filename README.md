@@ -125,6 +125,7 @@ Configuration templates live under `configs/`:
 - `data/alpaca_sip_bars.yaml`
 - `paper_alpaca.yaml`
 - `paper_fake_stream.yaml`
+- `paper_alpaca_stream_mock.yaml`
 - `live_alpaca.yaml`
 - `paper_ibkr.yaml`
 - `ml/directional_baseline.yaml`
@@ -147,10 +148,11 @@ behavior. The built-in provider currently supports US equities for `XNYS` and
 behavior when a session cannot be resolved.
 
 Paper templates can use `market_data.provider: external_events` when another
-process supplies `Bar`/`Quote` events, or `fake_stream` for deterministic finite
-local runs. Live templates still use `external_events`. Alpaca historical SIP
-downloads are available through `scripts/download_data.py`; real-time Alpaca
-market data streams remain future work.
+process supplies `Bar`/`Quote` events, `fake_stream` for deterministic finite
+local runs, or `alpaca_stream` for Alpaca-shaped mock stream payloads. Live
+templates still use `external_events`. Alpaca historical SIP downloads are
+available through `scripts/download_data.py`; real websocket stream transport
+remains future work.
 
 Validate a runtime config through the CLI:
 
@@ -249,6 +251,12 @@ Run the Phase B1 fake-stream paper config without credentials:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/run_paper_trading.py --config configs/paper_fake_stream.yaml --max-events 2 --dry-run
+```
+
+Run the Phase B2a Alpaca stream adapter smoke config without credentials:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_paper_trading.py --config configs/paper_alpaca_stream_mock.yaml --max-events 3 --dry-run
 ```
 
 IBKR order tickets require `broker.account_id` and a

@@ -32,7 +32,9 @@ market_session:
 
 # Paper runtime event source.
 market_data:
-  # Options for PAPER: external_events, fake_stream.
+  # Options for PAPER: external_events, fake_stream, alpaca_stream. IBKR paper
+  # templates should usually keep external_events until an IBKR data adapter is
+  # added.
   provider: external_events
 
 # IBKR paper brokerage settings.

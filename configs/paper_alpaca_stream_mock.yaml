@@ -1,0 +1,72 @@
+# Function: Alpaca-stream-shaped paper runtime for local adapter smoke tests.
+# Used by: scripts/run_paper_trading.py --config configs/paper_alpaca_stream_mock.yaml
+#          --max-events 3 --dry-run.
+# Notes: This does not open a websocket. `mock_messages` are Alpaca-shaped
+#        market-data payloads that exercise the stream adapter boundary.
+
+# Reuse the normal Alpaca paper template, then swap the market-data source to
+# mock Alpaca streaming payloads and force mock brokerage mode.
+extends: paper_alpaca.yaml
+
+run_id: paper-alpaca-stream-mock
+
+market_data:
+  # Options for PAPER: external_events, fake_stream, alpaca_stream.
+  provider: alpaca_stream
+  # Alpaca stream feed selector. Options: sip, iex.
+  feed: sip
+  # Event families to subscribe and dispatch. Options: bars, quotes.
+  event_types: [bars, quotes]
+  # true applies configured market_session checks before dispatch.
+  session_filter: true
+  # true skips duplicate normalized events.
+  deduplicate: true
+  # true fails closed when a symbol receives timestamps moving backward.
+  fail_on_out_of_order: true
+  # Optional symbol override for stream subscription. If omitted, runtime
+  # symbols are used.
+  symbols: [SPY]
+  # Alpaca-shaped payloads used by the in-memory stream client. Common `T`
+  # values are `b` for bar, `q` for quote, `success`/`subscription` for
+  # control messages, and `error` for fail-closed stream errors.
+  mock_messages:
+    - T: success
+      msg: connected
+    - T: subscription
+      bars: [SPY]
+      quotes: [SPY]
+    - T: q
+      S: SPY
+      t: "2026-01-05T14:30:00Z"
+      bp: 100.10
+      bs: 1
+      ap: 100.20
+      as: 1
+    - T: b
+      S: SPY
+      t: "2026-01-05T14:30:00Z"
+      o: 100.00
+      h: 100.50
+      l: 99.80
+      c: 100.20
+      v: 1000
+      n: 10
+      vw: 100.12
+    - T: b
+      S: SPY
+      t: "2026-01-05T14:31:00Z"
+      o: 100.20
+      h: 100.90
+      l: 100.10
+      c: 100.80
+      v: 1200
+      n: 12
+      vw: 100.55
+
+broker:
+  safety:
+    # true uses the in-memory paper broker client and does not require
+    # credentials.
+    mock_mode: true
+    # true keeps paper-mode safety validation enabled.
+    require_paper: true
