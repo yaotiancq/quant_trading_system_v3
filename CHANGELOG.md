@@ -8,6 +8,40 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Major Architecture Phase B1] - 2026-05-23
+
+### Added
+
+- Added `qts.engines.event_loop` with `MarketEventSource`,
+  `InMemoryMarketEventSource`, `RuntimeEventLoop`, and event-loop result
+  counters.
+- Added `configs/paper_fake_stream.yaml` for deterministic local paper-runtime
+  event-loop smoke tests.
+- Added tests for fake-stream dispatch, duplicate suppression, out-of-order
+  fail-closed behavior, stale-event checks, session filtering, config loading,
+  and paper-engine fake-stream execution.
+
+### Changed
+
+- `PaperTradingEngine.start(max_events=...)` can now process finite fake
+  streams through the existing strategy, risk, execution, brokerage, and
+  portfolio path.
+- `PAPER` runtime configs now accept `market_data.provider: fake_stream` in
+  addition to `external_events`.
+- `PHASE_PLAN.md` now splits the former Phase B into B1 and B2 so real vendor
+  streaming adapters remain isolated from the deterministic event-loop
+  foundation.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+---
+
 ## [Major Architecture Phase A] - 2026-05-23
 
 ### Added

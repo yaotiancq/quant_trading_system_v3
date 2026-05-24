@@ -1001,8 +1001,43 @@ time after Phase A is stable:
 
 | Phase | Status | Notes |
 |---|---|---|
-| Phase B - Continuous Market-Data Event Loop for Paper/Live Runtime | Planned | Add streaming/event-source abstraction and finite fake stream tests. |
+| Phase B1 - Deterministic Runtime Event Loop and Fake Stream | Complete | Added event-source abstraction, finite fake stream, paper-engine loop wiring, and deterministic tests. |
+| Phase B2 - Vendor Streaming Adapters for Paper/Live Runtime | Planned | Add real provider adapters and guarded live decision-loop integration. |
 | Phase C - Broker Event Stream and Order Lifecycle Synchronization | Planned | Add normalized broker event stream, idempotent lifecycle updates, and polling fallback. |
 | Phase D - Production Live-Trading Enablement | Blocked until A-C complete | Enable real live submission only behind strict fail-closed safety gates. |
 | Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned | Add optional static chart artifacts for backtest reports. |
 | Phase F - Production ML Contracts and Model Governance | Planned | Add model manifests, schema hashes, approval/stage rules, and runtime ML metadata. |
+
+## Major Architecture Phase B1 - Deterministic Runtime Event Loop and Fake Stream
+
+### Goal
+
+Provide a small, deterministic runtime event-loop foundation before connecting
+vendor streaming APIs. The first slice is intentionally limited to finite paper
+runtime streams so tests can prove ordering, duplicate handling, session
+filtering, freshness checks, and dispatch into the existing
+strategy/risk/execution path.
+
+### Scope
+
+- Add a `MarketEventSource` protocol and deterministic in-memory fake stream.
+- Add a `RuntimeEventLoop` that validates duplicate, stale, out-of-order, and
+  out-of-session events before dispatch.
+- Allow `PAPER` configs to use `market_data.provider: fake_stream`.
+- Wire finite fake-stream runs into `PaperTradingEngine.start(max_events=...)`.
+- Add a commented `configs/paper_fake_stream.yaml` template.
+
+### Out of Scope
+
+- Real Alpaca/IBKR websocket adapters.
+- Live decision-loop dispatch.
+- Broker event stream synchronization beyond existing polling.
+
+### Acceptance Criteria
+
+- Finite fake streams can drive paper trading through the shared strategy,
+  risk, execution, brokerage, and portfolio path.
+- Duplicate events are skipped, out-of-order events fail closed, stale events
+  can fail closed when configured, and session filtering uses
+  `MarketSessionService`.
+- Tests pass without network access.

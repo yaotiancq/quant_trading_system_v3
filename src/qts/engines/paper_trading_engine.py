@@ -7,7 +7,7 @@ from datetime import datetime
 
 from qts.brokers import AlpacaBrokerage, Brokerage, IBKRBrokerage
 from qts.calendar import MarketSessionService, build_market_session_service
-from qts.core import ConfigurationError, RealClock
+from qts.core import Clock, ConfigurationError, RealClock
 from qts.domain import (
     Bar,
     FeatureFrame,
@@ -26,6 +26,11 @@ from qts.portfolio import DefaultPortfolio
 from qts.risk import RiskEngine
 from qts.strategies import BaseStrategy, create_strategy
 
+from .event_loop import (
+    MarketEventSource,
+    RuntimeEventLoop,
+    event_source_from_market_data_config,
+)
 from .features import feature_pipeline_settings_from_strategies
 from .market_data import resolve_event_market_data_provider
 
@@ -40,13 +45,15 @@ class PaperTradingEngine:
         brokerage: Brokerage | None = None,
         feature_pipeline: FeaturePipeline | None = None,
         strategies: Sequence[BaseStrategy] | None = None,
-        clock: RealClock | None = None,
+        market_event_source: MarketEventSource | None = None,
+        clock: Clock | None = None,
     ) -> None:
         self.config = runtime_config
         self.brokerage = brokerage
         self.feature_pipeline = feature_pipeline
         self.strategies = list(strategies or [])
         self._strategies_injected = strategies is not None
+        self.market_event_source = market_event_source
         self.clock = clock or RealClock()
         self.session_service: MarketSessionService | None = None
         self.data_portal = _PaperDataPortal()
@@ -70,6 +77,8 @@ class PaperTradingEngine:
             self.config,
             engine_name="PaperTradingEngine",
         )
+        if self.market_data_provider_name == "fake_stream" and self.market_event_source is None:
+            self.market_event_source = event_source_from_market_data_config(self.config.market_data)
         if self.feature_pipeline is None:
             feature_specs, schema_version = feature_pipeline_settings_from_strategies(
                 self.config.strategies
@@ -117,16 +126,35 @@ class PaperTradingEngine:
     def start(self, *, max_events: int = 0) -> dict[str, object]:
         """Start the paper engine.
 
-        Phase 6 provides an initialization and event-handling runtime path. A
-        continuous live market-data loop is intentionally deferred until a live
-        market data provider is introduced.
+        Phase B1 supports finite fake-stream runs for deterministic paper
+        testing. Vendor streaming adapters remain a later phase.
         """
         if not self._initialized:
             self.initialize()
         self._running = True
-        if max_events <= 0:
+        if max_events < 0:
+            raise ConfigurationError("max_events must be non-negative")
+        if max_events == 0:
             return self.health_check()
-        raise ConfigurationError("continuous paper market-data loops are not implemented in Phase 6")
+        if self.market_event_source is None:
+            raise ConfigurationError(
+                "paper runtime event loop requires market_data.provider=fake_stream "
+                "or an injected market_event_source"
+            )
+        loop = RuntimeEventLoop(
+            self.market_event_source,
+            self.on_market_event,
+            session_service=self.session_service,
+            clock=self.clock,
+            max_staleness_seconds=self.config.market_data.get("max_staleness_seconds"),
+            session_filter_enabled=bool(self.config.market_data.get("session_filter", True)),
+            fail_on_out_of_order=bool(self.config.market_data.get("fail_on_out_of_order", True)),
+            deduplicate=bool(self.config.market_data.get("deduplicate", True)),
+        )
+        result = loop.run(max_events=max_events)
+        status = self.health_check()
+        status["event_loop"] = result.to_dict()
+        return status
 
     def stop(self, reason: str | None = None) -> None:
         if self.brokerage is not None:

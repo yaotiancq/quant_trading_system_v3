@@ -475,7 +475,32 @@ Run an end-to-end backtest.
 9. update portfolio,
 10. record metrics and report.
 
-## 19. LiveEngine
+## 19. Runtime Market Event Loop
+
+### Purpose
+
+Consume normalized market events from a runtime event source and dispatch them
+through paper/live engine callbacks after safety checks.
+
+### Required Interfaces
+
+| Interface | Inputs | Output | Notes |
+|---|---|---|---|
+| `MarketEventSource.iter_events` | none | iterator of `Bar`/`Quote` | Source may be finite or streaming. |
+| `MarketEventSource.close` | none | none | Must release provider resources. |
+| `RuntimeEventLoop.run` | optional `max_events` | `RuntimeEventLoopResult` | Dispatches events after validation. |
+
+### Validation Contract
+
+- Duplicate events are skipped when deduplication is enabled.
+- Per-symbol timestamps must not move backward when fail-closed ordering is
+  enabled.
+- Optional freshness checks compare event timestamps with the runtime clock.
+- Optional session filtering uses `MarketSessionService`.
+- Provider-specific streaming adapters must convert vendor payloads to internal
+  `Bar`/`Quote` models before yielding events.
+
+## 20. LiveEngine
 
 ### Purpose
 
@@ -496,7 +521,7 @@ Orchestrate paper or live trading runtime.
 
 Live mode must fail initialization unless explicit live-trading safety flags are enabled.
 
-## 20. Reporter
+## 21. Reporter
 
 ### Purpose
 
@@ -516,7 +541,7 @@ Generate metrics, plots, and exports.
 - Missing snapshots should return clear report error.
 - Plot failures should not corrupt metric exports.
 
-## 21. Monitoring and Live Safety
+## 22. Monitoring and Live Safety
 
 ### Purpose
 

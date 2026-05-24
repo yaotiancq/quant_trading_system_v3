@@ -364,13 +364,16 @@ Owns runtime orchestration:
 
 - `BacktestEngine`,
 - `PaperTradingEngine`,
-- `LiveEngine`.
+- `LiveEngine`,
+- runtime market-event loop primitives and event-source contracts.
 
 Rules:
 
 - Engines wire modules together.
 - Engines select clock, data provider, broker implementation, strategy, risk, execution, portfolio, and reporter based on configuration.
 - Engines do not contain detailed strategy, broker, or risk logic.
+- Runtime market-event loops must validate duplicate, stale, out-of-order, and
+  out-of-session events before dispatching to engine callbacks.
 
 ### `reporting/`
 

@@ -54,7 +54,7 @@ src/qts/integrations/
                   Low-level vendor clients and mapping adapters
 src/qts/portfolio/
                   Portfolio accounting, ledgers, snapshots, reconciliation
-src/qts/engines/  BacktestEngine and PaperTradingEngine
+src/qts/engines/  BacktestEngine, PaperTradingEngine, and runtime event loop
 src/qts/reporting/
                   Backtest metrics and report artifact export
 src/qts/ml/       Offline datasets, labels, splits, training, registry, inference
@@ -124,6 +124,7 @@ Configuration templates live under `configs/`:
 - `backtest_fixture.yaml`
 - `data/alpaca_sip_bars.yaml`
 - `paper_alpaca.yaml`
+- `paper_fake_stream.yaml`
 - `live_alpaca.yaml`
 - `paper_ibkr.yaml`
 - `ml/directional_baseline.yaml`
@@ -145,11 +146,11 @@ behavior. The built-in provider currently supports US equities for `XNYS` and
 `NASDAQ`, regular-session-only or extended-hours checks, and fail-closed
 behavior when a session cannot be resolved.
 
-Paper/live templates use `market_data.provider: external_events` because the
-current paper and live scaffolds consume externally supplied `Bar`/`Quote`
-events. Alpaca historical SIP downloads are available through
-`scripts/download_data.py`; real-time Alpaca market data streams remain future
-work.
+Paper templates can use `market_data.provider: external_events` when another
+process supplies `Bar`/`Quote` events, or `fake_stream` for deterministic finite
+local runs. Live templates still use `external_events`. Alpaca historical SIP
+downloads are available through `scripts/download_data.py`; real-time Alpaca
+market data streams remain future work.
 
 Validate a runtime config through the CLI:
 
@@ -242,6 +243,12 @@ Initialize the Phase 9 IBKR paper runtime in credential-free mock mode:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/run_paper_trading.py --config configs/paper_ibkr.yaml --mock --dry-run
+```
+
+Run the Phase B1 fake-stream paper config without credentials:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_paper_trading.py --config configs/paper_fake_stream.yaml --max-events 2 --dry-run
 ```
 
 IBKR order tickets require `broker.account_id` and a

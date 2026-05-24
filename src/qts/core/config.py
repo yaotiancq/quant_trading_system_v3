@@ -396,9 +396,37 @@ def _reject_unknown_keys(mapping: Mapping[str, Any], allowed: set[str], section:
 def _validate_market_data(config: Mapping[str, Any]) -> None:
     _reject_unknown_keys(
         config,
-        {"provider", "path", "adjustment", "bar_interval"},
+        {
+            "provider",
+            "path",
+            "adjustment",
+            "bar_interval",
+            "events",
+            "event_types",
+            "max_staleness_seconds",
+            "session_filter",
+            "deduplicate",
+            "fail_on_out_of_order",
+        },
         "market_data",
     )
+    if "event_types" in config:
+        event_types = config["event_types"]
+        if not isinstance(event_types, Sequence) or isinstance(event_types, (str, bytes, bytearray)):
+            raise ConfigurationError("market_data.event_types must be a list")
+        allowed = {"bars", "quotes"}
+        unknown = sorted(str(item) for item in event_types if str(item).lower() not in allowed)
+        if unknown:
+            raise ConfigurationError(
+                f"unsupported market_data.event_types value(s): {', '.join(unknown)}"
+            )
+    if "max_staleness_seconds" in config and config["max_staleness_seconds"] is not None:
+        if float(config["max_staleness_seconds"]) < 0:
+            raise ConfigurationError("market_data.max_staleness_seconds must be non-negative")
+    if "events" in config:
+        events = config["events"]
+        if not isinstance(events, Sequence) or isinstance(events, (str, bytes, bytearray)):
+            raise ConfigurationError("market_data.events must be a list")
 
 
 def _validate_broker(config: Mapping[str, Any]) -> None:
@@ -615,8 +643,13 @@ def _validate_mode_specific(raw: Mapping[str, Any]) -> None:
         broker_type = str(broker.get("broker_type") or "").lower()
         if broker_type not in {"alpaca_paper", "ibkr_paper"}:
             raise ConfigurationError("PAPER configs require broker.broker_type=alpaca_paper or ibkr_paper")
-        if str(market_data.get("provider") or "").lower() != "external_events":
-            raise ConfigurationError("PAPER configs currently require market_data.provider=external_events")
+        provider = str(market_data.get("provider") or "").lower()
+        if provider not in {"external_events", "fake_stream"}:
+            raise ConfigurationError(
+                "PAPER configs require market_data.provider=external_events or fake_stream"
+            )
+        if provider == "fake_stream" and "events" not in market_data:
+            raise ConfigurationError("PAPER fake_stream configs require market_data.events")
     elif mode == "LIVE":
         if str(broker.get("broker_type") or "").lower() != "alpaca_live":
             raise ConfigurationError("LIVE configs currently require broker.broker_type=alpaca_live")

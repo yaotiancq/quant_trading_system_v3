@@ -31,6 +31,17 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.strategies[0].parameters["slow_window"], 40)
         self.assertIn(str(ROOT / "configs" / "strategies" / "sma_crossover.yaml"), config.metadata["source_files"])
 
+    def test_load_paper_fake_stream_config(self) -> None:
+        config = load_runtime_config(ROOT / "configs" / "paper_fake_stream.yaml", env_path=None)
+
+        self.assertEqual(config.runtime_mode, RuntimeMode.PAPER)
+        self.assertEqual(config.market_data["provider"], "fake_stream")
+        self.assertEqual(config.market_data["event_types"], ["bars"])
+        self.assertTrue(config.market_data["session_filter"])
+        self.assertEqual(len(config.market_data["events"]), 2)
+        self.assertEqual(config.risk.sizing_method, "fixed_quantity")
+        self.assertFalse(config.execution["allow_fractional"])
+
     def test_invalid_config_raises_configuration_error(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bad.yaml"
@@ -56,6 +67,42 @@ execution:
             )
 
             with self.assertRaises(ConfigurationError):
+                load_runtime_config(path, env_path=None)
+
+    def test_paper_fake_stream_requires_events(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad.yaml"
+            path.write_text(
+                """
+runtime:
+  mode: PAPER
+symbols: [SPY]
+timeframe: MINUTE
+market_data:
+  provider: fake_stream
+broker:
+  broker_type: alpaca_paper
+  paper: true
+strategies:
+  - strategy_id: sma
+    strategy_type: sma_crossover
+    symbols: [SPY]
+    parameters:
+      fast_window: 2
+      slow_window: 3
+risk:
+  sizing_method: fixed_quantity
+  sizing_parameters:
+    quantity: 1
+portfolio:
+  currency: USD
+execution:
+  allow_fractional: false
+""",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ConfigurationError, "market_data.events"):
                 load_runtime_config(path, env_path=None)
 
     def test_env_file_loader_reads_key_value_pairs(self) -> None:

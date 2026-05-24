@@ -1165,6 +1165,10 @@ Supported `reporting` keys are `output_dir`, `generate_plots`,
 Supported `market_session` keys are `exchange`, `timezone`,
 `regular_session_only`, `extended_hours`, `fail_closed`, `calendar_provider`,
 `regular_open`, and `regular_close`.
+Supported paper `market_data.provider` values are `external_events` and
+`fake_stream`. For `fake_stream`, `market_data.events` is a list of bar or quote
+event mappings; optional keys include `event_types`, `session_filter`,
+`deduplicate`, `fail_on_out_of_order`, and `max_staleness_seconds`.
 
 ### Example
 
@@ -1193,3 +1197,32 @@ Supported `market_session` keys are `exchange`, `timezone`,
 - engines,
 - factories,
 - reporters.
+
+---
+
+## 25. RuntimeEventLoopResult
+
+### Purpose
+
+Summary counters returned by one runtime event-loop run.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `processed_count` | int | yes | dispatched event count |
+| `skipped_count` | int | yes | duplicate or filtered event count |
+| `duplicate_count` | int | yes | duplicate events skipped |
+| `last_event_timestamp` | datetime/null | no | UTC timestamp of latest dispatched event |
+| `closed` | bool | yes | true after the source close hook runs |
+| `errors` | list[string] | yes | controlled error messages captured before re-raise |
+
+### Producers
+
+- `RuntimeEventLoop`.
+
+### Consumers
+
+- paper runtime health/status output,
+- tests,
+- future live/runtime monitoring.

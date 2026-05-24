@@ -876,3 +876,46 @@ open market.
 - Keep weekday-only fallback checks.
 - Keep historical session filtering as a simple local time comparison.
 - Depend immediately on a third-party exchange-calendar package.
+
+---
+
+## ADR-025: Introduce a Deterministic Runtime Event Loop Before Vendor Streams
+
+### Context
+
+Paper and live runtime paths need continuous market-event processing, but
+connecting vendor streaming APIs before the event-loop contract is tested would
+mix provider concerns with runtime safety rules. The existing paper engine
+already exposes `on_market_event()`, so the next safe step is a finite,
+deterministic loop that exercises that path without network access.
+
+### Decision
+
+Add `qts.engines.event_loop` with a `MarketEventSource` protocol, an
+`InMemoryMarketEventSource` fake stream, and a `RuntimeEventLoop`. The loop
+performs duplicate suppression, per-symbol timestamp ordering checks, optional
+freshness checks, and `MarketSessionService` filtering before dispatching into
+the existing paper engine path.
+
+`PAPER` configs may use `market_data.provider: fake_stream` for local finite
+runs. Real vendor websocket adapters remain in the next sub-phase.
+
+### Rationale
+
+This creates a testable runtime boundary first. It keeps Phase B1 deterministic,
+network-free, and limited to paper trading while preserving existing strategy,
+risk, execution, brokerage, and portfolio interfaces.
+
+### Consequences
+
+- `PaperTradingEngine.start(max_events=...)` can now process finite fake event
+  streams.
+- Paper configs support both `external_events` and `fake_stream`.
+- Live decision-loop dispatch remains deferred until vendor streaming and live
+  safety behavior can be designed together.
+
+### Alternatives Considered
+
+- Implement Alpaca/IBKR websocket adapters first.
+- Keep the runtime loop entirely inside `PaperTradingEngine`.
+- Allow unordered event streams and rely on strategies to detect anomalies.

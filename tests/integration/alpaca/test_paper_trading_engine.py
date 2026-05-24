@@ -177,6 +177,41 @@ class PaperTradingEngineIntegrationTests(unittest.TestCase):
         self.assertEqual(engine.portfolio.get_position("SPY").quantity, 10)
         self.assertEqual(strategy.fills_seen, 1)
 
+    def test_paper_engine_runs_finite_fake_stream(self) -> None:
+        config = load_paper_config(
+            market_data={
+                "provider": "fake_stream",
+                "session_filter": True,
+                "deduplicate": True,
+                "fail_on_out_of_order": True,
+                "events": [
+                    {
+                        "type": "bar",
+                        "symbol": "SPY",
+                        "timestamp": "2026-01-05T14:30:00Z",
+                        "timeframe": "MINUTE",
+                        "open": 100,
+                        "high": 101,
+                        "low": 99,
+                        "close": 100,
+                        "volume": 1000,
+                    }
+                ],
+            },
+        )
+        client = FillOnPollClient()
+        brokerage = AlpacaBrokerage(config.broker, client=client)
+        strategy = BuyOnceStrategy()
+        engine = PaperTradingEngine(config, brokerage=brokerage, strategies=[strategy])
+
+        status = engine.start(max_events=1)
+
+        self.assertEqual(status["market_data_provider"], "fake_stream")
+        self.assertEqual(status["event_loop"]["processed_count"], 1)
+        self.assertEqual(client.submitted_payloads[0]["qty"], "10")
+        self.assertEqual(engine.portfolio.get_position("SPY").quantity, 10)
+        self.assertEqual(strategy.fills_seen, 1)
+
     def test_paper_engine_rejects_mismatched_injected_strategy_count(self) -> None:
         config = load_paper_config()
         engine = PaperTradingEngine(config, strategies=[])

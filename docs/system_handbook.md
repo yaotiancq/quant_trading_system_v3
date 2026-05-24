@@ -70,12 +70,13 @@ Each layer owns a small responsibility:
 ### Paper Flow
 
 1. `scripts/run_paper_trading.py` loads a paper config.
-2. `PaperTradingEngine` validates `PAPER` mode and `external_events`.
+2. `PaperTradingEngine` validates `PAPER` mode and an event-driven market-data
+   provider: `external_events` or `fake_stream`.
 3. The engine selects `AlpacaBrokerage` or `IBKRBrokerage`.
 4. The broker adapter connects to a real or in-memory client.
 5. The portfolio reconciles against broker account and positions.
-6. Externally supplied `Bar` or `Quote` events can be processed through the
-   same feature, strategy, risk, and execution path.
+6. Externally supplied `Bar`/`Quote` events, or finite fake-stream events, are
+   processed through the same feature, strategy, risk, and execution path.
 
 ### Live Dry-Run Flow
 
@@ -126,12 +127,13 @@ generated egg-info metadata are not part of the source contract.
 
 | File | Purpose |
 |---|---|
-| `configs/base.yaml` | Shared defaults: project name, runtime timezone, symbols, paths, logging. |
+| `configs/base.yaml` | Shared defaults: project name, runtime timezone, paths, logging. |
 | `configs/backtest.yaml` | Generic partitioned local CSV backtest template using `data/alpaca`, `risk_ref`, and a strategy `config_ref`. |
 | `configs/backtest_fixture.yaml` | Fully runnable CSV fixture backtest with referenced snippets and fixture overrides. |
 | `configs/data/alpaca_sip_bars.yaml` | User-configurable Alpaca SIP historical bar download settings. |
 | `configs/paper_alpaca.yaml` | Alpaca paper runtime template using external market events. |
 | `configs/paper_ibkr.yaml` | IBKR paper runtime template using external market events and `symbol_conids`. |
+| `configs/paper_fake_stream.yaml` | Deterministic paper runtime template using finite in-memory market events. |
 | `configs/live_alpaca.yaml` | Guarded live dry-run template. Real live submission remains disabled. |
 | `configs/ml/directional_baseline.yaml` | Offline ML fixture training configuration. |
 | `configs/risk/base.yaml` | Reusable risk sizing and rule defaults imported with `risk_ref`. |
@@ -304,10 +306,11 @@ but should not be confused with broker-owned account state.
 
 | File | Purpose |
 |---|---|
+| `src/qts/engines/event_loop.py` | Runtime market-event source protocol, fake stream, validation loop, and loop result counters. |
 | `src/qts/engines/features.py` | Resolves feature specs/schema from strategy configs. |
 | `src/qts/engines/market_data.py` | Validates event-driven market data provider settings for paper/live. |
 | `src/qts/engines/backtest_engine.py` | Deterministic local backtest orchestration. |
-| `src/qts/engines/paper_trading_engine.py` | Paper runtime initialization and externally supplied event handling. |
+| `src/qts/engines/paper_trading_engine.py` | Paper runtime initialization, externally supplied event handling, and finite fake-stream execution. |
 | `src/qts/engines/live_engine.py` | Guarded live dry-run orchestration and `_DryRunLiveBrokerage`. |
 | `src/qts/engines/__init__.py` | Engine exports. |
 
@@ -455,6 +458,7 @@ Detailed test file index:
 | `tests/unit/monitoring/test_reconciliation.py` | Tests broker reconciliation health check. |
 | `tests/unit/monitoring/test_safety.py` | Tests live safety config, account allowlist, symbol allowlist, and max order caps. |
 | `tests/unit/engines/__init__.py` | Engine test package marker. |
+| `tests/unit/engines/test_event_loop.py` | Tests fake stream dispatch, duplicate handling, stale checks, ordering checks, and session filtering. |
 | `tests/unit/engines/test_feature_settings.py` | Tests engine feature spec and schema resolution from strategy configs. |
 | `tests/unit/engines/test_market_data_settings.py` | Tests paper/live event-driven market data provider validation. |
 | `tests/integration/__init__.py` | Integration test package marker. |

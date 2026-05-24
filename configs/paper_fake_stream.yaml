@@ -1,0 +1,119 @@
+# Function: deterministic paper-trading runtime with an in-memory fake market stream.
+# Used by: scripts/run_paper_trading.py --config configs/paper_fake_stream.yaml --dry-run
+#          and finite event-loop smoke runs in tests.
+# Notes: This config is for local engineering only. It does not connect to a
+#        live market-data feed and does not submit real brokerage orders.
+
+# Inherit shared defaults only. This config stays explicit because it changes
+# sizing style and market-data behavior from the normal Alpaca paper template.
+extends: base.yaml
+
+# Stable run id for reports/logs produced from this deterministic config.
+run_id: paper-fake-stream
+
+runtime:
+  # Options: BACKTEST, PAPER, LIVE. Fake stream is supported for PAPER.
+  mode: PAPER
+
+# Runtime universe. Strategy symbols should be a subset of this list.
+symbols: [SPY]
+
+# Domain timeframe for locally normalized bars.
+# Options: SECOND, MINUTE, HOUR, DAY.
+timeframe: MINUTE
+
+# Canonical exchange/session service used to filter runtime events.
+market_session:
+  # Options currently supported by the built-in provider: XNYS, NASDAQ.
+  exchange: XNYS
+  # Session clock timezone.
+  timezone: America/New_York
+  # true permits only [regular_open, regular_close); false can use extended_hours.
+  regular_session_only: true
+  # Fail closed if a session cannot be resolved.
+  fail_closed: true
+  # Options currently supported: builtin_us_equity.
+  calendar_provider: builtin_us_equity
+
+# Phase B1 market-data source. The paper engine consumes this finite list when
+# started with max_events > 0.
+market_data:
+  # Options for PAPER today: external_events, fake_stream.
+  provider: fake_stream
+  # Event families expected from the stream. Options: bars, quotes.
+  event_types: [bars]
+  # true applies market_session rules before dispatching events.
+  session_filter: true
+  # true skips duplicate events by type, symbol, timestamp, and quote/bar key.
+  deduplicate: true
+  # true fails closed when a symbol receives timestamps moving backward.
+  fail_on_out_of_order: true
+  # Optional freshness gate in seconds for real streaming feeds. Omitted here
+  # because fake events are historical and deterministic.
+  # max_staleness_seconds: 30
+  # Inline fake events. Options for type: bar, quote. Bar timeframe options:
+  # SECOND, MINUTE, HOUR, DAY.
+  events:
+    - type: bar
+      symbol: SPY
+      timestamp: "2026-01-05T14:30:00Z"
+      timeframe: MINUTE
+      open: 100.00
+      high: 100.50
+      low: 99.80
+      close: 100.20
+      volume: 1000
+    - type: bar
+      symbol: SPY
+      timestamp: "2026-01-05T14:31:00Z"
+      timeframe: MINUTE
+      open: 100.20
+      high: 100.90
+      low: 100.10
+      close: 100.80
+      volume: 1200
+
+broker:
+  # Options for paper script: alpaca_paper, ibkr_paper.
+  broker_type: alpaca_paper
+  # true selects Alpaca paper mode.
+  paper: true
+  # Environment variable containing Alpaca paper trading base URL.
+  base_url_env: ALPACA_PAPER_BASE_URL
+  # Environment variable names for credentials. Not required while mock_mode is true.
+  credential_env_keys:
+    # Alpaca API key id env var.
+    api_key_id: ALPACA_API_KEY_ID
+    # Alpaca secret key env var.
+    secret_key: ALPACA_SECRET_KEY
+  safety:
+    # true uses the in-memory broker client, so credentials are not required.
+    mock_mode: true
+    # true keeps paper-mode safety validation enabled.
+    require_paper: true
+
+# Account/reporting currency.
+portfolio:
+  currency: USD
+
+# Strategies loaded by the paper engine.
+strategies:
+  # Reusable strategy profile. Paths are relative to this config file.
+  - config_ref: strategies/sma_crossover.yaml
+
+risk:
+  # Options: fixed_quantity, fixed_notional, fixed_dollar, percent_equity,
+  # percent_of_equity.
+  sizing_method: fixed_quantity
+  sizing_parameters:
+    # Number of shares/contracts for unsized strategy signals.
+    quantity: 1
+
+execution:
+  # false requires quantity-based sizing and sends share quantity orders.
+  allow_fractional: false
+
+# Runtime health/telemetry toggle.
+monitoring:
+  # true enables monitoring hooks when configured.
+  enabled: false

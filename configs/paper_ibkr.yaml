@@ -32,7 +32,7 @@ market_session:
 
 # Paper runtime event source.
 market_data:
-  # Options for this runtime scaffold: external_events.
+  # Options for PAPER: external_events, fake_stream.
   provider: external_events
 
 # IBKR paper brokerage settings.
