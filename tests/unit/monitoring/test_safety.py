@@ -6,6 +6,7 @@ from qts.core import LiveSafetyError
 from qts.domain import Account, OrderRequest, OrderSide, OrderType, TimeInForce
 from qts.monitoring import (
     validate_live_account,
+    validate_live_order_submission_config,
     validate_live_safety_config,
     validate_order_request_safety,
 )
@@ -27,7 +28,32 @@ class LiveSafetyTests(unittest.TestCase):
 
         self.assertTrue(policy.live_enabled)
         self.assertTrue(policy.dry_run)
+        self.assertFalse(policy.order_submission_enabled)
         self.assertEqual(policy.allowed_symbols, ["SPY"])
+
+    def test_live_order_submission_requires_non_dry_run_explicit_enablement(self) -> None:
+        dry_run_config = make_live_config()
+        missing_submission_flag = make_live_config(
+            safety={
+                "dry_run": False,
+                "mock_mode": False,
+                "confirm_live_trading": True,
+            }
+        )
+        enabled_config = make_live_config(
+            safety={
+                "dry_run": False,
+                "mock_mode": False,
+                "confirm_live_trading": True,
+                "enable_order_submission": True,
+            }
+        )
+
+        with self.assertRaisesRegex(LiveSafetyError, "dry_run=false"):
+            validate_live_order_submission_config(dry_run_config)
+        with self.assertRaisesRegex(LiveSafetyError, "enable_order_submission"):
+            validate_live_order_submission_config(missing_submission_flag)
+        self.assertFalse(validate_live_order_submission_config(enabled_config).dry_run)
 
     def test_live_account_must_be_allowlisted(self) -> None:
         config = make_live_config()

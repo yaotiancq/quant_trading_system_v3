@@ -1197,3 +1197,56 @@ idempotency, and reconciliation behavior are explicit and tested.
 - Let every engine own its own event checkpoint logic.
 - Add persistent checkpoint storage before proving the in-process contract.
 - Defer lifecycle hardening until real live submission.
+
+---
+
+## ADR-032: Gate Live Order Submission Behind a Manual Safety Envelope First
+
+### Context
+
+After broker-event synchronization hardening, the next planned work is
+production live trading. Enabling automated strategy-driven live submission or
+real broker adapters in one step would create too much operational risk. The
+system already has guarded dry-run live decision previews, order safety
+validation, account allowlists, reconciliation, and normalized brokerage
+interfaces.
+
+### Decision
+
+Split Phase D and implement D1 as a manual live order submission envelope:
+
+- Add `broker.safety.enable_order_submission` as a distinct operator gate.
+- Add `validate_live_order_submission_config()` to require live mode,
+  non-dry-run config, `confirm_live_trading=true`, `broker.paper=false`, a
+  `*_live` broker type, and `enable_order_submission=true`.
+- Add `LiveEngine.submit_live_order(...)` for manually supplied normalized
+  `OrderRequest` objects only.
+- Before submission, validate live safety config, account allowlist, order
+  request safety, market session, fractional policy, and reconciliation.
+
+Automated conversion of live decision previews into broker submissions and
+broker-specific live adapter enablement remain later Phase D sub-phases.
+
+### Rationale
+
+This creates a small, testable production submission surface without changing
+strategy behavior or allowing automatic live trading. It also makes the final
+operator action explicit: live initialization and live order submission now have
+separate gates.
+
+### Consequences
+
+- The default live config remains fail-closed with
+  `enable_order_submission=false`.
+- Tests can prove submission behavior with injected recording brokerages without
+  network access.
+- Future broker-specific live adapters can plug into the same `Brokerage`
+  interface and D1 submission envelope.
+- Automated strategy-driven submission still needs a separate decision,
+  kill-switch, monitoring, and lifecycle-sync implementation.
+
+### Alternatives Considered
+
+- Enable real Alpaca live submission immediately.
+- Reuse `confirm_live_trading` as the only order-submission gate.
+- Automatically submit safety-approved live decision previews.

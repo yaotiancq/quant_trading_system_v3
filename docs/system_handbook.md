@@ -99,8 +99,11 @@ Each layer owns a small responsibility:
 5. Direct live bar events can produce guarded decision previews through
    feature, strategy, risk, order-request construction, and live safety
    validation.
-6. Broker-event sync can record lifecycle/reconciliation status, but no live
-   orders are submitted.
+6. Broker-event sync can record lifecycle/reconciliation status.
+7. Manual `submit_live_order(...)` calls can submit only after non-dry-run,
+   confirmation, submission, account, order, session, and reconciliation gates
+   pass.
+8. Strategy previews are not automatically submitted.
 
 ## 3. File-by-File Reference
 
@@ -151,7 +154,7 @@ generated egg-info metadata are not part of the source contract.
 | `configs/paper_ibkr.yaml` | IBKR paper runtime template using external market events and `symbol_conids`. |
 | `configs/paper_fake_stream.yaml` | Deterministic paper runtime template using finite in-memory market events. |
 | `configs/paper_alpaca_stream_mock.yaml` | Deterministic paper runtime template using Alpaca-shaped mock stream payloads. |
-| `configs/live_alpaca.yaml` | Guarded live dry-run template. Real live submission remains disabled. |
+| `configs/live_alpaca.yaml` | Guarded live dry-run template with manual submission disabled by default. |
 | `configs/ml/directional_baseline.yaml` | Offline ML fixture training configuration. |
 | `configs/risk/base.yaml` | Reusable risk sizing and rule defaults imported with `risk_ref`. |
 | `configs/strategies/sma_crossover.yaml` | Reusable SMA crossover strategy profile imported with `config_ref`. |
@@ -332,7 +335,7 @@ but should not be confused with broker-owned account state.
 | `src/qts/engines/market_data.py` | Validates event-driven market data provider settings for paper/live. |
 | `src/qts/engines/backtest_engine.py` | Deterministic local backtest orchestration. |
 | `src/qts/engines/paper_trading_engine.py` | Paper runtime initialization, externally supplied event handling, and finite fake-stream execution. |
-| `src/qts/engines/live_engine.py` | Guarded live dry-run orchestration and `_DryRunLiveBrokerage`. |
+| `src/qts/engines/live_engine.py` | Guarded live dry-run orchestration, manual live order submission envelope, and `_DryRunLiveBrokerage`. |
 | `src/qts/engines/__init__.py` | Engine exports. |
 
 Engines wire modules together. Keep detailed business behavior in the owning
@@ -374,7 +377,7 @@ ML training is offline. Runtime trading integration happens through
 | `src/qts/monitoring/health.py` | Callable health checks, broker connection health, health monitor aggregation. |
 | `src/qts/monitoring/metrics.py` | In-memory runtime metric logger. |
 | `src/qts/monitoring/alerts.py` | Alert sinks and alert manager. |
-| `src/qts/monitoring/safety.py` | Live safety policy and account/order request safety validation. |
+| `src/qts/monitoring/safety.py` | Live safety policy, submission gate, and account/order request safety validation. |
 | `src/qts/monitoring/reconciliation.py` | Broker/internal reconciliation health check. |
 | `src/qts/monitoring/recovery.py` | Recovery manager for stop/retry/escalation behavior. |
 | `src/qts/monitoring/__init__.py` | Monitoring exports. |
@@ -588,7 +591,8 @@ Do not let execution or strategies import vendor clients.
 - Broker adapters convert to/from domain models.
 - Market data and brokerage stay separate even for the same vendor.
 - Backtest, paper, and live modes share the strategy/risk/execution path.
-- Live submission remains disabled until a future phase explicitly enables it.
+- Automated live submission remains disabled until a future phase explicitly
+  enables it.
 - Documentation changes accompany interface, model, or architecture changes.
 
 ## 7. Recommended Reading Order

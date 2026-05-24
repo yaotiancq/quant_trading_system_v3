@@ -1008,7 +1008,9 @@ time after Phase A is stable:
 | Phase C1 - Normalized Broker Events and Polling Sync | Complete | Added broker event model/helpers, idempotent execution updates, and paper polling fallback. |
 | Phase C2 - Vendor Broker Push Adapter Boundaries | Complete | Added mockable Alpaca/IBKR broker order/fill event adapter boundaries without real live submission. |
 | Phase C3 - Engine Lifecycle Synchronization Hardening | Complete | Added checkpointed broker-event sync, gap/out-of-order detection, engine reconciliation hooks, and lifecycle double-count protection. |
-| Phase D - Production Live-Trading Enablement | Planned after C3 | Enable real live submission only behind strict fail-closed safety gates. |
+| Phase D1 - Manual Live Order Submission Safety Envelope | Complete | Added explicit non-dry-run submission gates and a manual `LiveEngine.submit_live_order` path. |
+| Phase D2 - Broker-Specific Live Adapter Enablement | Planned | Enable real broker adapters only behind the D1 submission envelope and adapter-specific tests. |
+| Phase D3 - Automated Live Decision Submission | Planned | Convert approved live previews into optional broker submissions with lifecycle sync and kill-switch controls. |
 | Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned | Add optional static chart artifacts for backtest reports. |
 | Phase F - Production ML Contracts and Model Governance | Planned | Add model manifests, schema hashes, approval/stage rules, and runtime ML metadata. |
 
@@ -1271,3 +1273,94 @@ reconciliation, and lifecycle recovery before Phase D production live trading.
 - A failed broker event can be retried after missing lifecycle state is
   recovered.
 - Tests remain deterministic and network-free.
+
+## Major Architecture Phase D - Production Live-Trading Enablement
+
+### Goal
+
+Enable live order submission only through explicit fail-closed safety gates,
+broker-event synchronization, reconciliation, and operator-controlled rollout
+steps.
+
+### Split Rationale
+
+Production live trading is intentionally too large and high-risk for one
+implementation session. It is split so the submission safety envelope can be
+tested independently before any broker-specific live adapter or automated live
+decision loop is allowed to send orders.
+
+## Major Architecture Phase D1 - Manual Live Order Submission Safety Envelope
+
+### Goal
+
+Add the smallest live submission surface: a manually supplied `OrderRequest`
+can be submitted by `LiveEngine` only when all live safety, account,
+reconciliation, and explicit submission gates pass.
+
+### Scope
+
+- Add an explicit `broker.safety.enable_order_submission` gate.
+- Add a live order submission safety validator for non-dry-run live configs.
+- Add `LiveEngine.submit_live_order(...)` for manually supplied normalized
+  `OrderRequest` objects.
+- Validate account allowlist, symbol allowlist, market session, order caps,
+  fractional policy, and reconciliation immediately before submission.
+- Record submission status in live health output and runtime metrics.
+
+### Out of Scope
+
+- Automatically submitting strategy-generated live decision previews.
+- Enabling Alpaca or IBKR live adapter construction without injected brokerage.
+- Real broker stream transports.
+- Persistent order audit storage beyond in-memory health/status output.
+
+### Acceptance Criteria
+
+- Dry-run live configs cannot submit live orders.
+- Non-dry-run live configs still cannot submit unless
+  `confirm_live_trading=true` and `enable_order_submission=true`.
+- Manual live order submission calls `broker.submit_order` only after all
+  safety and reconciliation checks pass.
+- Submission status appears in live health output.
+- Tests remain deterministic and network-free with an injected recording
+  brokerage.
+
+## Major Architecture Phase D2 - Broker-Specific Live Adapter Enablement
+
+### Goal
+
+Enable real broker-specific live adapter construction behind the D1 submission
+envelope and broker-specific fail-closed tests.
+
+### Scope
+
+- Add live adapter enablement for selected brokers only after credentials,
+  base URLs, account allowlists, and paper/live mode checks pass.
+- Preserve vendor-specific behavior behind the normalized `Brokerage`
+  interface.
+- Add mocked broker tests proving live adapter construction and rejected unsafe
+  configurations.
+
+### Out of Scope
+
+- Automated strategy-driven live submissions.
+- Unbounded reconnect or untested real network stream ownership.
+
+## Major Architecture Phase D3 - Automated Live Decision Submission
+
+### Goal
+
+Allow approved live decision previews to become broker submissions only when a
+separate automated-submission gate, lifecycle synchronization, kill-switch, and
+monitoring controls are active.
+
+### Scope
+
+- Convert safety-approved live previews into submissions through the D1 path.
+- Add operator kill-switch behavior and failure-stop handling.
+- Require broker-event sync/reconciliation after submission.
+
+### Out of Scope
+
+- High-frequency trading behavior.
+- Multi-broker smart routing.

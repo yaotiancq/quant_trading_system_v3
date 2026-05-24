@@ -7,14 +7,17 @@ from io import StringIO
 
 from qts.core import LiveSafetyError, ReplayClock
 from qts.domain import (
+    Account,
     Bar,
     BarTimeframe,
+    Fill,
     Order,
     OrderRequest,
     OrderSide,
     OrderStatus,
     OrderType,
     PortfolioSnapshot,
+    Position,
     Quote,
     Signal,
     SignalDirection,
@@ -67,6 +70,69 @@ def make_bar() -> Bar:
         close=100,
         volume=1000,
     )
+
+
+class RecordingLiveBrokerage:
+    def __init__(self, account_id: str = "acct-1") -> None:
+        self.connected = False
+        self.submitted_requests: list[OrderRequest] = []
+        self.orders: dict[str, Order] = {}
+        self.account = Account(
+            account_id=account_id,
+            timestamp=NOW,
+            currency="USD",
+            cash=100000,
+            equity=100000,
+            buying_power=100000,
+        )
+
+    def connect(self, broker_config=None) -> None:  # type: ignore[no-untyped-def]
+        self.connected = True
+
+    def disconnect(self) -> None:
+        self.connected = False
+
+    def submit_order(self, order_request: OrderRequest) -> Order:
+        self.submitted_requests.append(order_request)
+        order = Order(
+            order_id=f"live-order-{len(self.submitted_requests)}",
+            client_order_id=order_request.client_order_id,
+            symbol=order_request.symbol,
+            created_at=order_request.timestamp,
+            updated_at=order_request.timestamp,
+            side=order_request.side,
+            quantity=order_request.quantity,
+            filled_quantity=0,
+            remaining_quantity=order_request.quantity,
+            order_type=order_request.order_type,
+            status=OrderStatus.ACCEPTED,
+            limit_price=order_request.limit_price,
+            stop_price=order_request.stop_price,
+            metadata=dict(order_request.metadata),
+        )
+        self.orders[order.order_id] = order
+        return order
+
+    def cancel_order(self, order_id: str) -> Order:
+        return self.orders[order_id]
+
+    def get_order(self, order_id: str) -> Order | None:
+        return self.orders.get(order_id)
+
+    def list_orders(self, status=None, symbol=None) -> list[Order]:  # type: ignore[no-untyped-def]
+        return list(self.orders.values())
+
+    def get_account(self) -> Account:
+        return self.account
+
+    def get_positions(self) -> list[Position]:
+        return []
+
+    def poll_fills(self, since=None) -> list[Fill]:  # type: ignore[no-untyped-def]
+        return []
+
+    def is_market_open(self, timestamp) -> bool:  # type: ignore[no-untyped-def]
+        return True
 
 
 class LiveEngineSafetyIntegrationTests(unittest.TestCase):
@@ -196,6 +262,69 @@ class LiveEngineSafetyIntegrationTests(unittest.TestCase):
         self.assertEqual(engine.health_check()["broker_event_sync"]["processed_count"], 1)
         self.assertEqual(engine.brokerage.orders, {})
         self.assertTrue(source.closed)
+
+    def test_live_engine_manual_submission_requires_submission_flag(self) -> None:
+        config = make_live_config(
+            safety={
+                "dry_run": False,
+                "mock_mode": False,
+                "confirm_live_trading": True,
+            }
+        )
+        brokerage = RecordingLiveBrokerage()
+        engine = LiveEngine(config, brokerage=brokerage)
+        engine.initialize()
+        order_request = OrderRequest(
+            client_order_id="manual-live-blocked",
+            strategy_id="manual",
+            symbol="SPY",
+            timestamp=NOW,
+            side=OrderSide.BUY,
+            quantity=1,
+            order_type=OrderType.MARKET,
+            time_in_force=TimeInForce.DAY,
+        )
+
+        with self.assertRaisesRegex(LiveSafetyError, "enable_order_submission"):
+            engine.submit_live_order(order_request, price=100)
+
+        self.assertEqual(brokerage.submitted_requests, [])
+
+    def test_live_engine_manual_submission_uses_broker_after_all_safety_gates(self) -> None:
+        config = make_live_config(
+            safety={
+                "dry_run": False,
+                "mock_mode": False,
+                "confirm_live_trading": True,
+                "enable_order_submission": True,
+            }
+        )
+        brokerage = RecordingLiveBrokerage()
+        engine = LiveEngine(config, brokerage=brokerage)
+        engine.initialize()
+        order_request = OrderRequest(
+            client_order_id="manual-live-ok",
+            strategy_id="manual",
+            symbol="SPY",
+            timestamp=NOW,
+            side=OrderSide.BUY,
+            quantity=1,
+            order_type=OrderType.MARKET,
+            time_in_force=TimeInForce.DAY,
+        )
+
+        result = engine.submit_live_order(order_request, price=100)
+
+        self.assertTrue(result["submitted"])
+        self.assertFalse(result["dry_run"])
+        self.assertEqual(result["order_id"], "live-order-1")
+        self.assertEqual(result["reconciliation"]["status"], "matched")
+        self.assertEqual(len(brokerage.submitted_requests), 1)
+        self.assertEqual(engine.health_check()["live_order_submission_count"], 1)
+        self.assertEqual(
+            engine.health_check()["last_live_order_submission"]["order_id"],
+            "live-order-1",
+        )
 
     def test_live_runner_dry_run_command_initializes(self) -> None:
         with redirect_stdout(StringIO()):

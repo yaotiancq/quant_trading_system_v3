@@ -12,13 +12,14 @@ documents, which remain the source of truth for design decisions:
 - `PROJECT_STATE.md`
 - `CHANGELOG.md`
 
-The current implementation is complete through Major Architecture Phase C3. It
+The current implementation is complete through Major Architecture Phase D1. It
 supports Alpaca SIP historical bar downloads, local backtests, report
 generation, mocked paper initialization for Alpaca and IBKR, normalized broker
 event polling synchronization, mockable Alpaca/IBKR broker push-event adapter
 boundaries, checkpointed broker-event engine synchronization, an offline ML
-baseline workflow, and guarded live dry-run initialization. Real live broker
-order submission is intentionally disabled.
+baseline workflow, guarded live dry-run initialization, and a manual live order
+submission safety envelope. Live broker order submission remains disabled by
+default and requires explicit production gates.
 
 ## 1. Safety Model
 
@@ -28,7 +29,7 @@ This system is built around explicit mode boundaries:
 |---|---|---|
 | Backtest | `configs/backtest.yaml`, `configs/backtest_fixture.yaml` | Runs deterministic local bar replay with simulated brokerage fills. |
 | Paper | `configs/paper_alpaca.yaml`, `configs/paper_ibkr.yaml`, `configs/paper_fake_stream.yaml`, `configs/paper_alpaca_stream_mock.yaml` | Initializes a paper brokerage path. Mock mode, fake stream, and mock Alpaca stream payloads work without credentials. |
-| Live | `configs/live_alpaca.yaml` | Guarded dry-run scaffold only. Real live submission is disabled. |
+| Live | `configs/live_alpaca.yaml` | Guarded dry-run scaffold plus a manual submission envelope that is disabled by default. |
 
 Important safety constraints:
 
@@ -44,7 +45,10 @@ Important safety constraints:
   do not own a continuous live market data stream.
 - IBKR order replies that require manual confirmation fail closed and are not
   auto-confirmed.
-- Live order submission requires a future documented phase.
+- Manual live order submission requires non-dry-run live mode,
+  `confirm_live_trading: true`, `enable_order_submission: true`, allowlisted
+  account/symbols, order caps, market-session validation, and matched
+  reconciliation.
 
 ## 2. Local Setup
 
@@ -96,7 +100,7 @@ Supported variables:
 | `ALPACA_API_KEY_ID` | Alpaca adapter | Alpaca API key. |
 | `ALPACA_SECRET_KEY` | Alpaca adapter | Alpaca API secret. |
 | `ALPACA_PAPER_BASE_URL` | `configs/paper_alpaca.yaml` | Alpaca paper endpoint override. |
-| `ALPACA_LIVE_BASE_URL` | `configs/live_alpaca.yaml` | Alpaca live endpoint override. Live submission remains disabled. |
+| `ALPACA_LIVE_BASE_URL` | `configs/live_alpaca.yaml` | Alpaca live endpoint override. Submission still requires explicit live safety gates. |
 | `ALPACA_DATA_BASE_URL` | `configs/data/alpaca_sip_bars.yaml` | Alpaca market data endpoint override. |
 | `IBKR_ACCESS_TOKEN` | IBKR adapter | Optional IBKR bearer token if using a real Web API endpoint. |
 | `IBKR_BASE_URL` | `configs/paper_ibkr.yaml` | IBKR Web API endpoint override. |
@@ -551,6 +555,13 @@ not trigger the bundled bar-based strategies.
 Without `--confirm-live-safety`, the live engine should fail closed. That is
 expected.
 
+Manual live order submission is available only for direct engine usage through
+`LiveEngine.submit_live_order(...)`. It accepts an already-built normalized
+`OrderRequest`; it does not turn strategy previews into orders. The sample live
+config keeps `broker.safety.enable_order_submission: false`, so submission stays
+fail-closed unless the operator changes both the confirmation and submission
+gates in a non-dry-run live configuration.
+
 ## 13. Common Configuration Changes
 
 ### Change Strategy Windows
@@ -651,7 +662,7 @@ Before running any non-mock broker workflow:
 9. Run mock or dry-run initialization first.
 10. Inspect logs and reconciliation status.
 
-Before adding real live submission in a future phase:
+Before adding automated live submission in a future phase:
 
 1. Extend `PHASE_PLAN.md`.
 2. Add an ADR in `DECISIONS.md`.

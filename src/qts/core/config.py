@@ -498,6 +498,7 @@ def _validate_broker(config: Mapping[str, Any]) -> None:
             "require_paper",
             "live_enabled",
             "confirm_live_trading",
+            "enable_order_submission",
             "dry_run",
             "dry_run_account_id",
             "dry_run_cash",

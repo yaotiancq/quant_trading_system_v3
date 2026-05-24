@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Initialize the guarded Phase 8 live engine scaffold."""
+"""Initialize the guarded live engine scaffold."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--confirm-live-safety",
         action="store_true",
-        help="explicitly enable Phase 8 live safety gates for dry-run initialization",
+        help="explicitly enable live safety gates for dry-run initialization",
     )
     args = parser.parse_args(argv)
 

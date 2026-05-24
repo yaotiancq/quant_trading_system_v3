@@ -1108,7 +1108,7 @@ Configuration for broker implementation.
 | `commission_model` | dict | no | backtest cost config |
 | `slippage_model` | dict | no | backtest slippage config |
 | `fill_policy` | string | no | backtest fill policy |
-| `safety` | dict | no | live safety settings and adapter-specific safe defaults, e.g. IBKR `symbol_conids` |
+| `safety` | dict | no | live safety settings and adapter-specific safe defaults, e.g. `enable_order_submission`, IBKR `symbol_conids` |
 
 ### Example
 
@@ -1360,3 +1360,43 @@ mode. It is emitted by `LiveEngine` and is not submitted to a broker.
 - live health/status output,
 - tests,
 - future audit logging.
+
+---
+
+## 29. LiveOrderSubmissionResult
+
+### Purpose
+
+Structured status payload emitted by `LiveEngine.submit_live_order(...)` after
+a manually supplied live `OrderRequest` passes safety checks and is submitted to
+the configured live brokerage.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `submitted` | bool | yes | true only after broker submission returns |
+| `dry_run` | bool | yes | false for the D1 submission path |
+| `order_id` | string | yes | broker order ID |
+| `client_order_id` | string | yes | original idempotency key |
+| `symbol` | string | yes | uppercase |
+| `status` | string | yes | normalized `OrderStatus` value |
+| `order` | dict | yes | serialized normalized `Order` |
+| `reconciliation` | dict/null | no | before-submit reconciliation payload |
+
+### Validation Rules
+
+- The result is produced only after `validate_live_order_submission_config`,
+  `validate_live_account`, `validate_order_request_safety`, and reconciliation
+  checks pass.
+- Automated strategy-generated submissions remain out of scope for Phase D1.
+
+### Producers
+
+- `LiveEngine.submit_live_order`.
+
+### Consumers
+
+- live health/status output,
+- operator runbooks,
+- future audit persistence.

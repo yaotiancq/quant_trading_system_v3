@@ -1,9 +1,10 @@
 # Operational Runbooks
 
 These runbooks cover the guarded live-trading foundation through Major
-Architecture Phase C3. Live trading remains disabled by default; dry-run
-initialization and deterministic broker-event synchronization are the supported
-operational readiness paths in this phase.
+Architecture Phase D1. Live trading remains disabled by default; dry-run
+initialization, deterministic broker-event synchronization, and manually gated
+live order submission are the supported operational readiness paths in this
+phase.
 
 ## Live Safety Gate
 
@@ -17,8 +18,9 @@ Before a `LIVE` runtime can initialize, the config must explicitly set:
   fail-closed US equity session settings
 
 Non-dry-run live mode additionally requires
-`broker.safety.confirm_live_trading: true`, but real live brokerage submission is
-still not enabled through Phase C3.
+`broker.safety.confirm_live_trading: true`. Manual live order submission also
+requires `broker.safety.enable_order_submission: true` and a matched
+reconciliation check immediately before submission.
 
 Dry-run initialization can be exercised locally:
 
@@ -67,6 +69,25 @@ construction, and live safety validation. It does not mean an order was sent.
 Treat `preview_status: safety_rejected` as a blocked would-be order. Inspect the
 preview `error`, risk reasons, order size, symbol allowlist, market-session
 state, and account safety caps before changing any configuration.
+
+## Manual Live Order Submission
+
+`LiveEngine.submit_live_order(...)` is the only Phase D1 live submission path.
+It accepts a normalized `OrderRequest` that has already been built by operator
+code or a controlled script. It does not automatically submit strategy decision
+previews.
+
+Before enabling `broker.safety.enable_order_submission`, confirm:
+
+- `dry_run` and `mock_mode` are false,
+- `confirm_live_trading` is true,
+- account and symbol allowlists are populated,
+- max order caps are intentionally low,
+- the market session is open for the order timestamp,
+- reconciliation is matched.
+
+If any validation fails, keep the engine stopped or in dry-run mode and resolve
+the safety issue before retrying.
 
 ## Broker Lifecycle Synchronization
 
@@ -126,7 +147,7 @@ and reconciliation first.
 
 ## Order Safety
 
-Every future live order path must validate normalized `OrderRequest` objects
-against the live safety policy before broker submission. The scaffold also
-rejects order timestamps outside the configured market session. Real live
+Every live order path must validate normalized `OrderRequest` objects against
+the live safety policy before broker submission. The scaffold also rejects order
+timestamps outside the configured market session. Automated strategy-driven live
 submission remains disabled until a later production-live phase.

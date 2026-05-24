@@ -8,6 +8,39 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Major Architecture Phase D1] - 2026-05-24
+
+### Added
+
+- Added explicit `broker.safety.enable_order_submission` gating for production
+  live order submission.
+- Added `validate_live_order_submission_config()` to require non-dry-run live
+  mode, live broker config, `confirm_live_trading=true`, and
+  `enable_order_submission=true` before any live order can be submitted.
+- Added `LiveEngine.submit_live_order(...)` for manually supplied normalized
+  `OrderRequest` objects after account, session, symbol, size, fractional, and
+  reconciliation checks pass.
+- Added live health output for manual live submission count and latest
+  submission payload.
+- Added deterministic tests using an injected recording brokerage.
+
+### Changed
+
+- Split Major Architecture Phase D into D1, D2, and D3 so real broker adapter
+  enablement and automated strategy-driven submission remain separate future
+  phases.
+- Documented the new submission gate in `configs/live_alpaca.yaml`.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+---
+
 ## [Major Architecture Phase C3] - 2026-05-24
 
 ### Added

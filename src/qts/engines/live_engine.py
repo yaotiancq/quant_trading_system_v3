@@ -48,6 +48,7 @@ from qts.monitoring import (
     HealthStatus,
     RuntimeMetricsLogger,
     validate_live_account,
+    validate_live_order_submission_config,
     validate_live_safety_config,
     validate_order_request_safety,
 )
@@ -102,6 +103,8 @@ class LiveEngine:
         self._decision_previews: list[dict[str, object]] = []
         self._broker_event_checkpoint = BrokerEventSyncCheckpoint()
         self._last_broker_event_sync: dict[str, object] | None = None
+        self._live_order_submissions: list[dict[str, object]] = []
+        self._last_live_order_submission: dict[str, object] | None = None
 
     def initialize(self, runtime_config: RuntimeConfig | None = None) -> None:
         if runtime_config is not None:
@@ -288,6 +291,48 @@ class LiveEngine:
     ) -> bool:
         return validate_order_request_safety(self.config, order_request, price=price)
 
+    def submit_live_order(
+        self,
+        order_request: OrderRequest,
+        *,
+        price: float | None = None,
+        require_reconciliation: bool = True,
+    ) -> dict[str, object]:
+        """Submit one manually supplied live order through explicit safety gates."""
+        self._require_initialized()
+        assert self.brokerage is not None
+        policy = validate_live_order_submission_config(self.config)
+        validate_order_request_safety(self.config, order_request, price=price)
+        validate_live_account(self.config, self.brokerage.get_account())
+        reconciliation = self.reconcile() if require_reconciliation else None
+        if reconciliation is not None and not bool(reconciliation.get("matched")):
+            raise ReconciliationError("live order submission blocked by reconciliation mismatch")
+
+        try:
+            order = self.brokerage.submit_order(order_request)
+        except Exception:
+            self.metrics_logger.increment("live_order_submission_failures_total")
+            raise
+
+        self.on_broker_event(order)
+        payload: dict[str, object] = {
+            "submitted": True,
+            "dry_run": policy.dry_run,
+            "order_id": order.order_id,
+            "client_order_id": order.client_order_id,
+            "symbol": order.symbol,
+            "status": order.status.value,
+            "order": order.to_dict(),
+            "reconciliation": reconciliation,
+        }
+        self._last_live_order_submission = payload
+        self._live_order_submissions.append(payload)
+        self.metrics_logger.increment(
+            "live_order_submissions_total",
+            tags={"symbol": order.symbol, "status": order.status.value},
+        )
+        return dict(payload)
+
     def health_check(self) -> dict[str, object]:
         if not self._initialized or self.health_monitor is None:
             return {
@@ -314,6 +359,8 @@ class LiveEngine:
                 "market_data_provider": self.market_data_provider_name,
                 "last_reconciliation": self._last_reconciliation,
                 "broker_event_sync": self._last_broker_event_sync,
+                "live_order_submission_count": len(self._live_order_submissions),
+                "last_live_order_submission": self._last_live_order_submission,
                 "last_market_event_symbol": (
                     self._last_market_event.symbol if self._last_market_event is not None else None
                 ),

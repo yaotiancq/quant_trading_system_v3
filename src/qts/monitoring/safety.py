@@ -20,6 +20,7 @@ class LiveSafetyPolicy:
     allowed_account_ids: list[str]
     max_order_notional: float | None
     max_order_quantity: float | None
+    order_submission_enabled: bool = False
 
 
 def validate_live_safety_config(config: RuntimeConfig) -> LiveSafetyPolicy:
@@ -62,7 +63,25 @@ def validate_live_safety_config(config: RuntimeConfig) -> LiveSafetyPolicy:
         allowed_account_ids=[str(item) for item in list(safety.get("allowed_account_ids") or [])],
         max_order_notional=max_order_notional,
         max_order_quantity=max_order_quantity,
+        order_submission_enabled=_truthy(safety.get("enable_order_submission")),
     )
+
+
+def validate_live_order_submission_config(config: RuntimeConfig) -> LiveSafetyPolicy:
+    """Validate explicit operator gates before a live order can be submitted."""
+    policy = validate_live_safety_config(config)
+    broker_type = config.broker.broker_type.lower()
+    if policy.dry_run:
+        raise LiveSafetyError("live order submission requires broker.safety.dry_run=false")
+    if not policy.order_submission_enabled:
+        raise LiveSafetyError(
+            "live order submission requires broker.safety.enable_order_submission=true"
+        )
+    if config.broker.paper is not False:
+        raise LiveSafetyError("live order submission requires broker.paper=false")
+    if not broker_type.endswith("_live"):
+        raise LiveSafetyError("live order submission requires a *_live broker_type")
+    return policy
 
 
 def validate_live_account(config: RuntimeConfig, account: Account) -> bool:
@@ -143,6 +162,7 @@ def _optional_positive_float(value: Any) -> float | None:
 __all__ = [
     "LiveSafetyPolicy",
     "validate_live_account",
+    "validate_live_order_submission_config",
     "validate_live_safety_config",
     "validate_order_request_safety",
 ]

@@ -578,6 +578,7 @@ Orchestrate paper or live trading runtime.
 | `on_market_event` | event | health/status with decision previews | Handle incoming data and guarded dry-run preview. |
 | `on_broker_event` | broker event or order/fill/account event | none | Handle broker updates. |
 | `sync_broker_events` | `BrokerEventSource`, optional limits/policy | sync status dict | Checkpointed broker lifecycle sync with reconciliation before/after. |
+| `submit_live_order` | `OrderRequest`, optional price | submission status dict | Manual Phase D1 submission path after explicit live safety and reconciliation gates. |
 | `health_check` | none | health status | Used by monitoring. |
 
 ### Safety Contract
@@ -586,6 +587,11 @@ Live mode must fail initialization unless explicit live-trading safety flags are
 Dry-run live market events may generate decision previews, but they must not
 call broker order submission. Any would-be order must be represented as a
 serialized `OrderRequest` preview and validated through live safety gates.
+Manual live order submission is a separate Phase D1 path. It requires
+non-dry-run live mode, `confirm_live_trading=true`,
+`enable_order_submission=true`, a live broker config, account allowlist,
+market-session validation, order safety caps, and a matched reconciliation
+check immediately before calling `broker.submit_order`.
 
 ## 21. Reporter
 
@@ -624,6 +630,7 @@ enabling unsafe broker submission.
 | `AlertManager` | severity, source, message, details | alert event | Fans out alerts to configured sinks. |
 | `BrokerReconciliationCheck` | portfolio, brokerage | health result | Calls portfolio reconciliation and reports mismatch. |
 | `validate_live_safety_config` | `RuntimeConfig` | safety policy | Fails closed unless live gates are explicit. |
+| `validate_live_order_submission_config` | `RuntimeConfig` | safety policy | Requires explicit non-dry-run submission gates before `broker.submit_order`. |
 | `validate_live_account` | config, broker account | bool | Enforces account allowlists. |
 | `validate_order_request_safety` | config, order request, optional price | bool | Enforces symbol and max order size caps. |
 
@@ -634,9 +641,11 @@ enabling unsafe broker submission.
 - Symbol allowlists, account allowlists, and max order size caps must be
   configured before initialization.
 - Non-dry-run live mode must require an additional explicit confirmation flag.
-- Phase 8 dry-run initialization must not submit orders or call external broker
-  APIs.
-- Real live broker submission remains disabled until a later documented phase.
+- Dry-run initialization must not submit orders or call external broker APIs.
+- Manual live order submission additionally requires
+  `broker.safety.enable_order_submission=true`.
+- Automated strategy-driven live broker submission remains disabled until a
+  later documented Phase D sub-phase.
 
 ### Error Behavior
 

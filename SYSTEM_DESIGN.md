@@ -391,6 +391,9 @@ Rules:
   reconciliation before and after sync.
 - Guarded live dry-run event handling may produce decision previews, but it must
   stop before broker submission and validate live safety gates.
+- Manual live submission must use `LiveEngine.submit_live_order(...)` and must
+  require explicit non-dry-run, confirmation, submission, account, order, market
+  session, and reconciliation gates before calling `broker.submit_order`.
 
 ### `reporting/`
 
@@ -649,9 +652,11 @@ Live trading uses the same flow as paper trading with stricter controls:
 - daily kill switch,
 - reconciliation checks before trading,
 - health checks and alerts,
+- explicit `enable_order_submission: true` before any broker submission,
 - dry-run mode recommended before enabling real order submission.
 
-Actual live trading can be deferred until later phases.
+Automated strategy-driven live trading remains deferred until a later Phase D
+sub-phase.
 
 ## 14. Configuration Strategy
 
