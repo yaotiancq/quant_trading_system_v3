@@ -9,6 +9,7 @@ from typing import Any
 
 from qts.domain import BacktestResult, PortfolioSnapshot, TradeLedgerEntry
 
+from .charts import generate_backtest_charts
 from .metrics import calculate_metrics, equity_curve
 
 
@@ -32,7 +33,7 @@ class BacktestReporter:
         )
 
     def generate_plots(self, backtest_result: BacktestResult, output_path: str | Path) -> list[Path]:
-        return []
+        return list(generate_backtest_charts(backtest_result, output_path).values())
 
     def export_report(
         self,
@@ -61,9 +62,8 @@ class BacktestReporter:
         _write_csv(trades_path, [entry.to_dict() for entry in backtest_result.trade_ledger])
         _write_csv(cash_path, [entry.to_dict() for entry in backtest_result.cash_ledger])
         _write_csv(equity_path, equity_curve(backtest_result.portfolio_snapshots))
-        summary_path.write_text(self.summarize(backtest_result), encoding="utf-8")
 
-        return {
+        artifacts = {
             "metrics": str(metrics_path),
             "config": str(config_path),
             "trades": str(trades_path),
@@ -71,6 +71,18 @@ class BacktestReporter:
             "equity_curve": str(equity_path),
             "summary": str(summary_path),
         }
+
+        if _enabled(backtest_result.config.reporting.get("generate_plots")):
+            try:
+                artifacts.update(
+                    _plot_artifacts(backtest_result.run_id, self.generate_plots(backtest_result, output_dir))
+                )
+            except Exception as exc:  # pragma: no cover - defensive boundary
+                backtest_result.warnings.append(f"plot generation failed: {exc}")
+
+        backtest_result.artifacts = dict(artifacts)
+        summary_path.write_text(self.summarize(backtest_result), encoding="utf-8")
+        return artifacts
 
     def summarize(self, result: BacktestResult) -> str:
         metrics = result.metrics
@@ -94,6 +106,11 @@ class BacktestReporter:
             "",
             "Metrics, trades, cash ledger, equity curve, and config summary are exported next to this report.",
         ]
+        if _enabled(result.config.reporting.get("generate_plots")):
+            lines.append("Static SVG equity and drawdown charts are exported when plot generation succeeds.")
+        if result.warnings:
+            lines.extend(["", "## Warnings", ""])
+            lines.extend(f"- {warning}" for warning in result.warnings)
         return "\n".join(lines) + "\n"
 
 
@@ -120,6 +137,25 @@ def _optional_float(value: Any) -> float | None:
     if value is None or value == "":
         return None
     return float(value)
+
+
+def _enabled(value: Any) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
+def _plot_artifacts(run_id: str, paths: list[Path]) -> dict[str, str]:
+    artifacts: dict[str, str] = {}
+    for path in paths:
+        stem = path.stem
+        suffix = stem.removeprefix(f"{run_id}_")
+        key = {
+            "equity_curve": "equity_curve_chart",
+            "drawdown": "drawdown_chart",
+        }.get(suffix, f"{suffix}_chart")
+        artifacts[key] = str(path)
+    return artifacts
 
 
 __all__ = ["BacktestReporter"]

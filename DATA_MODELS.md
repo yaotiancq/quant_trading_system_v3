@@ -851,7 +851,7 @@ Final result of a backtest run.
 | `trade_ledger` | list[`TradeLedgerEntry`] | yes | all ledger entries |
 | `cash_ledger` | list[`CashLedgerEntry`] | yes | all cash entries |
 | `metrics` | dict | yes | performance metrics |
-| `artifacts` | dict | no | paths to reports/plots |
+| `artifacts` | dict | no | paths to reports and optional SVG plots |
 | `warnings` | list[string] | no | non-fatal issues |
 
 ### Example
@@ -1163,7 +1163,9 @@ Top-level configuration for a run.
 Active runtime YAML files must explicitly set `runtime.mode`, `symbols`, and
 `timeframe`; these operational fields are not inherited from `configs/base.yaml`.
 Supported `reporting` keys are `output_dir`, `generate_plots`,
-`annualization_factor`, and `risk_free_rate`.
+`annualization_factor`, and `risk_free_rate`. When `generate_plots` is true,
+backtest report export may add `equity_curve_chart` and `drawdown_chart` SVG
+paths to `BacktestResult.artifacts`.
 Supported `market_session` keys are `exchange`, `timezone`,
 `regular_session_only`, `extended_hours`, `fail_closed`, `calendar_provider`,
 `regular_open`, and `regular_close`.

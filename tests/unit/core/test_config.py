@@ -493,6 +493,47 @@ reporting:
             with self.assertRaisesRegex(ConfigurationError, "reporting"):
                 load_runtime_config(path, env_path=None)
 
+    def test_reporting_generate_plots_must_be_boolean(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad.yaml"
+            path.write_text(
+                """
+runtime:
+  mode: BACKTEST
+symbols: [SPY]
+timeframe: MINUTE
+date_range:
+  start: 2024-01-02T14:30:00Z
+  end: 2024-01-02T14:35:00Z
+market_data:
+  provider: local_csv
+  path: data/bars.csv
+broker:
+  broker_type: backtest
+strategies:
+  - strategy_id: sma
+    strategy_type: sma_crossover
+    symbols: [SPY]
+    parameters:
+      fast_window: 2
+      slow_window: 3
+risk:
+  sizing_method: fixed_quantity
+  sizing_parameters:
+    quantity: 1
+portfolio:
+  starting_cash: 100000
+execution:
+  allow_fractional: false
+reporting:
+  generate_plots: "yes"
+""",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ConfigurationError, "generate_plots"):
+                load_runtime_config(path, env_path=None)
+
     def test_invalid_market_session_config_fails_fast(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bad.yaml"

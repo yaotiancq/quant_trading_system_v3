@@ -1356,3 +1356,47 @@ the broader live-mode and manual-submission gates.
 - Reuse `enable_order_submission` as the only automated gate.
 - Let safety-approved previews submit in dry-run mode.
 - Continue requiring a manual operator call for all live submissions.
+
+---
+
+## ADR-035: Use Dependency-Free Static SVG Backtest Charts
+
+### Context
+
+Backtest reports already export deterministic Markdown, JSON, and CSV
+artifacts. Phase E needs visual diagnostics, but adding a plotting dependency
+would increase installation friction for the core standard-library workflow.
+The project also does not need an interactive dashboard at this phase.
+
+### Decision
+
+Backtest chart diagnostics are generated as static SVG files using the Python
+standard library. Plot export is optional and controlled by
+`reporting.generate_plots=true`. The first charts are:
+
+- equity curve with buy/sell fill markers,
+- drawdown curve derived from portfolio snapshots.
+
+Plot generation failures are recorded as report warnings and must not prevent
+metrics, ledgers, config, equity CSV, or summary artifacts from being written.
+
+### Rationale
+
+SVG keeps reports inspectable in a browser or editor without adding runtime
+dependencies. Keeping charts behind configuration preserves the existing
+machine-readable reporting baseline and avoids broadening Phase E into a
+dashboard project.
+
+### Consequences
+
+- Core report workflows remain dependency-free.
+- Chart output is deterministic and easy to test.
+- Visual diagnostics are intentionally simple and static.
+- More advanced benchmark, factor, or interactive reporting remains future
+  work.
+
+### Alternatives Considered
+
+- Add matplotlib or another plotting package as a required dependency.
+- Generate HTML dashboards.
+- Keep charting entirely outside the project.

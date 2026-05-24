@@ -9,11 +9,12 @@ from pathlib import Path
 from qts.core import load_runtime_config
 from qts.domain import (
     BacktestResult,
+    Fill,
     OrderSide,
     PortfolioSnapshot,
     TradeLedgerEntry,
 )
-from qts.reporting import BacktestReporter, calculate_metrics
+from qts.reporting import BacktestReporter, calculate_metrics, render_drawdown_svg, render_equity_curve_svg
 
 
 UTC = timezone.utc
@@ -129,6 +130,110 @@ class ReportingMetricTests(unittest.TestCase):
             exported_metrics = json.loads(Path(artifacts["metrics"]).read_text(encoding="utf-8"))
 
         self.assertEqual(exported_metrics["number_of_trades"], 1)
+
+    def test_reporter_generates_static_svg_charts_when_enabled(self) -> None:
+        config = load_runtime_config(
+            ROOT / "configs" / "backtest_fixture.yaml",
+            env_path=None,
+            overrides={"reporting": {"generate_plots": True}},
+        )
+        snapshots = [snapshot(0, 100000), snapshot(1, 100100, gross=1000), snapshot(2, 99900)]
+        result = BacktestResult(
+            run_id="chart-test",
+            config=config,
+            start_time=snapshots[0].timestamp,
+            end_time=snapshots[-1].timestamp,
+            symbols=["SPY"],
+            portfolio_snapshots=snapshots,
+            orders=[],
+            fills=[
+                Fill(
+                    fill_id="fill-chart-1",
+                    order_id="order-chart-1",
+                    symbol="SPY",
+                    timestamp=snapshots[1].timestamp,
+                    side=OrderSide.BUY,
+                    quantity=1,
+                    price=100,
+                    commission=0,
+                    source="test",
+                )
+            ],
+            trade_ledger=[],
+            cash_ledger=[],
+            metrics=calculate_metrics(snapshots, []),
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = BacktestReporter().export_report(result, tmp)
+            equity_chart = Path(artifacts["equity_curve_chart"])
+            drawdown_chart = Path(artifacts["drawdown_chart"])
+            equity_text = equity_chart.read_text(encoding="utf-8")
+            drawdown_text = drawdown_chart.read_text(encoding="utf-8")
+            summary = Path(artifacts["summary"]).read_text(encoding="utf-8")
+
+        self.assertIn("<svg", equity_text)
+        self.assertIn("Equity Curve - chart-test", equity_text)
+        self.assertIn("BUY 1 SPY", equity_text)
+        self.assertIn("<svg", drawdown_text)
+        self.assertIn("Static SVG equity and drawdown charts", summary)
+
+    def test_chart_renderers_handle_empty_snapshots(self) -> None:
+        config = load_runtime_config(ROOT / "configs" / "backtest_fixture.yaml", env_path=None)
+        result = BacktestResult(
+            run_id="empty-chart-test",
+            config=config,
+            start_time=NOW,
+            end_time=NOW,
+            symbols=["SPY"],
+            portfolio_snapshots=[],
+            orders=[],
+            fills=[],
+            trade_ledger=[],
+            cash_ledger=[],
+            metrics={},
+        )
+
+        self.assertIn("No portfolio snapshots", render_equity_curve_svg(result))
+        self.assertIn("No portfolio snapshots", render_drawdown_svg(result))
+
+    def test_plot_failure_preserves_non_plot_artifacts(self) -> None:
+        class FailingPlotReporter(BacktestReporter):
+            def generate_plots(
+                self,
+                backtest_result: BacktestResult,
+                output_path: str | Path,
+            ) -> list[Path]:
+                raise RuntimeError("plot backend unavailable")
+
+        config = load_runtime_config(
+            ROOT / "configs" / "backtest_fixture.yaml",
+            env_path=None,
+            overrides={"reporting": {"generate_plots": True}},
+        )
+        snapshots = [snapshot(0, 100000), snapshot(1, 100100)]
+        result = BacktestResult(
+            run_id="plot-failure-test",
+            config=config,
+            start_time=snapshots[0].timestamp,
+            end_time=snapshots[-1].timestamp,
+            symbols=["SPY"],
+            portfolio_snapshots=snapshots,
+            orders=[],
+            fills=[],
+            trade_ledger=[],
+            cash_ledger=[],
+            metrics=calculate_metrics(snapshots, []),
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = FailingPlotReporter().export_report(result, tmp)
+            summary = Path(artifacts["summary"]).read_text(encoding="utf-8")
+            metrics_exists = Path(artifacts["metrics"]).is_file()
+
+        self.assertNotIn("equity_curve_chart", artifacts)
+        self.assertTrue(metrics_exists)
+        self.assertIn("plot generation failed: plot backend unavailable", summary)
 
 
 if __name__ == "__main__":

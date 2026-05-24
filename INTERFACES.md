@@ -615,14 +615,15 @@ Generate metrics, plots, and exports.
 | Method | Inputs | Output | Notes |
 |---|---|---|---|
 | `generate_metrics` | portfolio snapshots, trades, config | metrics object/dict | Performance metrics. |
-| `generate_plots` | backtest result, output path | plot files | Equity/drawdown/trade markers. |
-| `export_report` | backtest result, output path, format | report path | Markdown/HTML/CSV as configured. |
+| `generate_plots` | backtest result, output path | plot files | Optional static SVG equity/drawdown diagnostics with trade markers. |
+| `export_report` | backtest result, output path, format | report path | Markdown/JSON/CSV/SVG as configured. |
 | `summarize` | result | text/table summary | CLI/chat-friendly summary. |
 
 ### Error Behavior
 
 - Missing snapshots should return clear report error.
-- Plot failures should not corrupt metric exports.
+- Plot failures should be captured as warnings and should not corrupt metric,
+  ledger, config, equity-curve CSV, or summary exports.
 
 ## 22. Monitoring and Live Safety
 

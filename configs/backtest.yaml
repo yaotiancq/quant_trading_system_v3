@@ -112,3 +112,6 @@ execution:
 reporting:
   # Directory for summary markdown, metrics JSON, trades CSV, and cash CSV.
   output_dir: artifacts/reports
+  # true also writes static SVG diagnostics next to the report:
+  # equity_curve_chart and drawdown_chart. Options: true, false.
+  generate_plots: false

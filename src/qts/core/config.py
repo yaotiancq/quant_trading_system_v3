@@ -565,6 +565,8 @@ def _validate_reporting(config: Mapping[str, Any]) -> None:
         },
         "reporting",
     )
+    if "generate_plots" in config and not isinstance(config["generate_plots"], bool):
+        raise ConfigurationError("reporting.generate_plots must be true or false")
 
 
 def _validate_monitoring(config: Mapping[str, Any]) -> None:

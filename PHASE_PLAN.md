@@ -1011,7 +1011,7 @@ time after Phase A is stable:
 | Phase D1 - Manual Live Order Submission Safety Envelope | Complete | Added explicit non-dry-run submission gates and a manual `LiveEngine.submit_live_order` path. |
 | Phase D2 - Broker-Specific Live Adapter Enablement | Complete | Enabled Alpaca live adapter construction only behind the D1 submission envelope and adapter-specific tests. |
 | Phase D3 - Automated Live Decision Submission | Complete | Converts approved live previews into optional broker submissions through D1 gates, kill-switch checks, post-submit reconciliation, and fail-stop controls. |
-| Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned | Add optional static chart artifacts for backtest reports. |
+| Phase E - Chart Reporting and Visual Backtest Diagnostics | Complete | Added optional static SVG chart artifacts for backtest reports. |
 | Phase F - Production ML Contracts and Model Governance | Planned | Add model manifests, schema hashes, approval/stage rules, and runtime ML metadata. |
 
 ## Major Architecture Phase B1 - Deterministic Runtime Event Loop and Fake Stream
@@ -1385,4 +1385,39 @@ monitoring controls are active.
 - Automated submissions reconcile after broker submission.
 - Submission errors or post-submit reconciliation mismatches stop further
   automated submissions and report critical health.
+- Tests remain deterministic and network-free.
+
+## Major Architecture Phase E - Chart Reporting and Visual Backtest Diagnostics
+
+### Goal
+
+Add optional static chart artifacts to backtest report export so users can
+inspect equity, drawdown, and trade timing without introducing dashboard or
+plotting-library dependencies.
+
+### Scope
+
+- Implement dependency-free SVG chart generation under `qts.reporting`.
+- Add an equity-curve chart with buy/sell fill markers.
+- Add a drawdown chart derived from portfolio snapshots.
+- Wire chart export behind `reporting.generate_plots=true`.
+- Record chart paths in `BacktestResult.artifacts`.
+- Keep plot failures isolated from metrics, CSV ledgers, and summary export.
+
+### Out of Scope
+
+- Interactive dashboards.
+- Browser-based report UI.
+- Benchmark/factor attribution charts.
+- Additional plotting dependencies.
+
+### Acceptance Criteria
+
+- Backtest reports continue exporting metrics, config, ledgers, and equity CSV
+  when plotting is disabled.
+- When `reporting.generate_plots=true`, report export writes deterministic SVG
+  equity and drawdown artifacts.
+- Chart artifact paths are visible in the generated artifact dictionary.
+- Plot failures are recorded as warnings and do not corrupt non-plot report
+  artifacts.
 - Tests remain deterministic and network-free.

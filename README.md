@@ -14,7 +14,7 @@ The architecture documents in the project root are the source of truth:
 
 ## Current Status
 
-Major Architecture Phase D3 is complete. The repository now includes the package
+Major Architecture Phase E is complete. The repository now includes the package
 layout, validated domain models and enums, core configuration loading, clocks,
 common exceptions, logging setup, local market data providers, a config-driven
 Alpaca SIP historical bar downloader, a shared US equity calendar/session
@@ -24,7 +24,8 @@ position sizing and basic rules, an execution engine, order manager/router,
 normalized broker lifecycle events, checkpointed broker-event synchronization,
 mockable Alpaca/IBKR broker push-event adapter boundaries, normalized brokerage
 protocol, simulated BacktestBrokerage, internal portfolio accounting, a
-deterministic backtest engine, reporting metrics and artifacts, a
+deterministic backtest engine, reporting metrics, artifacts, and optional
+static SVG chart diagnostics, a
 dependency-free Alpaca paper brokerage adapter, a paper trading engine
 initialization path, configuration templates, an offline ML workflow, a
 filesystem model registry, runtime ML inference, an ML signal strategy adapter,
@@ -37,7 +38,7 @@ tests.
 
 Live order submission remains disabled by default and requires explicit
 non-dry-run production gates. The next planned work is Major Architecture Phase
-E for chart reporting and visual backtest diagnostics.
+F for production ML contracts and model governance.
 
 ## Layout
 
@@ -61,13 +62,13 @@ src/qts/portfolio/
                   Portfolio accounting, ledgers, snapshots, reconciliation
 src/qts/engines/  BacktestEngine, PaperTradingEngine, and runtime event loop
 src/qts/reporting/
-                  Backtest metrics and report artifact export
+                  Backtest metrics, report artifact export, and optional SVG charts
 src/qts/ml/       Offline datasets, labels, splits, training, registry, inference
 src/qts/monitoring/
                   Health checks, metrics, alerts, recovery, safety gates
 scripts/          Local data download, backtest, report, paper, ML, and live dry-run commands
 docs/             User manual, system handbook, and operational runbooks
-tests/            Smoke, unit, and integration tests through Phase D3
+tests/            Smoke, unit, and integration tests through Phase E
 data/             Local data placeholder, ignored by git
 artifacts/        Runtime output placeholder, ignored by git
 ```
@@ -247,6 +248,15 @@ Generate report artifacts:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/generate_report.py --config configs/backtest_fixture.yaml
+```
+
+Generate report artifacts with static SVG equity and drawdown diagnostics:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/generate_report.py \
+  --config configs/backtest_fixture.yaml \
+  --output-dir artifacts/reports/fixture-with-charts \
+  --generate-plots
 ```
 
 Initialize the Phase 6 paper runtime without credentials by using mock mode:

@@ -14,8 +14,9 @@ Major Architecture Phase C1 normalized broker-event polling sync, Major
 Architecture Phase C2 vendor broker push adapter boundaries, Major Architecture
 Phase C3 engine lifecycle synchronization hardening, Major Architecture Phase
 D1 manual live order submission safety envelope, Major Architecture Phase D2
-broker-specific live adapter enablement, and Major Architecture Phase D3
-automated live decision submission.
+broker-specific live adapter enablement, Major Architecture Phase D3 automated
+live decision submission, and Major Architecture Phase E chart reporting and
+visual backtest diagnostics.
 
 The Python package now includes stable domain enums and data models, core config
 loading and validation, clocks, common exceptions, logging setup, local
@@ -28,7 +29,8 @@ default risk engine, basic risk rules, an execution engine, order request
 builder, order manager, order router, fill handler, normalized broker lifecycle
 events, normalized brokerage interface, simulated `BacktestBrokerage`, internal
 portfolio accounting, trade and cash ledgers, mark-to-market snapshots, a deterministic bar-driven
-`BacktestEngine`, reporting metrics, report artifact export, configuration
+`BacktestEngine`, reporting metrics, report artifact export, optional static
+SVG chart diagnostics, configuration
 templates, a small CLI config validation path, runnable backtest scripts, a
 dependency-free Alpaca Trading API client boundary, Alpaca payload mapping,
 Alpaca broker trade-update event normalization, `AlpacaBrokerage`, mock Alpaca
@@ -135,6 +137,12 @@ submission gates pass, and reconciliation before and after submission matches.
 Submission failures and post-submit reconciliation mismatches stop further
 automated submissions and report critical live health.
 
+Major Architecture Phase E has added optional dependency-free visual backtest
+diagnostics. When `reporting.generate_plots=true`, report export writes static
+SVG equity-curve charts with buy/sell fill markers and drawdown charts, records
+them in `BacktestResult.artifacts`, and keeps metric/CSV export intact if plot
+generation fails.
+
 Post-Phase 8 design review fixes have been applied for replay-bounded backtest
 data portal reads, broker/execution dependency direction, and explicit ML
 runtime feature schema wiring. ADR-007 follow-up fixes made the original
@@ -148,11 +156,11 @@ engine broker-event synchronization hardening. Phase D1 adds a manually invoked
 live order submission path behind explicit production gates. Phase D2 enables
 the selected Alpaca live adapter behind those same gates. Phase D3 allows
 safety-approved live decision previews to submit through that path only behind
-a separate automated-submission gate and kill switch. Live remains
-external-event driven. Runtime order validation also enforces
-`execution.allow_fractional`.
+a separate automated-submission gate and kill switch. Phase E adds optional
+static report chart diagnostics. Live remains external-event driven. Runtime
+order validation also enforces `execution.allow_fractional`.
 
-- **Current phase:** Major Architecture Phase D3 complete
+- **Current phase:** Major Architecture Phase E complete
 - **Completed phases:**
   - Phase 0 - Documentation and repository scaffold initialization
   - Phase 1 - Project Skeleton and Core Domain Models
@@ -176,9 +184,10 @@ external-event driven. Runtime order validation also enforces
   - Major Architecture Phase D1 - Manual Live Order Submission Safety Envelope
   - Major Architecture Phase D2 - Broker-Specific Live Adapter Enablement
   - Major Architecture Phase D3 - Automated Live Decision Submission
+  - Major Architecture Phase E - Chart Reporting and Visual Backtest Diagnostics
 - **In-progress phase:** None
-- **Next recommended task:** Major Architecture Phase E - Chart Reporting and
-  Visual Backtest Diagnostics.
+- **Next recommended task:** Major Architecture Phase F - Production ML
+  Contracts and Model Governance.
 
 ## 2. Completed Phases
 
@@ -206,12 +215,12 @@ external-event driven. Runtime order validation also enforces
 | Major Architecture Phase D1 | Complete | Implemented manual live order submission through explicit non-dry-run, confirmation, submission, safety, account, and reconciliation gates. |
 | Major Architecture Phase D2 | Complete | Implemented Alpaca live adapter construction behind D1 gates and fail-closed unsafe live adapter tests. |
 | Major Architecture Phase D3 | Complete | Implemented optional automated submission of safety-approved live previews through D1 gates with kill-switch and fail-stop behavior. |
+| Major Architecture Phase E | Complete | Implemented optional dependency-free SVG equity and drawdown chart artifacts for backtest reports. |
 
 ## 3. Pending Phases
 
 | Phase | Status |
 |---|---|
-| Major Architecture Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned |
 | Major Architecture Phase F - Production ML Contracts and Model Governance | Planned |
 
 ## 4. Implemented Modules
@@ -351,6 +360,7 @@ Runtime engines implemented:
 
 Reporting layer implemented:
 
+- `src/qts/reporting/charts.py`
 - `src/qts/reporting/metrics.py`
 - `src/qts/reporting/reporter.py`
 - `src/qts/reporting/__init__.py`
@@ -503,8 +513,8 @@ Future functionality outside the current phase plan remains missing:
 
 ## 7. Next Recommended Task
 
-Define the next documented phase or backlog item before adding functionality
-beyond Phase 10.
+Implement Major Architecture Phase F - Production ML Contracts and Model
+Governance only.
 
 The next AI coding agent should:
 
@@ -519,10 +529,10 @@ The next AI coding agent should:
    market-data/feature layer, Phase 3 strategy/risk layer, Phase 4
    execution/brokerage layer, Phase 5 backtest/reporting layer, Phase 6
    Alpaca paper integration, Phase 7 ML workflow, Phase 8 monitoring/live
-   readiness layer, Phase 9 IBKR paper brokerage foundation, and Phase 10
-   Alpaca SIP historical data download.
-3. Check whether `PHASE_PLAN.md` has been extended with a new phase. If not,
-   update the planning documents before implementing new functional scope.
+   readiness layer, Phase 9 IBKR paper brokerage foundation, Phase 10 Alpaca
+   SIP historical data download, and Phase E report chart diagnostics.
+3. Follow the Phase F scope in `PHASE_PLAN.md`; if it is too large to complete
+   safely in one session, split it before implementing the first sub-phase.
 4. Preserve the Phase 8 live-safety guardrails unless a future phase explicitly
    changes them and documents the reason.
 5. Run tests.

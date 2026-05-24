@@ -412,7 +412,7 @@ Owns analytics and outputs:
 - equity curve,
 - drawdown,
 - benchmark comparison,
-- plots,
+- optional static SVG plots,
 - report exports.
 
 ### `monitoring/`
@@ -615,7 +615,7 @@ Flow:
    - apply fills to portfolio,
    - mark portfolio to market,
    - record snapshots.
-6. Generate `BacktestResult`, metrics, ledgers, plots, and report.
+6. Generate `BacktestResult`, metrics, ledgers, optional static plots, and report.
 
 ## 12. Runtime Flow: Paper Trading
 

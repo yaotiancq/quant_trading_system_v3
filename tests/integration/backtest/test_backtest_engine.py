@@ -13,8 +13,15 @@ ROOT = Path(__file__).resolve().parents[3]
 CONFIG = ROOT / "configs" / "backtest_fixture.yaml"
 
 
-def load_config(output_dir: str, strategy_parameters: dict[str, int] | None = None):
+def load_config(
+    output_dir: str,
+    strategy_parameters: dict[str, int] | None = None,
+    *,
+    generate_plots: bool = False,
+):
     overrides = {"reporting": {"output_dir": output_dir}}
+    if generate_plots:
+        overrides["reporting"]["generate_plots"] = True
     if strategy_parameters is not None:
         overrides["strategies"] = [
             {
@@ -39,6 +46,13 @@ class BacktestEngineIntegrationTests(unittest.TestCase):
             self.assertTrue(Path(result.artifacts["summary"]).is_file())
             self.assertTrue(Path(result.artifacts["trades"]).is_file())
             self.assertTrue(Path(result.artifacts["equity_curve"]).is_file())
+
+    def test_backtest_engine_exports_chart_artifacts_when_enabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = BacktestEngine(load_config(tmp, generate_plots=True)).run()
+
+            self.assertTrue(Path(result.artifacts["equity_curve_chart"]).is_file())
+            self.assertTrue(Path(result.artifacts["drawdown_chart"]).is_file())
 
     def test_backtest_engine_handles_empty_signal_run(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

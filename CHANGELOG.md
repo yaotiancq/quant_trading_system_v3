@@ -8,6 +8,37 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Major Architecture Phase E] - 2026-05-24
+
+### Added
+
+- Added dependency-free SVG chart rendering for backtest equity curves and
+  drawdowns.
+- Added buy/sell fill markers to the equity-curve chart.
+- Added optional chart artifact export behind `reporting.generate_plots=true`.
+- Added chart artifact paths to `BacktestResult.artifacts` when plot generation
+  succeeds.
+- Added `scripts/generate_report.py --generate-plots` for one-off chart
+  artifact generation.
+- Added deterministic unit and integration tests for chart export.
+
+### Changed
+
+- Report summaries now mention generated SVG diagnostics when plotting is
+  enabled.
+- Backtest config templates now document `reporting.generate_plots`.
+
+### Fixed
+
+- Plot generation failures are captured as report warnings so metrics, ledgers,
+  config, and summary artifacts remain usable.
+
+### Removed
+
+- None.
+
+---
+
 ## [Major Architecture Phase D3] - 2026-05-24
 
 ### Added

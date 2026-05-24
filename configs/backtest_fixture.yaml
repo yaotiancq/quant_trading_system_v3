@@ -102,3 +102,6 @@ execution:
 reporting:
   # Directory for fixture report outputs.
   output_dir: artifacts/reports
+  # true also writes static SVG equity and drawdown diagnostics.
+  # Keep false for the default fixture smoke run unless chart artifacts are needed.
+  generate_plots: false

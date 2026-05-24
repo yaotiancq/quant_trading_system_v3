@@ -172,7 +172,7 @@ generated egg-info metadata are not part of the source contract.
 |---|---|
 | `scripts/run_backtest.py` | Loads a runtime config, runs `BacktestEngine`, prints fill count and return. |
 | `scripts/download_data.py` | Downloads Alpaca SIP historical stock bars to normalized CSV or Parquet partitioned datasets. |
-| `scripts/generate_report.py` | Runs a backtest and prints generated report artifact paths. |
+| `scripts/generate_report.py` | Runs a backtest and prints generated report artifact paths, with optional SVG charts. |
 | `scripts/run_paper_trading.py` | Initializes configured paper runtime, supports broker mock mode. |
 | `scripts/run_live_trading.py` | Initializes guarded live dry-run runtime with explicit safety confirmation. |
 | `scripts/train_model.py` | Trains the dependency-free directional ML baseline from an ML config. |
@@ -350,8 +350,9 @@ layer.
 
 | File | Purpose |
 |---|---|
+| `src/qts/reporting/charts.py` | Dependency-free SVG equity and drawdown chart diagnostics. |
 | `src/qts/reporting/metrics.py` | Return, volatility, Sharpe, drawdown, trade, and exposure metrics. |
-| `src/qts/reporting/reporter.py` | Writes Markdown, JSON, and CSV report artifacts. |
+| `src/qts/reporting/reporter.py` | Writes Markdown, JSON, CSV, and optional SVG report artifacts. |
 | `src/qts/reporting/__init__.py` | Reporting exports. |
 
 Reporting consumes results. It should not change runtime state.

@@ -15,12 +15,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", default="configs/backtest_fixture.yaml")
     parser.add_argument("--output-dir", default="artifacts/reports")
     parser.add_argument("--env", default=".env")
+    parser.add_argument(
+        "--generate-plots",
+        action="store_true",
+        help="Write optional static SVG equity and drawdown chart artifacts.",
+    )
     args = parser.parse_args(argv)
 
+    reporting_overrides = {"output_dir": args.output_dir}
+    if args.generate_plots:
+        reporting_overrides["generate_plots"] = True
     config = load_runtime_config(
         Path(args.config),
         env_path=args.env,
-        overrides={"reporting": {"output_dir": args.output_dir}},
+        overrides={"reporting": reporting_overrides},
     )
     result = BacktestEngine(config).run()
     print(f"generated report artifacts for {result.run_id}")

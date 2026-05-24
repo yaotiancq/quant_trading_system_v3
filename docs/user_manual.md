@@ -12,16 +12,16 @@ documents, which remain the source of truth for design decisions:
 - `PROJECT_STATE.md`
 - `CHANGELOG.md`
 
-The current implementation is complete through Major Architecture Phase D3. It
+The current implementation is complete through Major Architecture Phase E. It
 supports Alpaca SIP historical bar downloads, local backtests, report
-generation, mocked paper initialization for Alpaca and IBKR, normalized broker
-event polling synchronization, mockable Alpaca/IBKR broker push-event adapter
-boundaries, checkpointed broker-event engine synchronization, an offline ML
-baseline workflow, guarded live dry-run initialization, and a manual live order
-submission safety envelope. Alpaca live adapter construction is available only
-behind explicit production gates. Automated live broker order submission is
-available only for safety-approved live previews behind a separate automation
-gate and kill switch.
+generation with optional static SVG diagnostics, mocked paper initialization
+for Alpaca and IBKR, normalized broker event polling synchronization, mockable
+Alpaca/IBKR broker push-event adapter boundaries, checkpointed broker-event
+engine synchronization, an offline ML baseline workflow, guarded live dry-run
+initialization, and a manual live order submission safety envelope. Alpaca live
+adapter construction is available only behind explicit production gates.
+Automated live broker order submission is available only for safety-approved
+live previews behind a separate automation gate and kill switch.
 
 ## 1. Safety Model
 
@@ -157,7 +157,7 @@ Core fields:
 | `risk` | Sizing and risk rules. |
 | `execution` | Execution policy such as `allow_fractional`. |
 | `portfolio` | Starting cash or account currency settings. |
-| `reporting` | Output locations for backtest artifacts. |
+| `reporting` | Output locations and optional chart generation for backtest artifacts. |
 | `monitoring` | Runtime monitoring switches. |
 
 Validate a config without running a full workflow:
@@ -396,12 +396,27 @@ Artifacts are written to `artifacts/reports/` by default:
 - cash ledger CSV,
 - config JSON.
 
+Enable static SVG diagnostics with the CLI flag or with
+`reporting.generate_plots: true` in the config. Generated chart artifacts are:
+
+- `equity_curve_chart`: equity curve with buy/sell fill markers,
+- `drawdown_chart`: drawdown through the run.
+
 Override the output directory:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/generate_report.py \
   --config configs/backtest_fixture.yaml \
   --output-dir artifacts/reports/manual-check
+```
+
+Generate the same report with chart diagnostics:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/generate_report.py \
+  --config configs/backtest_fixture.yaml \
+  --output-dir artifacts/reports/manual-check \
+  --generate-plots
 ```
 
 ## 9. Alpaca Paper Runtime
