@@ -89,9 +89,17 @@ class DataAdjustment(StrEnum):
     TOTAL_RETURN = "TOTAL_RETURN"
 
 
+class BrokerEventType(StrEnum):
+    ORDER_UPDATE = "ORDER_UPDATE"
+    FILL = "FILL"
+    ACCOUNT_UPDATE = "ACCOUNT_UPDATE"
+    POSITION_UPDATE = "POSITION_UPDATE"
+
+
 __all__ = [
     "AssetClass",
     "BarTimeframe",
+    "BrokerEventType",
     "DataAdjustment",
     "OrderSide",
     "OrderStatus",

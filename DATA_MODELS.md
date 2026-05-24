@@ -25,6 +25,7 @@
 | `TimeInForce` | `DAY`, `GTC`, `IOC`, `FOK` |
 | `RiskDecisionStatus` | `APPROVED`, `REJECTED`, `MODIFIED` |
 | `DataAdjustment` | `RAW`, `SPLIT_ADJUSTED`, `DIVIDEND_ADJUSTED`, `TOTAL_RETURN` |
+| `BrokerEventType` | `ORDER_UPDATE`, `FILL`, `ACCOUNT_UPDATE`, `POSITION_UPDATE` |
 
 ---
 
@@ -1240,7 +1241,49 @@ Summary counters returned by one runtime event-loop run.
 
 ---
 
-## 26. LiveDecisionPreview
+## 26. BrokerEvent
+
+### Purpose
+
+Normalized broker lifecycle event envelope used by polling fallback and future
+broker push streams. A broker event carries exactly one normalized domain
+payload; vendor-specific payloads must be mapped before this model is created.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `event_id` | string | yes | stable idempotency key for the update |
+| `event_type` | `BrokerEventType` | yes | matches the payload field |
+| `timestamp` | datetime | yes | timezone-aware UTC |
+| `source` | string | yes | broker adapter or event-source name |
+| `order` | `Order` | no | required only for `ORDER_UPDATE` |
+| `fill` | `Fill` | no | required only for `FILL` |
+| `account` | `Account` | no | required only for `ACCOUNT_UPDATE` |
+| `position` | `Position` | no | required only for `POSITION_UPDATE` |
+| `metadata` | dict | no | serializable event-source details |
+
+### Validation Rules
+
+- Exactly one payload field must be present.
+- The payload field must match `event_type`.
+- `event_id` is used by runtime synchronization to skip duplicate broker
+  events.
+
+### Producers
+
+- execution polling fallback,
+- future broker event stream adapters.
+
+### Consumers
+
+- execution engine,
+- paper/live engines,
+- future broker-event audit logging.
+
+---
+
+## 27. LiveDecisionPreview
 
 ### Purpose
 

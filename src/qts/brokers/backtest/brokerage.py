@@ -178,7 +178,14 @@ class BacktestBrokerage:
         status: OrderStatus | str | None = None,
         symbol: str | None = None,
     ) -> list[Order]:
-        normalized_status = OrderStatus(status) if isinstance(status, str) else status
+        broad_status = status.lower() if isinstance(status, str) else None
+        normalized_status = (
+            None
+            if broad_status in {None, "all", "open", "closed"}
+            else OrderStatus(status)
+            if isinstance(status, str)
+            else status
+        )
         normalized_symbol = normalize_symbol(symbol) if symbol else None
         orders = [
             order
@@ -186,6 +193,10 @@ class BacktestBrokerage:
             if (normalized_status is None or order.status == normalized_status)
             and (normalized_symbol is None or order.symbol == normalized_symbol)
         ]
+        if broad_status == "open":
+            orders = [order for order in orders if order.status in OPEN_ORDER_STATUSES]
+        if broad_status == "closed":
+            orders = [order for order in orders if order.status not in OPEN_ORDER_STATUSES]
         return sorted(orders, key=lambda order: (order.created_at, order.order_id))
 
     def get_account(self) -> Account:

@@ -11,6 +11,7 @@ from qts.core import ConfigurationError, ExecutionError, LiveSafetyError, RealCl
 from qts.domain import (
     Account,
     Bar,
+    BrokerEvent,
     BrokerConfig,
     FeatureFrame,
     Fill,
@@ -202,9 +203,9 @@ class LiveEngine:
         status["decision_previews"] = previews
         return status
 
-    def on_broker_event(self, event: Order | Fill | Account | Position) -> None:
+    def on_broker_event(self, event: BrokerEvent | Order | Fill | Account | Position) -> None:
         self._require_initialized()
-        event_type = type(event).__name__
+        event_type = event.event_type.value if isinstance(event, BrokerEvent) else type(event).__name__
         self.metrics_logger.increment("live_broker_events_total", tags={"event_type": event_type})
 
     def validate_order_request(

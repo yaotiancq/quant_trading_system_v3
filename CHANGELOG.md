@@ -8,6 +8,41 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Major Architecture Phase C1] - 2026-05-24
+
+### Added
+
+- Added `BrokerEventType` and `BrokerEvent` as the normalized broker lifecycle
+  event envelope.
+- Added execution helpers for converting normalized `Order`, `Fill`, `Account`,
+  and `Position` payloads into broker events.
+- Added `OrderRouter.poll_events()` as a polling fallback over existing broker
+  order and fill polling APIs.
+- Added tests for broker-event validation, idempotent fill handling, stale
+  order update rejection, and paper-engine polling synchronization.
+
+### Changed
+
+- `ExecutionEngine` now consumes normalized broker events idempotently and
+  ignores duplicate fill events.
+- `OrderManager` now skips stale or regressive lifecycle updates.
+- `PaperTradingEngine.poll_broker_updates()` now routes polling updates through
+  normalized broker events while retaining direct `Order`/`Fill` compatibility.
+- `BacktestBrokerage.list_orders()` now accepts broad `all`, `open`, and
+  `closed` status filters for polling parity with paper broker adapters.
+
+### Fixed
+
+- Prevented duplicate broker fill events from double-applying execution state or
+  paper portfolio state.
+- Prevented stale order updates from overwriting newer tracked order status.
+
+### Removed
+
+- None.
+
+---
+
 ## [Major Architecture Phase B2b2] - 2026-05-24
 
 ### Added

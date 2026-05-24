@@ -12,10 +12,11 @@ documents, which remain the source of truth for design decisions:
 - `PROJECT_STATE.md`
 - `CHANGELOG.md`
 
-The current implementation is complete through Phase 10. It supports Alpaca SIP
-historical bar downloads, local backtests, report generation, mocked paper
-initialization for Alpaca and IBKR, an offline ML baseline workflow, and guarded
-live dry-run initialization. Real live broker order submission is intentionally
+The current implementation is complete through Major Architecture Phase C1. It
+supports Alpaca SIP historical bar downloads, local backtests, report
+generation, mocked paper initialization for Alpaca and IBKR, normalized broker
+event polling synchronization, an offline ML baseline workflow, and guarded live
+dry-run initialization. Real live broker order submission is intentionally
 disabled.
 
 ## 1. Safety Model
@@ -34,6 +35,8 @@ Important safety constraints:
 - Risk must approve or reject strategy output before execution.
 - Execution talks only to the normalized `Brokerage` interface.
 - Vendor API objects are converted at adapter boundaries.
+- Broker order/fill updates are normalized into `BrokerEvent` lifecycle events
+  before engine synchronization.
 - Paper/live engines currently consume externally supplied market events; they
   do not own a continuous live market data stream.
 - IBKR order replies that require manual confirmation fail closed and are not
@@ -421,7 +424,9 @@ Current limitations:
   tests do not sleep or connect to real streaming services.
 - Live dry-run event handling can produce guarded decision previews, but those
   previews stop before broker submission.
-- Fill updates are derived from polling filled-quantity deltas.
+- Broker order/fill polling is converted into normalized `BrokerEvent`
+  lifecycle updates. Fill updates are still derived from filled-quantity deltas
+  until vendor push streams are added.
 
 Run the deterministic fake-stream paper template:
 

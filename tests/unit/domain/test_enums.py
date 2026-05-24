@@ -4,6 +4,7 @@ import unittest
 
 from qts.domain import (
     BarTimeframe,
+    BrokerEventType,
     DataAdjustment,
     OrderSide,
     OrderStatus,
@@ -44,6 +45,10 @@ class EnumTests(unittest.TestCase):
         self.assertEqual(
             [item.value for item in DataAdjustment],
             ["RAW", "SPLIT_ADJUSTED", "DIVIDEND_ADJUSTED", "TOTAL_RETURN"],
+        )
+        self.assertEqual(
+            [item.value for item in BrokerEventType],
+            ["ORDER_UPDATE", "FILL", "ACCOUNT_UPDATE", "POSITION_UPDATE"],
         )
 
 

@@ -1047,3 +1047,50 @@ preserving the fail-closed live safety model.
 - Keep live market events as health-only telemetry until production live mode.
 - Submit dry-run orders to the live broker adapter.
 - Duplicate paper engine order-submission logic inside live mode.
+
+---
+
+## ADR-029: Normalize Broker Lifecycle Updates Before Engine Sync
+
+### Context
+
+Paper broker adapters already expose polling methods for orders and fills, but
+the runtime engines handled fills directly and had no stable envelope for future
+broker push streams. This made duplicate fill handling and stale order update
+behavior easy to implement inconsistently across brokers and engines.
+
+### Decision
+
+Introduce `BrokerEvent` as the normalized broker lifecycle envelope. Broker
+events can carry exactly one normalized `Order`, `Fill`, `Account`, or
+`Position` payload and are typed by `BrokerEventType`.
+
+Phase C1 uses existing broker polling as the first event source:
+`OrderRouter.poll_events()` converts `Brokerage.list_orders(status="all")` and
+`Brokerage.poll_fills()` results into broker events. The execution layer applies
+these events idempotently, skips duplicate fill IDs, and rejects stale or
+regressive order lifecycle updates.
+
+### Rationale
+
+This creates one contract for polling and future push-stream synchronization
+without changing broker adapters to expose vendor-specific objects. It also
+keeps the current paper runtimes deterministic and network-free while removing
+double-application risk from repeated fill polling.
+
+### Consequences
+
+- Paper broker polling now produces normalized broker events before engine
+  state changes.
+- Future Alpaca/IBKR broker push streams should emit the same `BrokerEvent`
+  model instead of adding engine-specific callbacks.
+- `BacktestBrokerage.list_orders()` accepts broad `all`, `open`, and `closed`
+  filters for polling parity.
+- Persistent broker-event checkpoints and vendor push-stream transports remain
+  future Phase C work.
+
+### Alternatives Considered
+
+- Keep fill polling as a list of `Fill` objects only.
+- Let each engine define its own broker update callback payloads.
+- Pass raw Alpaca or IBKR event payloads into runtime engines.

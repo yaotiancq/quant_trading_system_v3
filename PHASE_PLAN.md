@@ -1005,7 +1005,9 @@ time after Phase A is stable:
 | Phase B2a - Alpaca Stream Adapter Boundary for Paper Runtime | Complete | Added mockable Alpaca stream payload adapter, paper-engine source factory wiring, config template, and tests. |
 | Phase B2b1 - Runtime Reconnect and Heartbeat Policy | Complete | Added bounded reconnect policy, heartbeat/data-gap counters, config plumbing, and deterministic tests. |
 | Phase B2b2 - Guarded Live Decision Preview | Complete | Added live dry-run strategy/risk/order-request previews without broker submission. |
-| Phase C - Broker Event Stream and Order Lifecycle Synchronization | Planned | Add normalized broker event stream, idempotent lifecycle updates, and polling fallback. |
+| Phase C1 - Normalized Broker Events and Polling Sync | Complete | Added broker event model/helpers, idempotent execution updates, and paper polling fallback. |
+| Phase C2 - Vendor Broker Push Adapter Boundaries | Planned | Add mockable broker order/fill event stream adapter boundaries without real live submission. |
+| Phase C3 - Engine Lifecycle Synchronization Hardening | Planned | Add recovery/reconciliation behavior around stream gaps, missed broker events, and restart state. |
 | Phase D - Production Live-Trading Enablement | Blocked until A-C complete | Enable real live submission only behind strict fail-closed safety gates. |
 | Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned | Add optional static chart artifacts for backtest reports. |
 | Phase F - Production ML Contracts and Model Governance | Planned | Add model manifests, schema hashes, approval/stage rules, and runtime ML metadata. |
@@ -1143,3 +1145,75 @@ paper trading while stopping before broker submission.
 - Unsafe live previews are recorded as rejected instead of submitted.
 - Quote-only events update state without creating bar-strategy previews.
 - Tests remain deterministic and network-free.
+
+## Major Architecture Phase C - Broker Event Stream and Order Lifecycle Synchronization
+
+### Goal
+
+Synchronize broker-side order and fill lifecycle state through normalized events
+so paper and future live runtimes do not depend on ad hoc fill polling alone.
+
+### Split Rationale
+
+The full phase includes normalized event contracts, polling fallback, future
+vendor push-stream adapters, restart/recovery behavior, and live-order
+lifecycle handling. It is split to keep real live submission out of scope until
+the broker-event foundation is stable.
+
+## Major Architecture Phase C1 - Normalized Broker Events and Polling Sync
+
+### Goal
+
+Introduce the internal broker-event contract and make existing polling paths
+produce idempotent order/fill synchronization events.
+
+### Scope
+
+- Add `BrokerEventType` and `BrokerEvent` domain models.
+- Add execution helpers that convert normalized `Order`, `Fill`, `Account`, and
+  `Position` payloads into `BrokerEvent` objects.
+- Add `OrderRouter.poll_events()` as a polling fallback over existing
+  `Brokerage.list_orders()` and `Brokerage.poll_fills()`.
+- Make `ExecutionEngine` consume broker events idempotently.
+- Prevent stale or regressive order updates from overwriting newer lifecycle
+  state.
+- Wire `PaperTradingEngine.poll_broker_updates()` through normalized broker
+  events while preserving backward-compatible direct `Order`/`Fill` handling.
+
+### Out of Scope
+
+- Real broker websocket/SSE event transports.
+- Live broker order submission.
+- Persistent broker-event checkpoints across process restarts.
+- New vendor APIs.
+
+### Acceptance Criteria
+
+- Broker event models validate the matching payload type.
+- Duplicate broker fill events do not double-apply execution state or portfolio
+  state.
+- Stale order updates do not regress the tracked order lifecycle.
+- Polling fallback emits normalized order and fill events from existing broker
+  adapters.
+- Tests remain deterministic and network-free.
+
+## Major Architecture Phase C2 - Vendor Broker Push Adapter Boundaries
+
+### Goal
+
+Add mockable broker-event stream adapter boundaries for Alpaca/IBKR order and
+fill updates without opening real network streams in tests.
+
+### Scope
+
+- Add broker-event source protocols.
+- Add in-memory vendor-shaped broker event clients.
+- Normalize vendor order/fill update payloads into `BrokerEvent`.
+- Keep real live submission and real network stream ownership out of scope.
+
+## Major Architecture Phase C3 - Engine Lifecycle Synchronization Hardening
+
+### Goal
+
+Harden paper/live engine behavior around broker-event gaps, restart
+reconciliation, and lifecycle recovery before Phase D production live trading.

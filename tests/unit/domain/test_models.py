@@ -6,8 +6,13 @@ from datetime import datetime, timezone
 from qts.domain import (
     Bar,
     BarTimeframe,
+    BrokerEvent,
+    BrokerEventType,
+    Fill,
+    Order,
     OrderRequest,
     OrderSide,
+    OrderStatus,
     OrderType,
     RiskDecision,
     RiskDecisionStatus,
@@ -107,6 +112,50 @@ class DomainModelTests(unittest.TestCase):
 
     def test_runtime_mode_serializes_to_value(self) -> None:
         self.assertEqual(RuntimeMode.BACKTEST.value, "BACKTEST")
+
+    def test_broker_event_requires_matching_single_payload(self) -> None:
+        order = Order(
+            order_id="order-1",
+            client_order_id="coid-1",
+            symbol="SPY",
+            created_at=datetime(2026, 1, 5, tzinfo=UTC),
+            side=OrderSide.BUY,
+            quantity=1,
+            filled_quantity=0,
+            order_type=OrderType.MARKET,
+            status=OrderStatus.SUBMITTED,
+        )
+
+        event = BrokerEvent(
+            event_id="event-1",
+            event_type=BrokerEventType.ORDER_UPDATE,
+            timestamp=order.created_at,
+            source="unit",
+            order=order,
+        )
+
+        self.assertEqual(event.event_type, BrokerEventType.ORDER_UPDATE)
+        self.assertEqual(event.to_dict()["order"]["order_id"], "order-1")
+
+        fill = Fill(
+            fill_id="fill-1",
+            order_id="order-1",
+            symbol="SPY",
+            timestamp=datetime(2026, 1, 5, tzinfo=UTC),
+            side=OrderSide.BUY,
+            quantity=1,
+            price=100,
+            commission=0,
+            source="unit",
+        )
+        with self.assertRaisesRegex(ValueError, "wrong payload"):
+            BrokerEvent(
+                event_id="event-2",
+                event_type=BrokerEventType.ORDER_UPDATE,
+                timestamp=fill.timestamp,
+                source="unit",
+                fill=fill,
+            )
 
 
 if __name__ == "__main__":

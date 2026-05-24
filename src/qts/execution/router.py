@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import datetime
 
 from qts.brokers import Brokerage
-from qts.domain import Fill, Order, OrderRequest
+from qts.domain import BrokerEvent, Fill, Order, OrderRequest
+
+from .events import broker_events_from_poll
 
 
 class OrderRouter:
@@ -25,6 +27,17 @@ class OrderRouter:
 
     def poll_updates(self, since: datetime | None = None) -> list[Fill]:
         return self.brokerage.poll_fills(since)
+
+    def poll_events(
+        self,
+        since: datetime | None = None,
+        *,
+        include_order_updates: bool = True,
+    ) -> list[BrokerEvent]:
+        orders = self.brokerage.list_orders(status="all") if include_order_updates else []
+        fills = self.brokerage.poll_fills(since)
+        broker_name = type(self.brokerage).__name__
+        return broker_events_from_poll(orders=orders, fills=fills, source=f"{broker_name}.poll")
 
 
 __all__ = ["OrderRouter"]

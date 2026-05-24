@@ -26,7 +26,7 @@ Each layer owns a small responsibility:
 | `features` | Reusable indicators and schemas | Strategy-specific decisions |
 | `strategies` | Signal generation | Order submission, account mutation |
 | `risk` | Sizing and risk approval | Broker API details |
-| `execution` | Order request creation and routing | Vendor clients |
+| `execution` | Order request creation, routing, and broker lifecycle synchronization | Vendor clients |
 | `brokers` | Normalized brokerage implementations | Market data loading |
 | `integrations` | Vendor HTTP clients and payload mapping | Domain business logic |
 | `portfolio` | Internal accounting and reconciliation | Strategy decisions |
@@ -48,8 +48,10 @@ Each layer owns a small responsibility:
 7. `ExecutionEngine` builds an `OrderRequest`.
 8. `OrderRouter` sends the request to `BacktestBrokerage`.
 9. `BacktestBrokerage` simulates fills on market events.
-10. `DefaultPortfolio` applies fills and records ledgers.
-11. `BacktestReporter` writes metrics and artifacts.
+10. Broker order/fill updates can be represented as normalized `BrokerEvent`
+    lifecycle events.
+11. `DefaultPortfolio` applies fills and records ledgers.
+12. `BacktestReporter` writes metrics and artifacts.
 
 ### Data Download Flow
 
@@ -80,6 +82,8 @@ Each layer owns a small responsibility:
    processed through the same feature, strategy, risk, and execution path.
 7. Runtime event-loop status includes disconnect, reconnect,
    heartbeat/data-gap, source-run, and stopped-reason counters.
+8. Broker order/fill polling is normalized into `BrokerEvent` lifecycle events
+   before execution and portfolio state are synchronized.
 
 ### Live Dry-Run Flow
 
@@ -171,8 +175,8 @@ generated egg-info metadata are not part of the source contract.
 
 | File | Purpose |
 |---|---|
-| `src/qts/domain/enums.py` | Runtime, market data, order, risk, and adjustment enums; shared open-order status set. |
-| `src/qts/domain/models.py` | Dataclass domain models: bars, quotes, signals, intents, orders, fills, positions, configs, backtest results. |
+| `src/qts/domain/enums.py` | Runtime, market data, broker event, order, risk, and adjustment enums; shared open-order status set. |
+| `src/qts/domain/models.py` | Dataclass domain models: bars, quotes, signals, intents, orders, fills, broker events, positions, configs, backtest results. |
 | `src/qts/domain/__init__.py` | Public exports for domain enums and models. |
 
 Edit this layer only when changing stable public models. Update
@@ -255,11 +259,12 @@ Add new risk controls as rules, then compose them in the engine or factory.
 
 | File | Purpose |
 |---|---|
+| `src/qts/execution/events.py` | Converts normalized broker order/fill/account/position payloads into idempotent broker lifecycle events. |
 | `src/qts/execution/orders.py` | Builds `OrderRequest` objects from approved risk decisions and enforces fractional plus quantity/notional exclusivity policy. |
-| `src/qts/execution/manager.py` | Tracks normalized order lifecycle and open-order state. |
-| `src/qts/execution/router.py` | Thin router that delegates to a configured `Brokerage`. |
+| `src/qts/execution/manager.py` | Tracks normalized order lifecycle, open-order state, and stale-update guards. |
+| `src/qts/execution/router.py` | Thin router that delegates to a configured `Brokerage` and builds polling fallback broker events. |
 | `src/qts/execution/fills.py` | Simple fill handler hook. |
-| `src/qts/execution/engine.py` | Submits approved decisions and processes order/fill updates. |
+| `src/qts/execution/engine.py` | Submits approved decisions and processes idempotent broker order/fill events. |
 | `src/qts/execution/__init__.py` | Public execution exports. |
 
 Execution should remain broker-agnostic. Vendor-specific fields belong in

@@ -171,6 +171,18 @@ class BacktestBrokerageTests(unittest.TestCase):
         self.assertEqual(fills, [])
         self.assertEqual(broker.get_account().cash, 10000)
 
+    def test_list_orders_supports_broad_polling_status_filters(self) -> None:
+        broker = make_broker(starting_cash=10000)
+        order = broker.submit_order(make_order_request())
+        broker.on_market_event(make_bar(1, open_price=100))
+
+        self.assertEqual([item.order_id for item in broker.list_orders(status="all")], [order.order_id])
+        self.assertEqual(broker.list_orders(status="open"), [])
+        self.assertEqual(
+            [item.order_id for item in broker.list_orders(status="closed")],
+            [order.order_id],
+        )
+
     def test_partial_fills_complete_over_multiple_market_events(self) -> None:
         broker = make_broker(starting_cash=10000, max_fill_quantity_per_event=5)
         order = broker.submit_order(make_order_request(quantity=12))

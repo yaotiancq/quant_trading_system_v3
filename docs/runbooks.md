@@ -67,6 +67,22 @@ Treat `preview_status: safety_rejected` as a blocked would-be order. Inspect the
 preview `error`, risk reasons, order size, symbol allowlist, market-session
 state, and account safety caps before changing any configuration.
 
+## Broker Lifecycle Synchronization
+
+Paper order and fill polling is normalized into `BrokerEvent` updates before
+state changes are applied. Duplicate fill IDs are skipped, and stale order
+updates should not regress the tracked lifecycle state.
+
+If paper portfolio state looks wrong after polling:
+
+1. Inspect the broker adapter's normalized `Order` and `Fill` payloads.
+2. Confirm repeated fills have stable `fill_id` values.
+3. Confirm order updates have monotonic `updated_at` values and nondecreasing
+   `filled_quantity`.
+4. Re-run reconciliation before sending more paper orders.
+5. Treat missing vendor push-stream updates as expected until Phase C2 adds
+   broker event stream adapter boundaries.
+
 ## Reconciliation Mismatch
 
 When reconciliation reports `mismatch`:

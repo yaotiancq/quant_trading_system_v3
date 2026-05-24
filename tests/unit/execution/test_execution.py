@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
 from qts.core import ExecutionError
@@ -8,6 +9,7 @@ from qts.brokers.backtest import BacktestBrokerage
 from qts.domain import (
     Bar,
     BarTimeframe,
+    BrokerEventType,
     OrderRequest,
     OrderSide,
     OrderStatus,
@@ -17,7 +19,14 @@ from qts.domain import (
     TimeInForce,
     TradeIntent,
 )
-from qts.execution import ExecutionEngine, OrderManager, OrderRouter, build_order_request
+from qts.execution import (
+    ExecutionEngine,
+    OrderManager,
+    OrderRouter,
+    broker_event_from_fill,
+    broker_event_from_order,
+    build_order_request,
+)
 
 
 UTC = timezone.utc
@@ -201,6 +210,77 @@ class ExecutionTests(unittest.TestCase):
 
         self.assertEqual(tracked_order.filled_quantity, 10)
         self.assertEqual(tracked_order.status, OrderStatus.FILLED)
+
+    def test_order_updates_do_not_regress_lifecycle_state(self) -> None:
+        broker = BacktestBrokerage(starting_cash=10000)
+        broker.connect()
+        engine = ExecutionEngine(OrderRouter(broker))
+        order = engine.submit(approved_decision())
+        submitted = replace(
+            order,
+            status=OrderStatus.SUBMITTED,
+            updated_at=NOW + timedelta(minutes=1),
+        )
+        stale = replace(
+            order,
+            status=OrderStatus.ACCEPTED,
+            updated_at=NOW,
+        )
+
+        engine.on_order_update(submitted)
+        engine.on_order_update(stale)
+
+        tracked_order = engine.order_manager.get_order(order.order_id)
+        self.assertEqual(tracked_order.status, OrderStatus.SUBMITTED)
+        self.assertEqual(tracked_order.updated_at, NOW + timedelta(minutes=1))
+
+    def test_broker_fill_event_is_idempotent(self) -> None:
+        broker = BacktestBrokerage(starting_cash=10000)
+        broker.connect()
+        engine = ExecutionEngine(OrderRouter(broker))
+        order = engine.submit(approved_decision())
+        fill = broker.on_market_event(bar(1, open_price=100))[0]
+        event = broker_event_from_fill(fill)
+
+        engine.on_broker_event(event)
+        engine.on_broker_event(event)
+
+        tracked_order = engine.order_manager.get_order(order.order_id)
+        self.assertEqual(tracked_order.filled_quantity, 10)
+        self.assertEqual(tracked_order.status, OrderStatus.FILLED)
+
+    def test_order_router_poll_events_returns_order_updates_and_fills(self) -> None:
+        broker = BacktestBrokerage(starting_cash=10000)
+        broker.connect()
+        router = OrderRouter(broker)
+        engine = ExecutionEngine(router)
+        engine.submit(approved_decision())
+        broker.on_market_event(bar(1, open_price=100))
+
+        events = router.poll_events()
+
+        self.assertEqual(
+            [event.event_type for event in events],
+            [BrokerEventType.FILL, BrokerEventType.ORDER_UPDATE],
+        )
+        self.assertTrue(events[0].event_id.startswith("fill:"))
+        self.assertTrue(events[1].event_id.startswith("order:"))
+
+    def test_order_broker_event_update_uses_order_payload(self) -> None:
+        broker = BacktestBrokerage(starting_cash=10000)
+        broker.connect()
+        engine = ExecutionEngine(OrderRouter(broker))
+        order = engine.submit(approved_decision())
+        submitted = replace(
+            order,
+            status=OrderStatus.SUBMITTED,
+            updated_at=NOW + timedelta(minutes=1),
+        )
+
+        engine.on_broker_event(broker_event_from_order(submitted))
+
+        tracked_order = engine.order_manager.get_order(order.order_id)
+        self.assertEqual(tracked_order.status, OrderStatus.SUBMITTED)
 
 
 if __name__ == "__main__":

@@ -31,6 +31,7 @@ General conventions:
 | `ExecutionEngine` | `execution/` | default execution engine | engines |
 | `OrderManager` | `execution/` | default order manager | execution engine |
 | `OrderRouter` | `execution/` | default order router | execution engine |
+| `BrokerEvent` helpers | `execution/` | polling/event adapters | execution engine, paper/live engines |
 | `Brokerage` | `brokers/` | backtest, Alpaca, IBKR | order router, engines |
 | `BacktestBrokerage` | `brokers/backtest/` | backtest implementation | backtest engine |
 | `Portfolio` | `portfolio/` | default portfolio | engines, risk, reporting |
@@ -305,14 +306,15 @@ Convert approved risk decisions into orders and process order/fill events.
 |---|---|---|---|
 | `submit` | `RiskDecision` | `Order` or submission result | Builds and routes order request. |
 | `submit_many` | list of `RiskDecision` | list of results | Batch submission. |
+| `on_order_update` | `Order` | none | Updates order manager. |
+| `on_fill` | `Fill` | none | Handles fill and notifies portfolio/strategy as configured. |
+| `on_broker_event` | `BrokerEvent` | none | Applies normalized broker lifecycle events idempotently. |
+| `cancel_order` | order ID | cancel result | Delegates to router/broker. |
 
 Order request construction must produce exactly one sizing field: `quantity` or
 `notional`, never both. Notional order requests require a runtime execution
 policy that permits fractional/notional behavior; whole-share-only runtime
 configs must use quantity-based sizing before broker payload generation.
-| `on_order_update` | `Order` | none | Updates order manager. |
-| `on_fill` | `Fill` | none | Handles fill and notifies portfolio/strategy as configured. |
-| `cancel_order` | order ID | cancel result | Delegates to router/broker. |
 
 ### Ownership Rules
 
@@ -321,6 +323,8 @@ configs must use quantity-based sizing before broker payload generation.
 - Execution engine does not call vendor clients directly.
 - Execution engine must enforce configured execution policy such as
   `allow_fractional` before routing normalized order requests.
+- Execution engine must skip duplicate broker event IDs and duplicate fill IDs.
+- Stale order updates must not regress tracked order status or filled quantity.
 
 ## 13. OrderManager
 
@@ -352,7 +356,8 @@ Route normalized order requests to the configured brokerage implementation.
 | `submit_order` | `OrderRequest` | `Order` | Calls brokerage. |
 | `cancel_order` | order ID | cancel result | Calls brokerage. |
 | `get_order` | order ID | optional `Order` | Calls brokerage or manager. |
-| `poll_updates` | none | order/fill updates | Optional for polling brokers. |
+| `poll_updates` | since timestamp | list of `Fill` | Backward-compatible fill polling helper. |
+| `poll_events` | since timestamp, include order updates | list of `BrokerEvent` | Polling fallback that normalizes broker order and fill updates. |
 
 ### Ownership Rules
 
@@ -374,7 +379,7 @@ Normalize broker behavior across backtesting, paper trading, and live trading.
 | `submit_order` | `OrderRequest` | `Order` | Submit normalized order. |
 | `cancel_order` | order ID | cancel result | Cancel order if possible. |
 | `get_order` | order ID | optional `Order` | Retrieve normalized order. |
-| `list_orders` | status filter, symbol | list of `Order` | Broker order state. |
+| `list_orders` | status filter, symbol | list of `Order` | Broker order state. Broad `all`, `open`, and `closed` filters should be supported when practical. |
 | `get_account` | none | `Account` | Broker-side account snapshot. |
 | `get_positions` | none | list of `Position` | Broker-side positions. |
 | `poll_fills` | since timestamp | list of `Fill` | Polling fill updates if streaming unavailable. |
@@ -388,6 +393,8 @@ Normalize broker behavior across backtesting, paper trading, and live trading.
 - Vendor-specific order confirmation prompts that require manual approval must
   fail closed unless a future phase explicitly designs and tests confirmation
   behavior.
+- Polling brokers should expose enough order/fill state for
+  `OrderRouter.poll_events()` to build normalized `BrokerEvent` objects.
 
 ### Implementations
 
@@ -492,6 +499,7 @@ through paper/live engine callbacks after safety checks.
 | `AlpacaStreamClient.connect` | symbols, event types, feed | none | Adapter boundary for Alpaca stream clients. |
 | `AlpacaStreamClient.iter_messages` | none | raw Alpaca payload mappings | Must not leak beyond market data adapter. |
 | `AlpacaStreamEventSource.iter_events` | none | iterator of `Bar`/`Quote` | Normalizes Alpaca stream payloads. |
+| `BrokerEvent` | normalized order/fill/account/position payload | broker lifecycle event | Used by polling fallback and future broker streams. |
 
 ### Validation Contract
 
@@ -523,7 +531,7 @@ Orchestrate paper or live trading runtime.
 | `start` | none | none | Start event loop. |
 | `stop` | reason | none | Graceful shutdown. |
 | `on_market_event` | event | health/status with decision previews | Handle incoming data and guarded dry-run preview. |
-| `on_broker_event` | order/fill/account event | none | Handle broker updates. |
+| `on_broker_event` | broker event or order/fill/account event | none | Handle broker updates. |
 | `health_check` | none | health status | Used by monitoring. |
 
 ### Safety Contract

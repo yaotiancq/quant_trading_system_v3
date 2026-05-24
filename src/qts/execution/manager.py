@@ -30,6 +30,25 @@ class OrderManager:
     def update_order(self, order: Order) -> None:
         self._orders[order.order_id] = order
 
+    def apply_order_update(self, order: Order) -> bool:
+        """Apply an order update once, skipping stale lifecycle regressions."""
+        existing = self.get_order(order.order_id)
+        if existing is None:
+            self.update_order(order)
+            return True
+
+        if _order_timestamp(order) < _order_timestamp(existing):
+            return False
+        if order.filled_quantity + 1e-9 < existing.filled_quantity:
+            return False
+        if _status_rank(order.status) < _status_rank(existing.status):
+            return False
+
+        metadata = dict(existing.metadata)
+        metadata.update(order.metadata)
+        self.update_order(replace(order, metadata=metadata))
+        return True
+
     def get_order(self, order_id: str) -> Order | None:
         return self._orders.get(order_id)
 
@@ -82,6 +101,24 @@ class OrderManager:
         if order is None:
             raise ExecutionError(f"unknown order: {order_id}")
         return order
+
+
+def _order_timestamp(order: Order) -> datetime:
+    return normalize_timestamp(order.updated_at or order.created_at)
+
+
+def _status_rank(status: OrderStatus) -> int:
+    return {
+        OrderStatus.NEW: 0,
+        OrderStatus.ACCEPTED: 1,
+        OrderStatus.SUBMITTED: 2,
+        OrderStatus.PARTIALLY_FILLED: 3,
+        OrderStatus.FILLED: 4,
+        OrderStatus.CANCELED: 4,
+        OrderStatus.EXPIRED: 4,
+        OrderStatus.REJECTED: 4,
+        OrderStatus.FAILED: 4,
+    }[status]
 
 
 __all__ = ["OPEN_ORDER_STATUSES", "OrderManager"]

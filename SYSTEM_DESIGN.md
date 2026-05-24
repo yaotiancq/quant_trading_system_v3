@@ -302,6 +302,7 @@ Owns order execution workflow:
 - order manager,
 - order router,
 - fill handler,
+- broker lifecycle event helpers,
 - execution policy.
 
 Rules:
@@ -309,6 +310,7 @@ Rules:
 - Does not contain strategy logic.
 - Does not contain broker-specific API details.
 - Talks only to the normalized `Brokerage` interface.
+- Consumes normalized broker lifecycle events idempotently.
 
 ### `brokers/`
 
@@ -558,9 +560,11 @@ Prohibited dependencies:
 6. Risk engine approves, rejects, or modifies the intent.
 7. Execution engine converts approved intent into `OrderRequest`.
 8. Order router submits request to configured `Brokerage`.
-9. Brokerage creates `Order` and eventually `Fill` events.
-10. Portfolio applies fills and updates positions, cash, ledgers, and snapshots.
-11. Reporter consumes portfolio snapshots, trades, fills, and backtest metadata.
+9. Brokerage creates `Order` state and eventually `Fill` events.
+10. Execution normalizes broker polling or future push updates into
+   `BrokerEvent` lifecycle events.
+11. Portfolio applies fills and updates positions, cash, ledgers, and snapshots.
+12. Reporter consumes portfolio snapshots, trades, fills, and backtest metadata.
 
 ## 11. Runtime Flow: Backtesting
 
@@ -620,7 +624,8 @@ Flow:
 7. Generate strategy output.
 8. Evaluate risk and sizing.
 9. Route approved order requests to the configured paper brokerage.
-10. Consume broker order/fill updates.
+10. Consume normalized broker order/fill events from polling fallback or future
+    broker event streams.
 11. Update portfolio from real broker fills.
 12. Periodically reconcile internal portfolio with broker account and positions.
 13. Log and alert errors.

@@ -10,6 +10,8 @@ from qts.calendar import MarketSessionService, build_market_session_service
 from qts.core import Clock, ConfigurationError, RealClock
 from qts.domain import (
     Bar,
+    BrokerEvent,
+    BrokerEventType,
     FeatureFrame,
     Fill,
     Order,
@@ -21,6 +23,7 @@ from qts.domain import (
     normalize_timestamp,
 )
 from qts.execution import ExecutionEngine, OrderRouter
+from qts.execution.events import broker_event_from_fill, broker_event_from_order
 from qts.features import FeaturePipeline
 from qts.market_data import AlpacaStreamClient, alpaca_stream_event_source_from_config
 from qts.portfolio import DefaultPortfolio
@@ -218,23 +221,26 @@ class PaperTradingEngine:
         self.poll_broker_updates()
         return submitted_orders
 
-    def on_broker_event(self, event: Order | Fill) -> None:
+    def on_broker_event(self, event: BrokerEvent | Order | Fill) -> None:
         self._require_initialized()
         assert self.execution_engine is not None
         if isinstance(event, Order):
-            self.execution_engine.on_order_update(event)
-            return
-        self.execution_engine.on_fill(event)
-        self._apply_fill(event)
+            event = broker_event_from_order(event, source="paper_external")
+        elif isinstance(event, Fill):
+            event = broker_event_from_fill(event, source="paper_external")
+        self.execution_engine.on_broker_event(event)
+        if event.event_type == BrokerEventType.FILL and event.fill is not None:
+            self._apply_fill(event.fill)
 
     def poll_broker_updates(self, since: datetime | None = None) -> list[Fill]:
         self._require_initialized()
         assert self.execution_engine is not None
-        fills = self.execution_engine.order_router.poll_updates(since)
-        for fill in fills:
-            if fill.fill_id not in self._processed_fill_ids:
-                self.execution_engine.on_fill(fill)
-                self._apply_fill(fill)
+        events = self.execution_engine.poll_broker_events(since)
+        fills: list[Fill] = []
+        for event in events:
+            if event.event_type == BrokerEventType.FILL and event.fill is not None:
+                fills.append(event.fill)
+                self._apply_fill(event.fill)
         return fills
 
     def reconcile(self) -> dict[str, object]:

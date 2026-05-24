@@ -9,6 +9,7 @@ from typing import Any, TypeVar
 
 from .enums import (
     BarTimeframe,
+    BrokerEventType,
     DataAdjustment,
     OrderSide,
     OrderStatus,
@@ -475,6 +476,46 @@ class Position(DomainModel):
         if self.unrealized_pnl is None and self.market_price is not None:
             self.unrealized_pnl = (self.market_price - self.average_cost) * self.quantity
         _non_negative(self.market_value, "market_value")
+
+
+@dataclass
+class BrokerEvent(DomainModel):
+    event_id: str
+    event_type: BrokerEventType | str
+    timestamp: datetime
+    source: str
+    order: Order | None = None
+    fill: Fill | None = None
+    account: Account | None = None
+    position: Position | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.event_id = _require_text(self.event_id, "event_id")
+        self.event_type = coerce_enum(BrokerEventType, self.event_type)
+        self.timestamp = normalize_timestamp(self.timestamp)
+        self.source = _require_text(self.source, "source")
+        self.metadata = _dict(self.metadata)
+
+        payloads = [self.order, self.fill, self.account, self.position]
+        if sum(item is not None for item in payloads) != 1:
+            raise ValueError("broker event requires exactly one payload")
+        if self.order is not None and not isinstance(self.order, Order):
+            raise TypeError("order payload must be an Order")
+        if self.fill is not None and not isinstance(self.fill, Fill):
+            raise TypeError("fill payload must be a Fill")
+        if self.account is not None and not isinstance(self.account, Account):
+            raise TypeError("account payload must be an Account")
+        if self.position is not None and not isinstance(self.position, Position):
+            raise TypeError("position payload must be a Position")
+        expected_payload = {
+            BrokerEventType.ORDER_UPDATE: self.order,
+            BrokerEventType.FILL: self.fill,
+            BrokerEventType.ACCOUNT_UPDATE: self.account,
+            BrokerEventType.POSITION_UPDATE: self.position,
+        }[self.event_type]
+        if expected_payload is None:
+            raise ValueError(f"{self.event_type.value} broker event has wrong payload")
 
 
 @dataclass

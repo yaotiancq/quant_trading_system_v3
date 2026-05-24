@@ -177,6 +177,11 @@ class PaperTradingEngineIntegrationTests(unittest.TestCase):
         self.assertEqual(engine.portfolio.get_position("SPY").quantity, 10)
         self.assertEqual(strategy.fills_seen, 1)
 
+        engine.poll_broker_updates()
+
+        self.assertEqual(engine.portfolio.get_position("SPY").quantity, 10)
+        self.assertEqual(strategy.fills_seen, 1)
+
     def test_paper_engine_runs_finite_fake_stream(self) -> None:
         config = load_paper_config(
             market_data={
