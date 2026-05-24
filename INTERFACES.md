@@ -499,11 +499,15 @@ through paper/live engine callbacks after safety checks.
 - Per-symbol timestamps must not move backward when fail-closed ordering is
   enabled.
 - Optional freshness checks compare event timestamps with the runtime clock.
+- Optional heartbeat/data-gap checks compare consecutive dispatched event
+  timestamps.
 - Optional session filtering uses `MarketSessionService`.
 - Provider-specific streaming adapters must convert vendor payloads to internal
   `Bar`/`Quote` models before yielding events.
 - Real stream transports must fail closed on provider error payloads or missing
   transport implementation.
+- Controlled stream disconnects raise `StreamDisconnectedError`; reconnects
+  require an explicit source factory and bounded retry policy.
 
 ## 20. LiveEngine
 

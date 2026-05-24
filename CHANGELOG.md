@@ -8,6 +8,37 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Major Architecture Phase B2b1] - 2026-05-24
+
+### Added
+
+- Added runtime reconnect and heartbeat policy models for market-event loops.
+- Added `StreamDisconnectedError` for controlled stream disconnect handling.
+- Added event-loop result counters for disconnects, reconnects, heartbeat
+  misses, source runs, and stopped reason.
+- Added `market_data.reconnect` and `market_data.heartbeat` config validation.
+- Added deterministic tests for reconnect success, reconnect-disabled failure,
+  heartbeat warning mode, and heartbeat fail-closed mode.
+
+### Changed
+
+- `PaperTradingEngine` now passes configured reconnect and heartbeat policies
+  into the runtime event loop.
+- `configs/paper_alpaca_stream_mock.yaml` documents reconnect and heartbeat
+  settings for future stream transports.
+- `PHASE_PLAN.md` now splits B2b into B2b1 and B2b2 so guarded live decision
+  preview remains separate from stream reliability mechanics.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+---
+
 ## [Major Architecture Phase B2a] - 2026-05-23
 
 ### Added

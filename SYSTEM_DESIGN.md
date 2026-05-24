@@ -377,6 +377,9 @@ Rules:
 - Engines do not contain detailed strategy, broker, or risk logic.
 - Runtime market-event loops must validate duplicate, stale, out-of-order, and
   out-of-session events before dispatching to engine callbacks.
+- Runtime market-event loops expose controlled stream disconnect, reconnect,
+  and heartbeat/data-gap status without embedding vendor transport details in
+  engine code.
 
 ### `reporting/`
 

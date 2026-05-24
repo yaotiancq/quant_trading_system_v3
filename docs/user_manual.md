@@ -416,6 +416,9 @@ Current limitations:
 - Alpaca-shaped stream payloads can be exercised with
   `configs/paper_alpaca_stream_mock.yaml`. This tests the adapter boundary but
   does not open a real websocket.
+- Runtime event loops expose deterministic reconnect and heartbeat/data-gap
+  policy through `market_data.reconnect` and `market_data.heartbeat`. Current
+  tests do not sleep or connect to real streaming services.
 - Fill updates are derived from polling filled-quantity deltas.
 
 Run the deterministic fake-stream paper template:

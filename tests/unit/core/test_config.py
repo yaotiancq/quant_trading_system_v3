@@ -52,6 +52,8 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.market_data["provider"], "alpaca_stream")
         self.assertEqual(config.market_data["feed"], "sip")
         self.assertEqual(config.market_data["event_types"], ["bars", "quotes"])
+        self.assertEqual(config.market_data["reconnect"]["max_attempts"], 0)
+        self.assertIsNone(config.market_data["heartbeat"]["timeout_seconds"])
         self.assertEqual(len(config.market_data["mock_messages"]), 5)
 
     def test_invalid_config_raises_configuration_error(self) -> None:
@@ -116,6 +118,20 @@ execution:
 
             with self.assertRaisesRegex(ConfigurationError, "market_data.events"):
                 load_runtime_config(path, env_path=None)
+
+    def test_invalid_runtime_stream_policy_fails_fast(self) -> None:
+        with self.assertRaisesRegex(ConfigurationError, "heartbeat.timeout_seconds"):
+            load_runtime_config(
+                ROOT / "configs" / "paper_alpaca.yaml",
+                env_path=None,
+                overrides={
+                    "broker": {"safety": {"mock_mode": True}},
+                    "market_data": {
+                        "provider": "external_events",
+                        "heartbeat": {"timeout_seconds": -1},
+                    },
+                },
+            )
 
     def test_env_file_loader_reads_key_value_pairs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -29,8 +29,11 @@ from qts.strategies import BaseStrategy, create_strategy
 
 from .event_loop import (
     MarketEventSource,
+    MarketEventSourceFactory,
     RuntimeEventLoop,
     event_source_from_market_data_config,
+    heartbeat_policy_from_market_data_config,
+    reconnect_policy_from_market_data_config,
 )
 from .features import feature_pipeline_settings_from_strategies
 from .market_data import resolve_event_market_data_provider
@@ -47,6 +50,7 @@ class PaperTradingEngine:
         feature_pipeline: FeaturePipeline | None = None,
         strategies: Sequence[BaseStrategy] | None = None,
         market_event_source: MarketEventSource | None = None,
+        market_event_source_factory: MarketEventSourceFactory | None = None,
         market_stream_client: AlpacaStreamClient | None = None,
         clock: Clock | None = None,
     ) -> None:
@@ -56,6 +60,7 @@ class PaperTradingEngine:
         self.strategies = list(strategies or [])
         self._strategies_injected = strategies is not None
         self.market_event_source = market_event_source
+        self.market_event_source_factory = market_event_source_factory
         self.market_stream_client = market_stream_client
         self.clock = clock or RealClock()
         self.session_service: MarketSessionService | None = None
@@ -87,10 +92,9 @@ class PaperTradingEngine:
             in {"alpaca_stream", "alpaca_sip_stream", "alpaca_iex_stream"}
             and self.market_event_source is None
         ):
-            self.market_event_source = alpaca_stream_event_source_from_config(
-                self.config,
-                client=self.market_stream_client,
-            )
+            self.market_event_source = self._build_alpaca_stream_event_source()
+            if self.market_event_source_factory is None and self.market_stream_client is None:
+                self.market_event_source_factory = self._build_alpaca_stream_event_source
         if self.feature_pipeline is None:
             feature_specs, schema_version = feature_pipeline_settings_from_strategies(
                 self.config.strategies
@@ -156,9 +160,12 @@ class PaperTradingEngine:
         loop = RuntimeEventLoop(
             self.market_event_source,
             self.on_market_event,
+            source_factory=self.market_event_source_factory,
             session_service=self.session_service,
             clock=self.clock,
             max_staleness_seconds=self.config.market_data.get("max_staleness_seconds"),
+            reconnect_policy=reconnect_policy_from_market_data_config(self.config.market_data),
+            heartbeat_policy=heartbeat_policy_from_market_data_config(self.config.market_data),
             session_filter_enabled=bool(self.config.market_data.get("session_filter", True)),
             fail_on_out_of_order=bool(self.config.market_data.get("fail_on_out_of_order", True)),
             deduplicate=bool(self.config.market_data.get("deduplicate", True)),
@@ -284,6 +291,12 @@ class PaperTradingEngine:
     def _require_initialized(self) -> None:
         if not self._initialized:
             raise ConfigurationError("paper trading engine must be initialized first")
+
+    def _build_alpaca_stream_event_source(self) -> MarketEventSource:
+        return alpaca_stream_event_source_from_config(
+            self.config,
+            client=self.market_stream_client,
+        )
 
 
 class _PaperDataPortal:

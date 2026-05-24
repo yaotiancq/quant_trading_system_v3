@@ -14,6 +14,7 @@ from qts.domain import Bar, BarTimeframe, Quote, normalize_timestamp
 
 MarketEvent = Bar | Quote
 MarketEventHandler = Callable[[MarketEvent], object]
+MarketEventSourceFactory = Callable[[], "MarketEventSource"]
 
 
 class MarketEventSource(Protocol):
@@ -26,6 +27,37 @@ class MarketEventSource(Protocol):
         """Release any provider resources."""
 
 
+class StreamDisconnectedError(DataError):
+    """Raised when a runtime market-data source disconnects."""
+
+
+@dataclass(frozen=True)
+class RuntimeReconnectPolicy:
+    """Reconnect behavior for runtime market-data sources."""
+
+    enabled: bool = False
+    max_attempts: int = 0
+    backoff_seconds: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.max_attempts < 0:
+            raise ConfigurationError("reconnect.max_attempts must be non-negative")
+        if self.backoff_seconds < 0:
+            raise ConfigurationError("reconnect.backoff_seconds must be non-negative")
+
+
+@dataclass(frozen=True)
+class RuntimeHeartbeatPolicy:
+    """Simple event-timestamp gap policy used as a stream heartbeat proxy."""
+
+    timeout_seconds: float | None = None
+    fail_closed: bool = True
+
+    def __post_init__(self) -> None:
+        if self.timeout_seconds is not None and self.timeout_seconds < 0:
+            raise ConfigurationError("heartbeat.timeout_seconds must be non-negative")
+
+
 @dataclass
 class RuntimeEventLoopResult:
     """Execution counters for one runtime event-loop run."""
@@ -33,8 +65,13 @@ class RuntimeEventLoopResult:
     processed_count: int = 0
     skipped_count: int = 0
     duplicate_count: int = 0
+    disconnect_count: int = 0
+    reconnect_count: int = 0
+    heartbeat_miss_count: int = 0
+    source_run_count: int = 0
     last_event_timestamp: datetime | None = None
     closed: bool = False
+    stopped_reason: str | None = None
     errors: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
@@ -45,8 +82,13 @@ class RuntimeEventLoopResult:
             "processed_count": self.processed_count,
             "skipped_count": self.skipped_count,
             "duplicate_count": self.duplicate_count,
+            "disconnect_count": self.disconnect_count,
+            "reconnect_count": self.reconnect_count,
+            "heartbeat_miss_count": self.heartbeat_miss_count,
+            "source_run_count": self.source_run_count,
             "last_event_timestamp": last_timestamp,
             "closed": self.closed,
+            "stopped_reason": self.stopped_reason,
             "errors": list(self.errors),
         }
 
@@ -73,54 +115,84 @@ class RuntimeEventLoop:
         source: MarketEventSource,
         handler: MarketEventHandler,
         *,
+        source_factory: MarketEventSourceFactory | None = None,
         session_service: MarketSessionService | None = None,
         clock: Clock | None = None,
         max_staleness_seconds: float | int | None = None,
+        reconnect_policy: RuntimeReconnectPolicy | None = None,
+        heartbeat_policy: RuntimeHeartbeatPolicy | None = None,
         session_filter_enabled: bool = True,
         fail_on_out_of_order: bool = True,
         deduplicate: bool = True,
     ) -> None:
         self.source = source
         self.handler = handler
+        self.source_factory = source_factory
         self.session_service = session_service
         self.clock = clock
         self.max_staleness_seconds = _optional_non_negative(
             max_staleness_seconds,
             "max_staleness_seconds",
         )
+        self.reconnect_policy = reconnect_policy or RuntimeReconnectPolicy()
+        self.heartbeat_policy = heartbeat_policy or RuntimeHeartbeatPolicy()
         self.session_filter_enabled = session_filter_enabled
         self.fail_on_out_of_order = fail_on_out_of_order
         self.deduplicate = deduplicate
         self._seen_event_keys: set[tuple[object, ...]] = set()
         self._last_timestamp_by_symbol: dict[str, datetime] = {}
+        self._last_heartbeat_timestamp: datetime | None = None
 
     def run(self, *, max_events: int = 0) -> RuntimeEventLoopResult:
         """Dispatch events until the source ends or max_events is reached."""
         if max_events < 0:
             raise ConfigurationError("max_events must be non-negative")
         result = RuntimeEventLoopResult()
-        try:
-            for event in self.source.iter_events():
-                if self._is_duplicate(event):
-                    result.duplicate_count += 1
-                    result.skipped_count += 1
-                    continue
-                if self._is_outside_session(event):
-                    result.skipped_count += 1
-                    continue
-                self._validate_ordering(event)
-                self._validate_freshness(event)
-                self.handler(event)
-                result.processed_count += 1
-                result.last_event_timestamp = event.timestamp
-                if max_events and result.processed_count >= max_events:
-                    break
-        except Exception as exc:
-            result.errors.append(str(exc))
-            raise
-        finally:
-            self.source.close()
-            result.closed = True
+        reconnect_attempts = 0
+        next_source: MarketEventSource | None = self.source
+        while True:
+            source = next_source
+            if source is None:
+                result.stopped_reason = "source_exhausted"
+                return result
+            next_source = None
+            result.source_run_count += 1
+            try:
+                for event in source.iter_events():
+                    if self._is_duplicate(event):
+                        result.duplicate_count += 1
+                        result.skipped_count += 1
+                        continue
+                    if self._is_outside_session(event):
+                        result.skipped_count += 1
+                        continue
+                    self._validate_ordering(event)
+                    self._validate_freshness(event)
+                    self._validate_heartbeat(event, result)
+                    self.handler(event)
+                    result.processed_count += 1
+                    result.last_event_timestamp = event.timestamp
+                    if max_events and result.processed_count >= max_events:
+                        result.stopped_reason = "max_events"
+                        return result
+                result.stopped_reason = "source_exhausted"
+                return result
+            except StreamDisconnectedError as exc:
+                result.disconnect_count += 1
+                result.errors.append(str(exc))
+                if not self._can_reconnect(reconnect_attempts):
+                    result.stopped_reason = "stream_disconnected"
+                    raise
+                reconnect_attempts += 1
+                result.reconnect_count += 1
+                next_source = self._new_reconnect_source()
+                continue
+            except Exception as exc:
+                result.errors.append(str(exc))
+                raise
+            finally:
+                source.close()
+                result.closed = True
         return result
 
     def _is_duplicate(self, event: MarketEvent) -> bool:
@@ -157,6 +229,38 @@ class RuntimeEventLoop:
                 f"stale market event for {event.symbol}: age_seconds={age_seconds:.3f} "
                 f"exceeds max_staleness_seconds={self.max_staleness_seconds:.3f}"
             )
+
+    def _validate_heartbeat(
+        self,
+        event: MarketEvent,
+        result: RuntimeEventLoopResult,
+    ) -> None:
+        timeout_seconds = self.heartbeat_policy.timeout_seconds
+        previous = self._last_heartbeat_timestamp
+        self._last_heartbeat_timestamp = event.timestamp
+        if timeout_seconds is None or previous is None:
+            return
+        gap_seconds = (event.timestamp - previous).total_seconds()
+        if gap_seconds <= timeout_seconds:
+            return
+        result.heartbeat_miss_count += 1
+        message = (
+            f"market-data heartbeat gap exceeded: gap_seconds={gap_seconds:.3f} "
+            f"timeout_seconds={timeout_seconds:.3f}"
+        )
+        if self.heartbeat_policy.fail_closed:
+            raise DataError(message)
+
+    def _can_reconnect(self, attempts_used: int) -> bool:
+        return (
+            self.reconnect_policy.enabled
+            and attempts_used < self.reconnect_policy.max_attempts
+        )
+
+    def _new_reconnect_source(self) -> MarketEventSource:
+        if self.source_factory is None:
+            raise ConfigurationError("market-data reconnect requires a source_factory")
+        return self.source_factory()
 
 
 def _coerce_market_event(raw: MarketEvent | Mapping[str, Any]) -> MarketEvent:
@@ -229,6 +333,36 @@ def _optional_non_negative(value: float | int | None, field_name: str) -> float 
     return coerced
 
 
+def reconnect_policy_from_market_data_config(
+    config: Mapping[str, Any],
+) -> RuntimeReconnectPolicy:
+    raw = config.get("reconnect")
+    if raw is None:
+        return RuntimeReconnectPolicy()
+    if not isinstance(raw, Mapping):
+        raise ConfigurationError("market_data.reconnect must be a mapping")
+    return RuntimeReconnectPolicy(
+        enabled=bool(raw.get("enabled", False)),
+        max_attempts=int(raw.get("max_attempts", 0)),
+        backoff_seconds=float(raw.get("backoff_seconds", 0.0)),
+    )
+
+
+def heartbeat_policy_from_market_data_config(
+    config: Mapping[str, Any],
+) -> RuntimeHeartbeatPolicy:
+    raw = config.get("heartbeat")
+    if raw is None:
+        return RuntimeHeartbeatPolicy()
+    if not isinstance(raw, Mapping):
+        raise ConfigurationError("market_data.heartbeat must be a mapping")
+    timeout = raw.get("timeout_seconds")
+    return RuntimeHeartbeatPolicy(
+        timeout_seconds=None if timeout is None else float(timeout),
+        fail_closed=bool(raw.get("fail_closed", True)),
+    )
+
+
 def event_source_from_market_data_config(config: Mapping[str, Any]) -> InMemoryMarketEventSource:
     """Build the Phase B1 fake stream from runtime market_data config."""
     events = config.get("events")
@@ -242,7 +376,13 @@ __all__ = [
     "MarketEvent",
     "MarketEventHandler",
     "MarketEventSource",
+    "MarketEventSourceFactory",
+    "RuntimeHeartbeatPolicy",
     "RuntimeEventLoop",
     "RuntimeEventLoopResult",
+    "RuntimeReconnectPolicy",
+    "StreamDisconnectedError",
     "event_source_from_market_data_config",
+    "heartbeat_policy_from_market_data_config",
+    "reconnect_policy_from_market_data_config",
 ]

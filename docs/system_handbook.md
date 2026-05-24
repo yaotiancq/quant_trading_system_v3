@@ -78,6 +78,8 @@ Each layer owns a small responsibility:
 6. Externally supplied `Bar`/`Quote` events, finite fake-stream events, or mock
    Alpaca stream payloads normalized by `qts.market_data.streaming` are
    processed through the same feature, strategy, risk, and execution path.
+7. Runtime event-loop status includes disconnect, reconnect,
+   heartbeat/data-gap, source-run, and stopped-reason counters.
 
 ### Live Dry-Run Flow
 
@@ -309,7 +311,7 @@ but should not be confused with broker-owned account state.
 
 | File | Purpose |
 |---|---|
-| `src/qts/engines/event_loop.py` | Runtime market-event source protocol, fake stream, validation loop, and loop result counters. |
+| `src/qts/engines/event_loop.py` | Runtime market-event source protocol, fake stream, validation loop, reconnect/heartbeat policy, and loop result counters. |
 | `src/qts/engines/features.py` | Resolves feature specs/schema from strategy configs. |
 | `src/qts/engines/market_data.py` | Validates event-driven market data provider settings for paper/live. |
 | `src/qts/engines/backtest_engine.py` | Deterministic local backtest orchestration. |

@@ -154,6 +154,11 @@ templates still use `external_events`. Alpaca historical SIP downloads are
 available through `scripts/download_data.py`; real websocket stream transport
 remains future work.
 
+Runtime event loops support deterministic reconnect and heartbeat/data-gap
+policy through `market_data.reconnect` and `market_data.heartbeat`. Reconnects
+require an explicit source factory, and current tests do not sleep or open real
+network streams.
+
 Validate a runtime config through the CLI:
 
 ```bash

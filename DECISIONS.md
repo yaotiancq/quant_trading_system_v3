@@ -961,3 +961,47 @@ testable before real streaming transport is introduced.
 - Parse Alpaca payloads inside `PaperTradingEngine`.
 - Add a real websocket client immediately.
 - Treat Alpaca stream payloads as already-normalized events.
+
+---
+
+## ADR-027: Make Runtime Stream Reliability Policy Explicit and Deterministic
+
+### Context
+
+The runtime event loop needs to handle stream disconnects and stale or gapped
+market data in a way that can be tested without real network timing. Real
+websocket transports will eventually need backoff, reconnect, and heartbeat
+behavior, but adding time sleeps or external connections now would make tests
+fragile.
+
+### Decision
+
+Add explicit reconnect and heartbeat policies to `RuntimeEventLoop`.
+`RuntimeReconnectPolicy` controls whether a controlled
+`StreamDisconnectedError` may reconnect through a source factory, and how many
+attempts are allowed. `RuntimeHeartbeatPolicy` treats event timestamp gaps as a
+deterministic heartbeat/data-gap proxy and either counts misses or fails closed.
+
+Runtime loop results now expose disconnect, reconnect, heartbeat miss,
+source-run, and stopped-reason counters. `market_data.reconnect` and
+`market_data.heartbeat` configure these behaviors for paper runtime loops.
+
+### Rationale
+
+This gives the system observable reliability semantics now, while preserving
+deterministic, network-free tests. It also creates the policy contract that real
+streaming transports can honor later.
+
+### Consequences
+
+- Reconnects require a source factory so new stream resources are explicit.
+- Heartbeat checks are based on normalized event timestamps in this phase, not
+  wall-clock websocket pings.
+- Sleeping backoff is intentionally not implemented yet; `backoff_seconds` is
+  validated and reserved for real transports.
+
+### Alternatives Considered
+
+- Add real sleeps and wall-clock timeout behavior to unit tests.
+- Retry by reusing the same source object implicitly.
+- Treat stream disconnects as ordinary generic data errors.

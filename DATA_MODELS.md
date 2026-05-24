@@ -1172,7 +1172,9 @@ event mappings. For `alpaca_stream`, `market_data.mock_messages` is an optional
 list of Alpaca-shaped stream payloads used by the in-memory stream client;
 production websocket transport is still a future phase. Optional keys include
 `event_types`, `feed`, `symbols`, `session_filter`, `deduplicate`,
-`fail_on_out_of_order`, and `max_staleness_seconds`.
+`fail_on_out_of_order`, `max_staleness_seconds`, `reconnect`, and `heartbeat`.
+`reconnect` supports `enabled`, `max_attempts`, and `backoff_seconds`.
+`heartbeat` supports `timeout_seconds` and `fail_closed`.
 
 ### Example
 
@@ -1217,8 +1219,13 @@ Summary counters returned by one runtime event-loop run.
 | `processed_count` | int | yes | dispatched event count |
 | `skipped_count` | int | yes | duplicate or filtered event count |
 | `duplicate_count` | int | yes | duplicate events skipped |
+| `disconnect_count` | int | yes | controlled stream disconnects observed |
+| `reconnect_count` | int | yes | reconnect attempts performed |
+| `heartbeat_miss_count` | int | yes | event heartbeat/data-gap misses |
+| `source_run_count` | int | yes | source iterator runs attempted |
 | `last_event_timestamp` | datetime/null | no | UTC timestamp of latest dispatched event |
 | `closed` | bool | yes | true after the source close hook runs |
+| `stopped_reason` | string/null | no | `max_events`, `source_exhausted`, or `stream_disconnected` |
 | `errors` | list[string] | yes | controlled error messages captured before re-raise |
 
 ### Producers

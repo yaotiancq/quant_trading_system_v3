@@ -404,8 +404,10 @@ def _validate_market_data(config: Mapping[str, Any]) -> None:
             "events",
             "event_types",
             "feed",
+            "heartbeat",
             "max_staleness_seconds",
             "mock_messages",
+            "reconnect",
             "session_filter",
             "symbols",
             "deduplicate",
@@ -442,6 +444,28 @@ def _validate_market_data(config: Mapping[str, Any]) -> None:
         feed = str(config["feed"]).lower()
         if feed not in {"iex", "sip"}:
             raise ConfigurationError("market_data.feed must be iex or sip")
+    reconnect = _mapping(config.get("reconnect"), "market_data.reconnect", required=False)
+    _reject_unknown_keys(
+        reconnect,
+        {"enabled", "max_attempts", "backoff_seconds"},
+        "market_data.reconnect",
+    )
+    if "max_attempts" in reconnect and int(reconnect["max_attempts"]) < 0:
+        raise ConfigurationError("market_data.reconnect.max_attempts must be non-negative")
+    if "backoff_seconds" in reconnect and float(reconnect["backoff_seconds"]) < 0:
+        raise ConfigurationError("market_data.reconnect.backoff_seconds must be non-negative")
+    heartbeat = _mapping(config.get("heartbeat"), "market_data.heartbeat", required=False)
+    _reject_unknown_keys(
+        heartbeat,
+        {"timeout_seconds", "fail_closed"},
+        "market_data.heartbeat",
+    )
+    if (
+        "timeout_seconds" in heartbeat
+        and heartbeat["timeout_seconds"] is not None
+        and float(heartbeat["timeout_seconds"]) < 0
+    ):
+        raise ConfigurationError("market_data.heartbeat.timeout_seconds must be non-negative")
 
 
 def _validate_broker(config: Mapping[str, Any]) -> None:

@@ -23,6 +23,22 @@ market_data:
   deduplicate: true
   # true fails closed when a symbol receives timestamps moving backward.
   fail_on_out_of_order: true
+  # Stream reconnect policy. For mock_messages this is normally disabled; real
+  # transports should enable it with a bounded attempt count once implemented.
+  reconnect:
+    # true retries after a controlled stream disconnect.
+    enabled: false
+    # Maximum reconnect attempts before failing closed.
+    max_attempts: 0
+    # Reserved deterministic backoff setting in seconds; no sleeping is used by
+    # current tests.
+    backoff_seconds: 0
+  # Heartbeat/data-gap policy based on normalized event timestamps.
+  heartbeat:
+    # Optional maximum seconds between dispatched events. Null disables.
+    timeout_seconds: null
+    # true fails closed when the timeout is exceeded; false records a miss.
+    fail_closed: true
   # Optional symbol override for stream subscription. If omitted, runtime
   # symbols are used.
   symbols: [SPY]

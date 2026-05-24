@@ -70,6 +70,12 @@ Alpaca-shaped `mock_messages` or an injected stream client; the adapter
 normalizes Alpaca bar/quote payloads into internal `Bar`/`Quote` events before
 they enter the runtime event loop.
 
+Major Architecture Phase B2b1 has added bounded reconnect and heartbeat/data-gap
+policy to the runtime market-event loop. Event-loop health output now includes
+disconnect, reconnect, heartbeat miss, source-run, and stopped-reason counters,
+and paper runtime loops read `market_data.reconnect` and
+`market_data.heartbeat` settings.
+
 Real live broker order submission remains disabled by default. Phase 8 provides
 guarded dry-run initialization and safety validation only.
 
@@ -78,10 +84,11 @@ data portal reads, broker/execution dependency direction, and explicit ML
 runtime feature schema wiring. ADR-007 follow-up fixes made the original
 paper/live market-data mode explicit through `market_data.provider:
 external_events`; Phase B1 adds paper-only `fake_stream` support, and Phase B2a
-adds paper-only `alpaca_stream` adapter support. Live remains external-event
-driven. Runtime order validation also enforces `execution.allow_fractional`.
+adds paper-only `alpaca_stream` adapter support. Phase B2b1 adds runtime stream
+reliability policy. Live remains external-event driven. Runtime order validation
+also enforces `execution.allow_fractional`.
 
-- **Current phase:** Major Architecture Phase B2a complete
+- **Current phase:** Major Architecture Phase B2b1 complete
 - **Completed phases:**
   - Phase 0 - Documentation and repository scaffold initialization
   - Phase 1 - Project Skeleton and Core Domain Models
@@ -97,9 +104,10 @@ driven. Runtime order validation also enforces `execution.allow_fractional`.
   - Major Architecture Phase A - Exchange Calendar and Market Session Service
   - Major Architecture Phase B1 - Deterministic Runtime Event Loop and Fake Stream
   - Major Architecture Phase B2a - Alpaca Stream Adapter Boundary for Paper Runtime
+  - Major Architecture Phase B2b1 - Runtime Reconnect and Heartbeat Policy
 - **In-progress phase:** None
-- **Next recommended task:** Major Architecture Phase B2b - Runtime
-  Reconnect/Heartbeat and Guarded Live Decision Preview.
+- **Next recommended task:** Major Architecture Phase B2b2 - Guarded Live
+  Decision Preview.
 
 ## 2. Completed Phases
 
@@ -119,12 +127,13 @@ driven. Runtime order validation also enforces `execution.allow_fractional`.
 | Major Architecture Phase A | Complete | Implemented shared US equity calendar/session service, runtime config validation, Alpaca filtering integration, paper/live health checks, live order safety, and tests. |
 | Major Architecture Phase B1 | Complete | Implemented deterministic runtime event-loop primitives, fake in-memory stream support, paper-engine finite stream execution, config template, and tests. |
 | Major Architecture Phase B2a | Complete | Implemented mockable Alpaca stream payload adapter, paper-engine stream source wiring, config template, and tests. |
+| Major Architecture Phase B2b1 | Complete | Implemented runtime reconnect/heartbeat policy, event-loop health counters, config validation, and tests. |
 
 ## 3. Pending Phases
 
 | Phase | Status |
 |---|---|
-| Major Architecture Phase B2b - Runtime Reconnect/Heartbeat and Guarded Live Decision Preview | Planned |
+| Major Architecture Phase B2b2 - Guarded Live Decision Preview | Planned |
 | Major Architecture Phase C - Broker Event Stream and Order Lifecycle Synchronization | Planned |
 | Major Architecture Phase D - Production Live-Trading Enablement | Blocked until A-C complete |
 | Major Architecture Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned |
@@ -360,6 +369,8 @@ Future functionality outside the current phase plan remains missing:
 - `PaperTradingEngine` does not yet own a vendor-backed continuous live
   market-data stream; it handles externally supplied `Bar`/`Quote` events,
   finite fake streams, mock Alpaca stream payloads, and dry-run initialization.
+- The runtime event loop has deterministic reconnect and heartbeat/data-gap
+  policies, but no real websocket transport or sleeping backoff implementation.
 - Live Alpaca market data provider support is not implemented. Phase 10 adds
   historical SIP downloads only; live scaffolds still validate
   `market_data.provider: external_events`, while paper also supports

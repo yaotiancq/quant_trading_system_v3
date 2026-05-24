@@ -1003,7 +1003,8 @@ time after Phase A is stable:
 |---|---|---|
 | Phase B1 - Deterministic Runtime Event Loop and Fake Stream | Complete | Added event-source abstraction, finite fake stream, paper-engine loop wiring, and deterministic tests. |
 | Phase B2a - Alpaca Stream Adapter Boundary for Paper Runtime | Complete | Added mockable Alpaca stream payload adapter, paper-engine source factory wiring, config template, and tests. |
-| Phase B2b - Runtime Reconnect/Heartbeat and Guarded Live Decision Preview | Planned | Add stream disconnect policy, observable heartbeat/reconnect behavior, and guarded live dry-run decision dispatch. |
+| Phase B2b1 - Runtime Reconnect and Heartbeat Policy | Complete | Added bounded reconnect policy, heartbeat/data-gap counters, config plumbing, and deterministic tests. |
+| Phase B2b2 - Guarded Live Decision Preview | Planned | Add guarded live dry-run strategy/risk decision dispatch without real broker submission. |
 | Phase C - Broker Event Stream and Order Lifecycle Synchronization | Planned | Add normalized broker event stream, idempotent lifecycle updates, and polling fallback. |
 | Phase D - Production Live-Trading Enablement | Blocked until A-C complete | Enable real live submission only behind strict fail-closed safety gates. |
 | Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned | Add optional static chart artifacts for backtest reports. |
@@ -1076,4 +1077,38 @@ paper runtime event loop introduced in B1.
 - Paper runtime can process a finite mock Alpaca stream through the same event
   loop and execution path.
 - Missing real stream transport fails closed with a clear configuration error.
+- Tests remain deterministic and network-free.
+
+## Major Architecture Phase B2b1 - Runtime Reconnect and Heartbeat Policy
+
+### Goal
+
+Make the runtime market-event loop observable and fail-closed around controlled
+stream disconnects and event-heartbeat/data-gap failures before adding guarded
+live decision preview.
+
+### Scope
+
+- Add reconnect and heartbeat policy models to the runtime event loop.
+- Add reconnect counters, disconnect counters, heartbeat miss counters,
+  source-run counters, and stopped-reason status to event-loop results.
+- Add `StreamDisconnectedError` for controlled stream disconnect simulation and
+  future adapter use.
+- Add `market_data.reconnect` and `market_data.heartbeat` config validation.
+- Wire paper runtime event loops to read reconnect/heartbeat policies from
+  `market_data`.
+
+### Out of Scope
+
+- Real websocket reconnect/backoff sleeping.
+- Guarded live strategy/risk/execution decision preview.
+- Broker event streams and order lifecycle synchronization.
+
+### Acceptance Criteria
+
+- A controlled stream disconnect fails closed when reconnect is disabled.
+- A controlled stream disconnect can reconnect through a source factory when
+  reconnect is enabled and attempts remain.
+- Heartbeat/data-gap misses are counted, and can either fail closed or warn
+  according to config.
 - Tests remain deterministic and network-free.

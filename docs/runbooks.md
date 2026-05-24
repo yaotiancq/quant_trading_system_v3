@@ -38,6 +38,25 @@ Any `CRITICAL` health result should be treated as a stop condition. Operators
 should inspect the health summary, alert payload, and runtime metrics before
 attempting another initialization.
 
+## Runtime Market Data Stream Reliability
+
+Paper runtime event loops expose stream status counters in the `event_loop`
+health payload:
+
+- `disconnect_count`
+- `reconnect_count`
+- `heartbeat_miss_count`
+- `source_run_count`
+- `stopped_reason`
+
+`market_data.reconnect.enabled` should remain false for local mock streams
+unless a test injects a source factory. Real streaming transports must use
+bounded reconnect attempts and fail closed when reconnect is exhausted.
+
+`market_data.heartbeat.timeout_seconds` is a deterministic event timestamp gap
+check in this phase. A miss should be investigated as stale or interrupted
+market data before any paper/live runtime is resumed.
+
 ## Reconciliation Mismatch
 
 When reconciliation reports `mismatch`:
