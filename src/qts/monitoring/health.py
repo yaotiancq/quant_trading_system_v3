@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Protocol
 
 from qts.brokers import Brokerage
+from qts.calendar import MarketSessionService
 from qts.core import Clock, QTSError
 
 from .types import HealthCheckResult, HealthStatus
@@ -47,10 +48,12 @@ class BrokerConnectionHealthCheck:
         *,
         clock: Clock | None = None,
         timestamp_factory: Callable[[], datetime] | None = None,
+        market_session_service: MarketSessionService | None = None,
     ) -> None:
         self.brokerage = brokerage
         self.clock = clock
         self.timestamp_factory = timestamp_factory
+        self.market_session_service = market_session_service
 
     @property
     def name(self) -> str:
@@ -64,7 +67,10 @@ class BrokerConnectionHealthCheck:
                 timestamp = self.timestamp_factory()
             market_open = None
             if timestamp is not None:
-                market_open = self.brokerage.is_market_open(timestamp)
+                if self.market_session_service is not None:
+                    market_open = self.market_session_service.is_tradable(timestamp)
+                else:
+                    market_open = self.brokerage.is_market_open(timestamp)
         except Exception as exc:
             return HealthCheckResult(
                 self.name,

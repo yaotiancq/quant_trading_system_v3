@@ -920,3 +920,89 @@ through broker adapters.
 - Update `CHANGELOG.md`.
 - Update `README.md`, user manual, and system handbook.
 - Add an ADR for the market-data boundary decision.
+
+---
+
+## Major Architecture Phase A: Exchange Calendar and Market Session Service
+
+### Objective
+
+Add one shared exchange calendar/session abstraction for US equity runtime
+session checks, replacing weekday-only market-open logic and duplicated
+regular-session filtering assumptions.
+
+### Scope
+
+- Add a `qts.calendar` package with:
+  - `MarketCalendar` provider protocol,
+  - `MarketSession` model,
+  - `MarketSessionConfig`,
+  - deterministic built-in US equity calendar provider,
+  - `MarketSessionService`.
+- Support `XNYS` and `NASDAQ` as first US equity exchanges.
+- Normalize session boundaries from `America/New_York` to UTC.
+- Support regular session only and configurable extended-hours windows.
+- Support weekends, common US equity holidays, early closes, and fail-closed
+  behavior when a provider cannot resolve a session.
+- Add runtime config validation for `market_session`.
+- Integrate the service into Alpaca historical session filtering, paper/live
+  health checks, live order safety, and broker fallback `is_market_open` logic.
+
+### Out of Scope
+
+- Continuous market-data streaming.
+- Broker event streaming.
+- Real live order submission.
+- Full global exchange coverage.
+
+### Expected Files or Modules
+
+- `src/qts/calendar/`
+- `tests/unit/calendar/`
+- `src/qts/core/config.py`
+- `src/qts/market_data/alpaca.py`
+- `src/qts/engines/paper_trading_engine.py`
+- `src/qts/engines/live_engine.py`
+- `src/qts/monitoring/health.py`
+- `src/qts/monitoring/safety.py`
+
+### Testing Requirements
+
+- Unit tests for normal days, weekends, holidays, early closes, timezone
+  conversion, regular-session boundaries, extended-hours mode, and fail-closed
+  provider behavior.
+- Integration-style tests proving live health and order safety use the session
+  service.
+- Historical filtering tests proving holidays and early closes use the shared
+  calendar.
+
+### Acceptance Criteria
+
+- Runtime session checks use `MarketSessionService` instead of ad hoc
+  weekday-only logic.
+- Session config rejects invalid exchange/provider/timezone combinations.
+- Historical downloader filtering uses the shared calendar service.
+- Live order safety rejects orders outside the configured tradable session.
+- Tests pass without network access.
+
+### Required Updates
+
+- Update `PROJECT_STATE.md`.
+- Update `CHANGELOG.md`.
+- Update `DECISIONS.md`, `INTERFACES.md`, and `DATA_MODELS.md`.
+- Update README and docs.
+
+---
+
+## Planned Major Architecture Phases
+
+The following phases are intentionally large and should be implemented one at a
+time after Phase A is stable:
+
+| Phase | Status | Notes |
+|---|---|---|
+| Phase B - Continuous Market-Data Event Loop for Paper/Live Runtime | Planned | Add streaming/event-source abstraction and finite fake stream tests. |
+| Phase C - Broker Event Stream and Order Lifecycle Synchronization | Planned | Add normalized broker event stream, idempotent lifecycle updates, and polling fallback. |
+| Phase D - Production Live-Trading Enablement | Blocked until A-C complete | Enable real live submission only behind strict fail-closed safety gates. |
+| Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned | Add optional static chart artifacts for backtest reports. |
+| Phase F - Production ML Contracts and Model Governance | Planned | Add model manifests, schema hashes, approval/stage rules, and runtime ML metadata. |

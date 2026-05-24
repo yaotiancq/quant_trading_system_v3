@@ -21,6 +21,7 @@ Each layer owns a small responsibility:
 |---|---|---|
 | `domain` | Stable data models and enums | I/O, broker calls, strategy logic |
 | `core` | Config, clocks, exceptions, logging | Concrete trading behavior |
+| `calendar` | Exchange sessions, holidays, early closes, tradability checks | Market data downloads or brokerage state |
 | `market_data` | Historical data downloads/loading, replay, strategy data portal | Brokerage state |
 | `features` | Reusable indicators and schemas | Strategy-specific decisions |
 | `strategies` | Signal generation | Order submission, account mutation |
@@ -56,9 +57,9 @@ Each layer owns a small responsibility:
 2. `AlpacaBarDownloadConfig` validates symbols, date range, K-line timeframe,
    local session filter, output format, layout, and partition settings.
 3. `AlpacaMarketDataClient` requests paginated Alpaca stock bars.
-4. `download_alpaca_bars` normalizes the full API interval, then applies local
-   regular-session filtering by converting bar timestamps to `America/New_York`
-   and keeping `[09:30, 16:00)`.
+4. `download_alpaca_bars` normalizes the full API interval, then uses
+   `MarketSessionService` to apply regular-session filtering, holidays, and
+   early closes.
 5. Filtered bars are written as CSV or Parquet rows.
 6. Partitioned output is written below directories such as
    `timeframe=1Min/symbol=SPY/date=2024-01-02/`.
@@ -180,6 +181,17 @@ Edit this layer only when changing stable public models. Update
 
 The config loader intentionally supports a small YAML subset when PyYAML is not
 installed. Keep config templates simple unless PyYAML becomes a hard dependency.
+
+### Calendar Layer
+
+| File | Purpose |
+|---|---|
+| `src/qts/calendar/sessions.py` | `MarketSession`, config parsing, built-in US equity calendar, and `MarketSessionService`. |
+| `src/qts/calendar/__init__.py` | Public calendar exports. |
+
+The calendar layer is the canonical owner of market-session boundaries. Runtime
+modules should call `MarketSessionService` instead of implementing weekday or
+local-clock checks directly.
 
 ### Market Data Layer
 
@@ -401,6 +413,7 @@ Detailed test file index:
 | `tests/unit/core/test_clocks.py` | Tests real and replay clock behavior. |
 | `tests/unit/core/test_config.py` | Tests config loading, env parsing, YAML parsing, and invalid config failures. |
 | `tests/unit/core/test_logging.py` | Tests structured logging setup. |
+| `tests/unit/calendar/test_sessions.py` | Tests market sessions, holidays, early closes, extended hours, and fail-closed behavior. |
 | `tests/unit/market_data/__init__.py` | Market data test package marker. |
 | `tests/unit/market_data/test_alpaca_downloader.py` | Tests Alpaca SIP timeframe normalization, pagination, CSV/Parquet writing, partitioned datasets, and config loading. |
 | `tests/unit/market_data/test_csv_provider.py` | Tests CSV provider, normalization errors, replay ordering, and data portal behavior. |

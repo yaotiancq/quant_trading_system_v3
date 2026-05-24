@@ -13,6 +13,7 @@ from typing import Any, Protocol
 from urllib import error, parse, request
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from qts.calendar import MarketSessionConfig, MarketSessionService
 from qts.core import ConfigurationError, DataError
 from qts.domain import normalize_symbol, normalize_timestamp
 
@@ -102,9 +103,12 @@ class AlpacaSessionFilterConfig:
     """Local post-download session filter for Alpaca bar rows."""
 
     enabled: bool = True
+    exchange: str = "XNYS"
     timezone: str = DEFAULT_SESSION_TIMEZONE
     start: time = DEFAULT_SESSION_START
     end: time = DEFAULT_SESSION_END
+    calendar_provider: str = "builtin_us_equity"
+    fail_closed: bool = True
 
     def applies_to_timeframe(self, timeframe: str) -> bool:
         return self.enabled and normalize_alpaca_bar_timeframe(timeframe) != "1Day"
@@ -528,20 +532,26 @@ def filter_alpaca_session_rows(
     """Apply local regular-session filtering to normalized Alpaca bar rows."""
     if not session_filter.applies_to_timeframe(timeframe):
         return list(rows)
-    try:
-        session_zone = ZoneInfo(session_filter.timezone)
-    except ZoneInfoNotFoundError as exc:
-        raise ConfigurationError(f"unknown session filter timezone: {session_filter.timezone}") from exc
+    session_service = MarketSessionService(
+        MarketSessionConfig.from_mapping(
+            {
+                "exchange": session_filter.exchange,
+                "timezone": session_filter.timezone,
+                "regular_session_only": True,
+                "extended_hours": {"enabled": False},
+                "fail_closed": session_filter.fail_closed,
+                "calendar_provider": session_filter.calendar_provider,
+                "regular_open": session_filter.start.strftime("%H:%M"),
+                "regular_close": session_filter.end.strftime("%H:%M"),
+            }
+        )
+    )
 
     return [
         row
         for row in rows
-        if _time_in_session(
+        if session_service.is_regular_session(
             normalize_timestamp(row["timestamp"], assume_utc_for_naive=True)
-            .astimezone(session_zone)
-            .time(),
-            session_filter.start,
-            session_filter.end,
         )
     ]
 
@@ -713,20 +723,38 @@ def _session_filter_config(raw: Any) -> AlpacaSessionFilterConfig:
 
     data = _mapping(raw, "market_data.session_filter")
     enabled = _optional_bool(data.get("enabled"), default=True)
+    exchange = _optional_text(data.get("exchange")) or "XNYS"
     timezone = _optional_text(data.get("timezone")) or DEFAULT_SESSION_TIMEZONE
     start = _parse_session_time(data.get("start") or DEFAULT_SESSION_START, "session_filter.start")
     end = _parse_session_time(data.get("end") or DEFAULT_SESSION_END, "session_filter.end")
+    calendar_provider = _optional_text(data.get("calendar_provider")) or "builtin_us_equity"
+    fail_closed = _optional_bool(data.get("fail_closed"), default=True)
     if start == end:
         raise ConfigurationError("session_filter.start and session_filter.end must differ")
     try:
         ZoneInfo(timezone)
     except ZoneInfoNotFoundError as exc:
         raise ConfigurationError(f"unknown session filter timezone: {timezone}") from exc
+    MarketSessionConfig.from_mapping(
+        {
+            "exchange": exchange,
+            "timezone": timezone,
+            "regular_session_only": True,
+            "extended_hours": {"enabled": False},
+            "fail_closed": fail_closed,
+            "calendar_provider": calendar_provider,
+            "regular_open": start.strftime("%H:%M"),
+            "regular_close": end.strftime("%H:%M"),
+        }
+    )
     return AlpacaSessionFilterConfig(
         enabled=enabled,
+        exchange=exchange,
         timezone=timezone,
         start=start,
         end=end,
+        calendar_provider=calendar_provider,
+        fail_closed=fail_closed,
     )
 
 
@@ -886,12 +914,6 @@ def _partition_path_token(value: str) -> str:
             chars.append("-")
             previous_separator = True
     return "".join(chars).strip("-") or "value"
-
-
-def _time_in_session(value: time, start: time, end: time) -> bool:
-    if start < end:
-        return start <= value < end
-    return value >= start or value < end
 
 
 def _parse_session_time(value: Any, field_name: str) -> time:

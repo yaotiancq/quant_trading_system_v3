@@ -130,6 +130,7 @@ def build_runtime_config(
             risk=dict(_mapping(raw.get("risk"), "risk")),
             portfolio=dict(_mapping(raw.get("portfolio"), "portfolio")),
             execution=dict(_mapping(raw.get("execution"), "execution")),
+            market_session=dict(_mapping(raw.get("market_session"), "market_session", required=False)),
             reporting=dict(_mapping(raw.get("reporting"), "reporting", required=False)),
             monitoring=dict(_mapping(raw.get("monitoring"), "monitoring", required=False)),
             metadata=runtime_metadata,
@@ -332,6 +333,7 @@ def validate_runtime_mapping(raw: Mapping[str, Any]) -> None:
             "risk",
             "portfolio",
             "execution",
+            "market_session",
             "reporting",
             "monitoring",
         },
@@ -354,6 +356,7 @@ def validate_runtime_mapping(raw: Mapping[str, Any]) -> None:
     _validate_broker(_mapping(raw.get("broker"), "broker"))
     _validate_portfolio(_mapping(raw.get("portfolio"), "portfolio"))
     _validate_execution(_mapping(raw.get("execution"), "execution"))
+    _validate_market_session(_mapping(raw.get("market_session"), "market_session", required=False))
     _validate_reporting(_mapping(raw.get("reporting"), "reporting", required=False))
     _validate_monitoring(_mapping(raw.get("monitoring"), "monitoring", required=False))
     _validate_risk(_mapping(raw.get("risk"), "risk"))
@@ -451,6 +454,34 @@ def _validate_portfolio(config: Mapping[str, Any]) -> None:
 
 def _validate_execution(config: Mapping[str, Any]) -> None:
     _reject_unknown_keys(config, {"allow_fractional"}, "execution")
+
+
+def _validate_market_session(config: Mapping[str, Any]) -> None:
+    _reject_unknown_keys(
+        config,
+        {
+            "exchange",
+            "timezone",
+            "regular_session_only",
+            "extended_hours",
+            "fail_closed",
+            "calendar_provider",
+            "regular_open",
+            "regular_close",
+        },
+        "market_session",
+    )
+    extended = config.get("extended_hours")
+    if isinstance(extended, Mapping):
+        _reject_unknown_keys(
+            extended,
+            {"enabled", "premarket_open", "after_hours_close"},
+            "market_session.extended_hours",
+        )
+    if config:
+        from qts.calendar import market_session_config_from_mapping
+
+        market_session_config_from_mapping(config)
 
 
 def _validate_reporting(config: Mapping[str, Any]) -> None:

@@ -98,6 +98,22 @@ class LiveSafetyTests(unittest.TestCase):
         with self.assertRaises(LiveSafetyError):
             validate_order_request_safety(config, fractional, price=100)
 
+    def test_order_request_safety_rejects_outside_market_session(self) -> None:
+        config = make_live_config()
+        outside_session = OrderRequest(
+            client_order_id="live-outside-session",
+            strategy_id="sma_live",
+            symbol="SPY",
+            timestamp="2026-01-05T13:00:00Z",
+            side=OrderSide.BUY,
+            quantity=1,
+            order_type=OrderType.MARKET,
+            time_in_force=TimeInForce.DAY,
+        )
+
+        with self.assertRaisesRegex(LiveSafetyError, "outside the configured market session"):
+            validate_order_request_safety(config, outside_session, price=100)
+
 
 if __name__ == "__main__":
     unittest.main()

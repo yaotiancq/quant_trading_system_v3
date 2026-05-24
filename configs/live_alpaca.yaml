@@ -17,6 +17,19 @@ symbols: [SPY]
 # Options: SECOND, MINUTE, HOUR, DAY.
 timeframe: MINUTE
 
+# Canonical exchange/session service used by live health and safety gates.
+market_session:
+  # Options currently supported by the built-in provider: XNYS, NASDAQ.
+  exchange: XNYS
+  # Session clock timezone.
+  timezone: America/New_York
+  # true permits only [regular_open, regular_close); false can use extended_hours.
+  regular_session_only: true
+  # Fail closed if a session cannot be resolved.
+  fail_closed: true
+  # Options currently supported: builtin_us_equity.
+  calendar_provider: builtin_us_equity
+
 # Live runtime event source.
 market_data:
   # Options for this runtime scaffold: external_events.

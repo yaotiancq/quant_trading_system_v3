@@ -24,6 +24,8 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.market_data["provider"], "local_csv")
         self.assertEqual(config.market_data["path"], str(ROOT / "data" / "alpaca"))
         self.assertEqual(config.bar_interval, "1Min")
+        self.assertEqual(config.market_session["exchange"], "XNYS")
+        self.assertEqual(config.market_session["timezone"], "America/New_York")
         self.assertEqual(config.metadata["timezone"], "UTC")
         self.assertEqual(config.strategies[0].strategy_id, "sma_cross_v1")
         self.assertEqual(config.strategies[0].parameters["slow_window"], 40)
@@ -414,6 +416,47 @@ reporting:
             )
 
             with self.assertRaisesRegex(ConfigurationError, "reporting"):
+                load_runtime_config(path, env_path=None)
+
+    def test_invalid_market_session_config_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad.yaml"
+            path.write_text(
+                """
+runtime:
+  mode: BACKTEST
+symbols: [SPY]
+timeframe: MINUTE
+market_session:
+  exchange: CRYPTO
+date_range:
+  start: 2024-01-02T14:30:00Z
+  end: 2024-01-02T14:35:00Z
+market_data:
+  provider: local_csv
+  path: data/bars.csv
+broker:
+  broker_type: backtest
+strategies:
+  - strategy_id: sma
+    strategy_type: sma_crossover
+    symbols: [SPY]
+    parameters:
+      fast_window: 2
+      slow_window: 3
+risk:
+  sizing_method: fixed_quantity
+  sizing_parameters:
+    quantity: 1
+portfolio:
+  starting_cash: 100000
+execution:
+  allow_fractional: false
+""",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ConfigurationError, "market_session.exchange"):
                 load_runtime_config(path, env_path=None)
 
     def test_invalid_sizing_parameters_fail_at_config_load_time(self) -> None:

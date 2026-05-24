@@ -719,6 +719,7 @@ class RuntimeConfig(DomainModel):
     start: datetime | date | str | None = None
     end: datetime | date | str | None = None
     bar_interval: str | None = None
+    market_session: dict[str, Any] = field(default_factory=dict)
     reporting: dict[str, Any] = field(default_factory=dict)
     monitoring: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -748,6 +749,7 @@ class RuntimeConfig(DomainModel):
             raise ValueError("portfolio must be non-empty")
         if not self.execution:
             raise ValueError("execution must be non-empty")
+        self.market_session = _dict(self.market_session)
         self.start = (
             normalize_timestamp(self.start, assume_utc_for_naive=True)
             if self.start is not None

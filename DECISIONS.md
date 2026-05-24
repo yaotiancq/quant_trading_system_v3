@@ -829,3 +829,50 @@ allowing defaults to silently select a mode, universe, or broker order semantic.
 - Keep inherited `BACKTEST` and `[SPY]` defaults in `configs/base.yaml`.
 - Convert notional sizing to rounded whole-share quantities automatically.
 - Let broker adapters handle ambiguous quantity/notional requests late.
+
+---
+
+## ADR-024: Centralize Exchange Calendar and Session Semantics
+
+### Context
+
+Paper/live health checks, live safety checks, historical data filtering, and
+broker fallback market-clock behavior all need consistent answers to basic
+session questions. Weekday-only checks are not sufficient for US equities
+because they miss holidays, early closes, timezone conversion, regular-session
+boundaries, and extended-hours policy.
+
+### Decision
+
+Introduce `qts.calendar` as the canonical owner of exchange calendar and
+market-session logic. The first implementation is a deterministic built-in US
+equity calendar for `XNYS` and `NASDAQ`, exposed through
+`MarketSessionService`.
+
+Runtime configs may define a `market_session` section with exchange, timezone,
+regular-session-only versus extended-hours behavior, fail-closed behavior, and
+provider selection. Runtime modules should call the shared service rather than
+embedding ad hoc weekday/time checks.
+
+### Rationale
+
+Centralizing session semantics keeps backtest, paper, live, market data, and
+monitoring behavior aligned. It also lets the system fail closed when a calendar
+provider cannot resolve a session, which is safer than silently assuming an
+open market.
+
+### Consequences
+
+- Historical Alpaca session filtering now excludes exchange holidays and early
+  closes in addition to local clock boundaries.
+- Paper/live health and live order safety use the shared session service.
+- Broker adapters retain `is_market_open()` for the shared brokerage protocol,
+  but fallback behavior now delegates to the default session service instead of
+  weekday-only logic.
+- Future exchange calendars can be added behind the same provider interface.
+
+### Alternatives Considered
+
+- Keep weekday-only fallback checks.
+- Keep historical session filtering as a simple local time comparison.
+- Depend immediately on a third-party exchange-calendar package.

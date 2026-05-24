@@ -38,12 +38,18 @@ market_data:
   session_filter:
     # true enables filtering; false keeps all returned rows.
     enabled: true
+    # Exchange calendar used for holidays and early closes. Options: XNYS, NASDAQ.
+    exchange: XNYS
     # IANA timezone used to interpret the session clock.
     timezone: America/New_York
     # Inclusive local session start time.
     start: "09:30"
     # Exclusive local session end time.
     end: "16:00"
+    # Fail closed if the calendar cannot resolve the session.
+    fail_closed: true
+    # Options currently supported: builtin_us_equity.
+    calendar_provider: builtin_us_equity
 
 # Credential environment variable names.
 credentials:

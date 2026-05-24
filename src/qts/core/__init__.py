@@ -23,6 +23,7 @@ from .config import (
 )
 from .exceptions import (
     BrokerError,
+    CalendarError,
     ClockError,
     ConfigurationError,
     DataError,
@@ -39,6 +40,7 @@ from .logging_config import configure_logging
 
 __all__ = [
     "BrokerError",
+    "CalendarError",
     "Clock",
     "ClockError",
     "ConfigurationError",

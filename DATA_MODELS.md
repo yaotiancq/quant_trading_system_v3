@@ -28,6 +28,46 @@
 
 ---
 
+## 2a. MarketSession
+
+### Purpose
+
+Represents one resolved exchange session with UTC-normalized boundaries.
+
+### Fields
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `exchange` | string | yes | supported exchange code such as `XNYS` or `NASDAQ` |
+| `session_date` | date | yes | local exchange session date |
+| `timezone` | string | yes | valid IANA timezone |
+| `regular_open` | datetime | yes | timezone-aware UTC |
+| `regular_close` | datetime | yes | timezone-aware UTC, exclusive |
+| `premarket_open` | datetime | no | UTC, only when extended hours are enabled |
+| `after_hours_close` | datetime | no | UTC, only when extended hours are enabled |
+| `early_close` | bool | yes | true for shortened regular sessions |
+| `metadata` | dict | no | provider details |
+
+### Validation Rules
+
+- Regular open is inclusive.
+- Regular close is exclusive.
+- Tradable open/close may include extended-hours windows when configured.
+- A missing session means the exchange is closed or the calendar failed closed.
+
+### Producers
+
+- calendar/session service.
+
+### Consumers
+
+- market data download filters,
+- runtime engines,
+- monitoring and live safety,
+- broker `is_market_open` fallbacks.
+
+---
+
 ## 3. Bar
 
 ### Purpose
@@ -1114,6 +1154,7 @@ Top-level configuration for a run.
 | `risk` | `RiskConfig` | yes | risk config |
 | `portfolio` | dict | yes | starting cash, currency |
 | `execution` | dict | yes | order/execution config, including `allow_fractional` |
+| `market_session` | dict | no | exchange/session config for runtime checks |
 | `reporting` | dict | no | output config |
 | `monitoring` | dict | no | runtime monitoring config |
 
@@ -1121,6 +1162,9 @@ Active runtime YAML files must explicitly set `runtime.mode`, `symbols`, and
 `timeframe`; these operational fields are not inherited from `configs/base.yaml`.
 Supported `reporting` keys are `output_dir`, `generate_plots`,
 `annualization_factor`, and `risk_free_rate`.
+Supported `market_session` keys are `exchange`, `timezone`,
+`regular_session_only`, `extended_hours`, `fail_closed`, `calendar_provider`,
+`regular_open`, and `regular_close`.
 
 ### Example
 

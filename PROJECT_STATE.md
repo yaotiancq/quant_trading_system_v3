@@ -51,6 +51,13 @@ the fractional execution policy, tightens session/cooldown/daily-loss risk
 rules, rejects mismatched injected strategy lists, supports explicit reporting
 annualization settings, and fixes the IBKR fill polling `since` boundary.
 
+Major Architecture Phase A has added a shared exchange calendar and
+market-session service under `qts.calendar`. Runtime configs now support
+`market_session`, Alpaca historical session filtering uses the shared US equity
+calendar, paper/live health checks and live order safety use the shared service,
+and broker fallback `is_market_open()` implementations no longer use
+weekday-only logic.
+
 Real live broker order submission remains disabled by default. Phase 8 provides
 guarded dry-run initialization and safety validation only.
 
@@ -61,7 +68,7 @@ paper/live market-data mode explicit through `market_data.provider:
 external_events` and enforce `execution.allow_fractional` in runtime order
 validation.
 
-- **Current phase:** All documented phases complete
+- **Current phase:** Major Architecture Phase A complete
 - **Completed phases:**
   - Phase 0 - Documentation and repository scaffold initialization
   - Phase 1 - Project Skeleton and Core Domain Models
@@ -74,9 +81,10 @@ validation.
   - Phase 8 - Monitoring, Reconciliation, and Live-Trading Readiness
   - Phase 9 - IBKR Paper Brokerage Foundation
   - Phase 10 - Alpaca SIP Historical Data Download
+  - Major Architecture Phase A - Exchange Calendar and Market Session Service
 - **In-progress phase:** None
-- **Next recommended task:** Define the next documented phase or backlog before
-  adding functionality beyond Phase 10.
+- **Next recommended task:** Major Architecture Phase B - Continuous
+  Market-Data Event Loop for Paper/Live Runtime.
 
 ## 2. Completed Phases
 
@@ -93,12 +101,17 @@ validation.
 | Phase 8 | Complete | Implemented monitoring health checks, metrics, alerts, recovery behavior, broker reconciliation checks, live safety gates, guarded dry-run LiveEngine scaffolding, live runner script, runbooks, and tests. |
 | Phase 9 | Complete | Implemented dependency-free IBKR client/mapping, IBKRBrokerage, mock paper mode, IBKR paper config, paper engine factory support, and mocked tests. |
 | Phase 10 | Complete | Implemented config-driven Alpaca SIP historical bar downloader, partitioned CSV/Parquet output, download script, data config template, docs, and tests. |
+| Major Architecture Phase A | Complete | Implemented shared US equity calendar/session service, runtime config validation, Alpaca filtering integration, paper/live health checks, live order safety, and tests. |
 
 ## 3. Pending Phases
 
 | Phase | Status |
 |---|---|
-| None in current `PHASE_PLAN.md` | Complete |
+| Major Architecture Phase B - Continuous Market-Data Event Loop for Paper/Live Runtime | Planned |
+| Major Architecture Phase C - Broker Event Stream and Order Lifecycle Synchronization | Planned |
+| Major Architecture Phase D - Production Live-Trading Enablement | Blocked until A-C complete |
+| Major Architecture Phase E - Chart Reporting and Visual Backtest Diagnostics | Planned |
+| Major Architecture Phase F - Production ML Contracts and Model Governance | Planned |
 
 ## 4. Implemented Modules
 
@@ -146,6 +159,7 @@ Domain layer implemented:
 
 Core infrastructure implemented:
 
+- `src/qts/calendar/`
 - `src/qts/core/config.py`
 - `src/qts/core/clocks.py`
 - `src/qts/core/exceptions.py`
@@ -269,6 +283,7 @@ Tests and fixtures implemented:
 
 - `tests/test_scaffold.py`
 - `tests/unit/domain/`
+- `tests/unit/calendar/`
 - `tests/unit/core/`
 - `tests/unit/market_data/`
 - `tests/unit/features/`

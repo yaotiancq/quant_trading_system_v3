@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from qts.calendar import build_market_session_service
 from qts.core import LiveSafetyError
 from qts.domain import Account, OrderRequest, RuntimeConfig, RuntimeMode, normalize_symbol
 
@@ -25,6 +26,7 @@ def validate_live_safety_config(config: RuntimeConfig) -> LiveSafetyPolicy:
     """Validate static live safety gates from runtime configuration."""
     if config.runtime_mode != RuntimeMode.LIVE:
         raise LiveSafetyError("LiveEngine requires LIVE runtime mode")
+    build_market_session_service(config)
 
     safety = dict(config.broker.safety)
     if not _truthy(safety.get("live_enabled")):
@@ -85,6 +87,9 @@ def validate_order_request_safety(
 ) -> bool:
     """Validate a normalized order request against live safety caps."""
     policy = validate_live_safety_config(config)
+    session_service = build_market_session_service(config)
+    if not session_service.is_tradable(order_request.timestamp):
+        raise LiveSafetyError("order timestamp is outside the configured market session")
     symbol = normalize_symbol(order_request.symbol)
     if policy.allowed_symbols and symbol not in set(policy.allowed_symbols):
         raise LiveSafetyError(f"order symbol is not allowed for live trading: {symbol}")

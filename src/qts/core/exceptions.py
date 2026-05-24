@@ -19,6 +19,10 @@ class DataError(QTSError):
     """Raised for market data validation or provider failures."""
 
 
+class CalendarError(QTSError):
+    """Raised when a market calendar/session cannot be resolved."""
+
+
 class FeatureError(QTSError):
     """Raised for feature schema or indicator failures."""
 
@@ -53,6 +57,7 @@ class LiveSafetyError(QTSError):
 
 __all__ = [
     "BrokerError",
+    "CalendarError",
     "ClockError",
     "ConfigurationError",
     "DataError",

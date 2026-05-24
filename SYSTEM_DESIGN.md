@@ -180,6 +180,22 @@ Rules:
 - Must not depend on strategies, broker implementations, or vendor clients.
 - Can be imported by all modules.
 
+### `calendar/`
+
+Owns exchange calendar and market-session behavior:
+
+- `MarketCalendar` provider contract,
+- built-in US equity session provider,
+- `MarketSessionService`,
+- regular and extended-hours session checks,
+- holidays, early closes, timezone conversion, and fail-closed semantics.
+
+Rules:
+
+- Must not load market data or submit orders.
+- Runtime modules must call this shared service instead of duplicating
+  weekday-only market-open logic.
+
 ### `market_data/`
 
 Owns market data interfaces and implementations:
@@ -192,8 +208,6 @@ Owns market data interfaces and implementations:
 - replay data provider,
 - live data provider abstractions,
 - data normalization,
-- trading calendar,
-- timezone handling,
 - corporate action adjustment policy,
 - symbol mapping.
 
@@ -425,6 +439,7 @@ quant-trading-system/
     qts/
       domain/
       core/
+      calendar/
       market_data/
       features/
       strategies/

@@ -7,6 +7,7 @@ from dataclasses import replace
 from datetime import datetime
 from typing import Any
 
+from qts.calendar import default_market_session_service
 from qts.core import BrokerError, LiveSafetyError
 from qts.domain import (
     Account,
@@ -209,7 +210,7 @@ class IBKRBrokerage:
 
     def is_market_open(self, timestamp: datetime) -> bool:
         self._require_connected()
-        return normalize_timestamp(timestamp).weekday() < 5
+        return default_market_session_service().is_tradable(timestamp)
 
     def _ensure_paper_only(self) -> None:
         broker_type = self.broker_config.broker_type.lower()

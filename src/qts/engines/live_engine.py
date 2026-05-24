@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from qts.brokers import Brokerage
+from qts.calendar import MarketSessionService, build_market_session_service, default_market_session_service
 from qts.core import ConfigurationError, LiveSafetyError, RealClock, ReconciliationError
 from qts.domain import (
     Account,
@@ -63,6 +64,7 @@ class LiveEngine:
         self.alert_manager = alert_manager or AlertManager()
         self.metrics_logger = metrics_logger or RuntimeMetricsLogger()
         self.clock = clock or RealClock()
+        self.session_service: MarketSessionService | None = None
         self._running = False
         self._initialized = False
         self.market_data_provider_name: str | None = None
@@ -74,6 +76,7 @@ class LiveEngine:
             self.config = runtime_config
         if self.config.runtime_mode != RuntimeMode.LIVE:
             raise ConfigurationError("LiveEngine requires LIVE runtime mode")
+        self.session_service = build_market_session_service(self.config)
 
         self.market_data_provider_name = resolve_event_market_data_provider(
             self.config,
@@ -110,7 +113,11 @@ class LiveEngine:
 
         self.health_monitor = self.health_monitor or HealthMonitor(
             [
-                BrokerConnectionHealthCheck(self.brokerage, clock=self.clock),
+                BrokerConnectionHealthCheck(
+                    self.brokerage,
+                    clock=self.clock,
+                    market_session_service=self.session_service,
+                ),
                 reconciliation_check,
             ]
         )
@@ -259,7 +266,7 @@ class _DryRunLiveBrokerage:
 
     def is_market_open(self, timestamp: datetime) -> bool:
         self._require_connected()
-        return timestamp.weekday() < 5
+        return default_market_session_service().is_tradable(timestamp)
 
     def _require_connected(self) -> None:
         if not self.connected:

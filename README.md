@@ -17,7 +17,8 @@ The architecture documents in the project root are the source of truth:
 Phase 10 is complete. The repository now includes the package layout, validated
 domain models and enums, core configuration loading, clocks, common exceptions,
 logging setup, local market data providers, a config-driven Alpaca SIP
-historical bar downloader, deterministic replay, reusable batch indicators,
+historical bar downloader, a shared US equity calendar/session service,
+deterministic replay, reusable batch indicators,
 feature schemas, feature pipelines, broker-agnostic example strategies, a risk
 engine with position sizing and basic rules, an execution engine, order
 manager/router, normalized brokerage protocol, simulated BacktestBrokerage,
@@ -39,6 +40,7 @@ phase or backlog before implementation.
 configs/          Runtime configuration templates
 src/qts/domain/   Stable domain models and enums
 src/qts/core/     Config loading, clocks, exceptions, and logging setup
+src/qts/calendar/ Exchange calendar and market-session service
 src/qts/market_data/
                   Local data loading, Alpaca SIP downloads, normalization, replay, portal
 src/qts/features/ Reusable batch indicators and feature pipelines
@@ -138,6 +140,10 @@ Active runtime configs must explicitly set `runtime.mode`, `symbols`, and
 `timeframe`; `configs/base.yaml` only carries safe shared metadata/defaults.
 If `execution.allow_fractional: false`, use quantity-based risk sizing so
 broker-ready orders do not carry notional-only sizing.
+Runtime configs may also set `market_session` to control exchange session
+behavior. The built-in provider currently supports US equities for `XNYS` and
+`NASDAQ`, regular-session-only or extended-hours checks, and fail-closed
+behavior when a session cannot be resolved.
 
 Paper/live templates use `market_data.provider: external_events` because the
 current paper and live scaffolds consume externally supplied `Bar`/`Quote`
@@ -171,7 +177,9 @@ The default config writes a partitioned dataset under `data/alpaca` using
 `timeframe`, `symbol`, and `date` partitions. Alpaca is requested for the full
 configured interval, then rows are filtered locally to regular US equity
 session starts `[09:30, 16:00)` in `America/New_York`. The downloader is
-currently SIP-only. Backtests that read a mixed partitioned dataset should set
+currently SIP-only. The session filter uses the shared US equity calendar, so
+holidays and early closes are filtered locally as well. Backtests that read a
+mixed partitioned dataset should set
 `market_data.bar_interval` such as `1Min` or `5Min` to avoid mixing minute
 aggregations. Use CLI overrides for quick experiments:
 

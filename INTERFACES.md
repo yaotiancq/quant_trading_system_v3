@@ -18,6 +18,7 @@ General conventions:
 
 | Interface | Owned By | Implemented By | Consumed By |
 |---|---|---|---|
+| `MarketCalendar` / `MarketSessionService` | `calendar/` | built-in US equity provider | market data, engines, monitoring, brokers |
 | `MarketDataProvider` | `market_data/` | local, replay, live providers | engines, data portal |
 | `DataPortal` | `market_data/` | default data portal | strategies, features, engines |
 | `Indicator` | `features/` | indicator classes/functions | feature pipeline |
@@ -75,6 +76,38 @@ adapters.
 ### Stability Notes
 
 The interface is stable. New providers must conform to it rather than forcing changes upstream.
+
+## 3a. MarketCalendar and MarketSessionService
+
+### Purpose
+
+Resolve exchange sessions and answer tradability questions without duplicated
+weekday-only logic.
+
+### Required Methods
+
+| Method | Inputs | Output | Notes |
+|---|---|---|---|
+| `session_for_date` | local session date | optional `MarketSession` | Returns None for holidays/weekends. |
+| `session_for_timestamp` | timestamp | optional `MarketSession` | Converts timestamp to configured exchange timezone. |
+| `is_regular_session` | timestamp | bool | Uses inclusive open and exclusive close. |
+| `is_tradable` | timestamp | bool | Applies regular-only or extended-hours config. |
+| `current_or_next_session` | timestamp | `MarketSession` | Returns current session if still tradable, otherwise next. |
+| `next_session_after` | timestamp | `MarketSession` | Finds the next resolvable session. |
+
+### Error Behavior
+
+- Invalid exchange/provider/timezone configuration raises configuration error.
+- If a provider cannot resolve a session and `fail_closed` is true, tradability
+  checks return false.
+- If `fail_closed` is false, unresolved provider failures raise a calendar
+  error.
+
+### Stability Notes
+
+The first built-in provider targets US equities for `XNYS` and `NASDAQ`. Future
+providers should implement the same interface rather than embedding calendar
+logic in engines, broker adapters, or data downloaders.
 
 ## 4. DataPortal
 

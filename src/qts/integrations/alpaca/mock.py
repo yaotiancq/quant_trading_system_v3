@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from qts.calendar import default_market_session_service
+
 
 class InMemoryAlpacaClient:
     """Tiny Alpaca-like client that never touches the network."""
@@ -119,7 +121,7 @@ class InMemoryAlpacaClient:
         now = datetime.now(timezone.utc)
         return {
             "timestamp": _now_text(now),
-            "is_open": now.weekday() < 5,
+            "is_open": default_market_session_service().is_tradable(now),
             "next_open": _now_text(now),
             "next_close": _now_text(now),
         }

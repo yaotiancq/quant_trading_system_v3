@@ -134,6 +134,7 @@ Core fields:
 | `symbols` | Runtime symbol universe. Active configs must set this explicitly. |
 | `timeframe` | Runtime bar timeframe. Active configs must set this explicitly. |
 | `market_data` | Provider and path/settings. |
+| `market_session` | Exchange calendar/session rules for runtime health and safety. |
 | `broker` | Broker implementation and safety settings. |
 | `strategies` | Strategy definitions and parameters. |
 | `risk` | Sizing and risk rules. |
@@ -147,6 +148,25 @@ Validate a config without running a full workflow:
 ```bash
 PYTHONPATH=src .venv/bin/python -m qts.cli --config configs/backtest_fixture.yaml
 ```
+
+### Market Session Settings
+
+Runtime configs can set:
+
+```yaml
+market_session:
+  exchange: XNYS
+  timezone: America/New_York
+  regular_session_only: true
+  fail_closed: true
+  calendar_provider: builtin_us_equity
+```
+
+The built-in calendar supports US equity sessions for `XNYS` and `NASDAQ`,
+including weekends, common exchange holidays, early closes, and
+`America/New_York` to UTC conversion. Regular session open is inclusive and
+close is exclusive. Extended hours can be enabled with `regular_session_only:
+false` and `extended_hours.enabled: true`.
 
 ## 6. Download Alpaca SIP Historical K-Line Data
 
@@ -236,12 +256,13 @@ You can still use `layout: single_file` with a fixed `output.path`, but that is
 intended for small fixtures and ad hoc exports. If `output.path` ends with
 `.csv` or `.parquet`, the extension must match `output.format`.
 
-The regular-session filter is applied after download. For minute bars on US
-equities, this keeps bar start times where the timestamp converted to
-`America/New_York` is greater than or equal to `09:30` and less than `16:00`.
-For example, during Eastern daylight time, a `20:00:00Z` bar starts at `16:00`
-ET and is excluded. Set `session_filter.enabled: false` only when you want
-extended-hours data.
+The regular-session filter is applied after download using the shared market
+session service. For minute bars on US equities, this keeps bar start times
+where the timestamp converted to `America/New_York` is greater than or equal to
+`09:30` and less than `16:00` on regular full-session days. For example, during
+Eastern daylight time, a `20:00:00Z` bar starts at `16:00` ET and is excluded.
+Exchange holidays and early closes are also filtered. Set
+`session_filter.enabled: false` only when you want extended-hours data.
 
 Quick CLI overrides are available:
 

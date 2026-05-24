@@ -6,6 +6,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Any
 
+from qts.calendar import default_market_session_service
 from qts.core import BrokerError
 from qts.domain import (
     Account,
@@ -216,8 +217,7 @@ class BacktestBrokerage:
         return [fill for fill in self._fills if fill.timestamp > normalized_since]
 
     def is_market_open(self, timestamp: datetime) -> bool:
-        normalized = normalize_timestamp(timestamp)
-        return normalized.weekday() < 5
+        return default_market_session_service().is_tradable(timestamp)
 
     def on_market_event(self, market_event: Bar | Quote | Trade) -> list[Fill]:
         self._require_connected()

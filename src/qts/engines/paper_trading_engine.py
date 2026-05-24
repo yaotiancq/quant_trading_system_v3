@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from datetime import datetime
 
 from qts.brokers import AlpacaBrokerage, Brokerage, IBKRBrokerage
+from qts.calendar import MarketSessionService, build_market_session_service
 from qts.core import ConfigurationError, RealClock
 from qts.domain import (
     Bar,
@@ -47,6 +48,7 @@ class PaperTradingEngine:
         self.strategies = list(strategies or [])
         self._strategies_injected = strategies is not None
         self.clock = clock or RealClock()
+        self.session_service: MarketSessionService | None = None
         self.data_portal = _PaperDataPortal()
         self.market_data_provider_name: str | None = None
         self.portfolio: DefaultPortfolio | None = None
@@ -63,6 +65,7 @@ class PaperTradingEngine:
             self.config = runtime_config
         if self.config.runtime_mode != RuntimeMode.PAPER:
             raise ConfigurationError("PaperTradingEngine requires PAPER runtime mode")
+        self.session_service = build_market_session_service(self.config)
         self.market_data_provider_name = resolve_event_market_data_provider(
             self.config,
             engine_name="PaperTradingEngine",
@@ -204,7 +207,11 @@ class PaperTradingEngine:
         error: str | None = None
         market_open = False
         try:
-            market_open = self.brokerage.is_market_open(self.clock.now())
+            market_open = (
+                self.session_service.is_tradable(self.clock.now())
+                if self.session_service is not None
+                else self.brokerage.is_market_open(self.clock.now())
+            )
         except Exception as exc:  # pragma: no cover - defensive status reporting
             healthy = False
             error = str(exc)

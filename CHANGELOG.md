@@ -8,6 +8,42 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Major Architecture Phase A] - 2026-05-23
+
+### Added
+
+- Added `qts.calendar` with `MarketSession`, `MarketSessionConfig`,
+  `MarketSessionService`, `MarketCalendar`, and a deterministic built-in US
+  equity calendar provider for `XNYS` and `NASDAQ`.
+- Added runtime `market_session` config support for exchange, timezone,
+  regular-session-only mode, extended-hours windows, fail-closed behavior, and
+  provider selection.
+- Added tests for normal trading days, weekends, holidays, early closes,
+  daylight-saving conversion, extended hours, and fail-closed provider behavior.
+
+### Changed
+
+- Alpaca historical session filtering now uses the shared market-session service
+  so holidays and early closes are handled consistently.
+- Paper/live health checks and live order safety now use the shared session
+  service instead of broker weekday fallbacks.
+- Broker fallback `is_market_open()` implementations now delegate to the
+  default market-session service.
+- `PHASE_PLAN.md` now tracks major architecture phases A-F from the external
+  phase prompt document.
+
+### Fixed
+
+- Fixed weekday-only market-open behavior in fallback broker/session checks.
+- Fixed historical intraday filtering on exchange holidays and early-close days.
+
+### Removed
+
+- Removed ad hoc local-time-only filtering from the Alpaca downloader session
+  path.
+
+---
+
 ## [Post-Review Correctness Fixes] - 2026-05-23
 
 ### Added

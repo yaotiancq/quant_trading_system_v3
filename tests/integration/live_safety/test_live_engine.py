@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import unittest
 from contextlib import redirect_stdout
+from datetime import datetime, timezone
 from io import StringIO
 
-from qts.core import LiveSafetyError
+from qts.core import LiveSafetyError, ReplayClock
 from qts.domain import OrderRequest, OrderSide, OrderType, TimeInForce
 from qts.engines import LiveEngine
 
@@ -21,6 +22,16 @@ class LiveEngineSafetyIntegrationTests(unittest.TestCase):
         self.assertTrue(health["initialized"])
         self.assertTrue(health["dry_run"])
         self.assertEqual(health["status"], "OK")
+        engine.stop(reason="test complete")
+
+    def test_live_engine_health_uses_market_session_service(self) -> None:
+        holiday_clock = ReplayClock(datetime(2026, 1, 1, 15, 0, tzinfo=timezone.utc))
+        engine = LiveEngine(make_live_config(), clock=holiday_clock)
+
+        health = engine.start(max_events=0)
+
+        broker_check = next(check for check in health["checks"] if check["name"] == "broker_connection")
+        self.assertFalse(broker_check["details"]["market_open"])
         engine.stop(reason="test complete")
 
     def test_live_engine_rejects_missing_safety_enablement(self) -> None:

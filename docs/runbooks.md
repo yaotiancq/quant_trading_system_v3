@@ -12,6 +12,8 @@ Before a `LIVE` runtime can initialize, the config must explicitly set:
 - `broker.safety.allowed_symbols`
 - `broker.safety.allowed_account_ids`
 - `broker.safety.max_order_notional` or `broker.safety.max_order_quantity`
+- `market_session` with a supported exchange/provider, or the default
+  fail-closed US equity session settings
 
 Non-dry-run live mode additionally requires
 `broker.safety.confirm_live_trading: true`, but real live brokerage submission is
@@ -28,6 +30,7 @@ PYTHONPATH=src .venv/bin/python scripts/run_live_trading.py --config configs/liv
 The Phase 8 live engine runs:
 
 - broker connectivity checks,
+- shared market-session checks,
 - broker/internal reconciliation checks,
 - engine state reporting.
 
@@ -66,5 +69,6 @@ and reconciliation first.
 ## Order Safety
 
 Every future live order path must validate normalized `OrderRequest` objects
-against the live safety policy before broker submission. The Phase 8 scaffold
-provides this validation, but does not enable real live submission.
+against the live safety policy before broker submission. The scaffold also
+rejects order timestamps outside the configured market session. Real live
+submission remains disabled until a later production-live phase.

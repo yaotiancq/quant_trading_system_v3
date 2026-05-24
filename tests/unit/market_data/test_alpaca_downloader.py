@@ -16,6 +16,7 @@ from qts.market_data import (
     LocalParquetProvider,
     download_alpaca_bars,
     download_alpaca_bars_to_csv,
+    filter_alpaca_session_rows,
     normalize_alpaca_bar_timeframe,
 )
 
@@ -445,6 +446,24 @@ class AlpacaDownloaderTests(unittest.TestCase):
                 [bar.timestamp.isoformat().replace("+00:00", "Z") for bar in bars],
                 ["2026-05-22T13:30:00Z", "2026-05-22T19:59:00Z"],
             )
+
+    def test_session_filter_uses_calendar_holidays_and_early_closes(self) -> None:
+        rows = [
+            {"symbol": "SPY", "timestamp": "2026-01-01T15:00:00Z"},
+            {"symbol": "SPY", "timestamp": "2026-11-27T17:59:00Z"},
+            {"symbol": "SPY", "timestamp": "2026-11-27T18:00:00Z"},
+        ]
+
+        filtered = filter_alpaca_session_rows(
+            rows,
+            session_filter=AlpacaSessionFilterConfig(enabled=True),
+            timeframe="1Min",
+        )
+
+        self.assertEqual(
+            [row["timestamp"] for row in filtered],
+            ["2026-11-27T17:59:00Z"],
+        )
 
     def test_session_filter_can_be_disabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
