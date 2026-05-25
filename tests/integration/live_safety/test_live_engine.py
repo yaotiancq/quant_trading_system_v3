@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import importlib.util
 import unittest
 from contextlib import redirect_stdout
 from datetime import datetime, timezone
 from io import StringIO
+from pathlib import Path
 from unittest.mock import patch
 
 from qts.core import BrokerError, LiveSafetyError, ReplayClock
@@ -28,8 +30,25 @@ from qts.engines import LiveEngine
 from qts.execution import InMemoryBrokerEventSource, broker_event_from_order
 from qts.strategies import BaseStrategy
 
-from scripts.run_live_trading import main as run_live_main
-from tests.unit.monitoring.helpers import NOW, make_live_config
+from qts.workflows.live_trading import run_live_trading_workflow
+
+
+ROOT = Path(__file__).resolve().parents[3]
+HELPERS = ROOT / "tests" / "unit" / "monitoring" / "helpers.py"
+helper_spec = importlib.util.spec_from_file_location("monitoring_helpers_under_test", HELPERS)
+assert helper_spec is not None
+monitoring_helpers = importlib.util.module_from_spec(helper_spec)
+assert helper_spec.loader is not None
+helper_spec.loader.exec_module(monitoring_helpers)
+NOW = monitoring_helpers.NOW
+make_live_config = monitoring_helpers.make_live_config
+RUN_LIVE_SCRIPT = ROOT / "scripts" / "run_live_trading.py"
+spec = importlib.util.spec_from_file_location("run_live_trading_wrapper_under_test", RUN_LIVE_SCRIPT)
+assert spec is not None
+run_live_script = importlib.util.module_from_spec(spec)
+assert spec.loader is not None
+spec.loader.exec_module(run_live_script)
+run_live_main = run_live_script.main
 
 
 class BuyOnceLiveStrategy(BaseStrategy):
@@ -533,6 +552,16 @@ class LiveEngineSafetyIntegrationTests(unittest.TestCase):
             )
 
         self.assertEqual(exit_code, 0)
+
+    def test_live_workflow_dry_run_initializes_without_script_import_path(self) -> None:
+        result = run_live_trading_workflow(
+            "configs/live_alpaca.yaml",
+            dry_run=True,
+            confirm_live_safety=True,
+        )
+
+        self.assertEqual(result.health["status"], "OK")
+        self.assertTrue(result.health["dry_run"])
 
 
 if __name__ == "__main__":

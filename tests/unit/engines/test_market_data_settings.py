@@ -17,7 +17,7 @@ from qts.domain import (
 )
 from qts.engines.backtest_engine import _provider_from_config as backtest_provider_from_config
 from qts.engines.market_data import resolve_event_market_data_provider
-from scripts.train_model import _provider_from_config as training_provider_from_config
+from qts.workflows.training import provider_from_config as training_provider_from_config
 
 
 NOW = datetime(2026, 1, 5, 14, 30, tzinfo=timezone.utc)

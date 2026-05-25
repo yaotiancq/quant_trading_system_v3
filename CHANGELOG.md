@@ -8,6 +8,35 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Package Workflows and Thin Scripts Refactor] - 2026-05-25
+
+### Added
+
+- Added `qts.workflows` package modules for backtest, reporting, paper trading,
+  live trading, Alpaca data download, and ML training workflows.
+- Added workflow unit tests and a CLI wrapper delegation test.
+
+### Changed
+
+- `scripts/run_backtest.py`, `scripts/generate_report.py`,
+  `scripts/run_paper_trading.py`, `scripts/run_live_trading.py`,
+  `scripts/download_data.py`, and `scripts/train_model.py` now delegate to
+  package workflow functions after parsing CLI arguments.
+- Tests that needed training provider construction now import from
+  `qts.workflows.training` instead of `scripts.train_model`.
+
+### Fixed
+
+- Moved reusable command workflow logic out of script import paths so package
+  behavior can be tested with `PYTHONPATH=src`.
+
+### Removed
+
+- Removed reusable config loading, path resolution, dry-run override, download,
+  and ML training logic from script modules.
+
+---
+
 ## [Shared Runtime Data Portal Refactor] - 2026-05-25
 
 ### Added

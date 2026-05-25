@@ -4,10 +4,8 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
-from qts.core import load_runtime_config
-from qts.engines import BacktestEngine
+from qts.workflows import run_backtest_workflow
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -29,9 +27,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    overrides = {"reporting": {"output_dir": args.output_dir}} if args.output_dir else None
-    config = load_runtime_config(Path(args.config), env_path=args.env, overrides=overrides)
-    result = BacktestEngine(config).run()
+    result = run_backtest_workflow(args.config, output_dir=args.output_dir, env_path=args.env)
     print(
         f"backtest {result.run_id}: {len(result.fills)} fills, "
         f"total_return={result.metrics['total_return']:.6f}"

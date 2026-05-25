@@ -4,21 +4,10 @@
 from __future__ import annotations
 
 import argparse
-import os
 from collections.abc import Sequence
-from pathlib import Path
-from typing import Any
 
-from qts.core import (
-    ConfigurationError,
-    DataError,
-    deep_merge,
-    find_project_root,
-    load_env_file,
-    load_layered_mapping,
-    resolve_project_path,
-)
-from qts.market_data import AlpacaBarDownloadConfig, download_alpaca_bars
+from qts.core import ConfigurationError, DataError
+from qts.workflows import download_data_workflow
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -47,15 +36,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        config_path = Path(args.config)
-        raw = load_layered_mapping(config_path)
-        overrides = _cli_overrides(args)
-        if overrides:
-            raw = deep_merge(raw, overrides)
-        raw = _resolve_download_paths(raw, find_project_root(config_path))
-        env_values = {**load_env_file(args.env), **os.environ}
-        config = AlpacaBarDownloadConfig.from_mapping(raw, env_values=env_values)
-        result = download_alpaca_bars(config)
+        result = download_data_workflow(
+            args.config,
+            env_path=args.env,
+            symbols=args.symbols,
+            timeframe=args.timeframe,
+            start=args.start,
+            end=args.end,
+            output=args.output,
+            output_format=args.format,
+        )
     except (ConfigurationError, DataError, ValueError) as exc:
         print(f"data download failed: {exc}")
         return 2
@@ -75,42 +65,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     if result.request_ids:
         print(f"alpaca_request_ids={','.join(result.request_ids)}")
     return 0
-
-
-def _cli_overrides(args: argparse.Namespace) -> dict[str, object]:
-    market_data: dict[str, object] = {}
-    output: dict[str, object] = {}
-    if args.symbols:
-        market_data["symbols"] = [
-            symbol.strip().upper() for symbol in args.symbols.split(",") if symbol.strip()
-        ]
-    if args.timeframe:
-        market_data["timeframe"] = args.timeframe
-    if args.start:
-        market_data["start"] = args.start
-    if args.end:
-        market_data["end"] = args.end
-    if args.output:
-        output["path"] = args.output
-    if args.format:
-        output["format"] = args.format
-    overrides: dict[str, object] = {}
-    if market_data:
-        overrides["market_data"] = market_data
-    if output:
-        overrides["output"] = output
-    return overrides
-
-
-def _resolve_download_paths(raw: dict[str, Any], project_root: Path) -> dict[str, Any]:
-    output = dict(raw.get("output") or {})
-    for key in ("path", "directory"):
-        if output.get(key):
-            output[key] = str(resolve_project_path(output[key], project_root=project_root))
-    if output:
-        raw = dict(raw)
-        raw["output"] = output
-    return raw
 
 
 if __name__ == "__main__":

@@ -459,6 +459,26 @@ Owns research workflows:
 - strategy comparisons,
 - hypothesis testing.
 
+### `workflows/`
+
+Owns reusable command workflows that are called by thin scripts:
+
+- backtest workflow,
+- data download workflow,
+- report generation workflow,
+- paper trading initialization workflow,
+- guarded live initialization workflow,
+- ML training workflow.
+
+Rules:
+
+- Workflow modules may compose config loading, engines, data downloaders,
+  reporting, and training modules.
+- `scripts/` files should parse CLI arguments, call a workflow function, print
+  concise output, and return process exit codes.
+- Workflow modules must not duplicate CLI parsing.
+- Script wrappers must not contain reusable business workflow logic.
+
 ### `utils/`
 
 Owns only small cross-cutting helpers.
@@ -515,6 +535,7 @@ quant-trading-system/
       engines/
       reporting/
       monitoring/
+      workflows/
       research/
       utils/
       cli.py

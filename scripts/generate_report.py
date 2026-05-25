@@ -4,10 +4,8 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
-from qts.core import load_runtime_config
-from qts.engines import BacktestEngine
+from qts.workflows import generate_report_workflow
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -22,15 +20,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    reporting_overrides = {"output_dir": args.output_dir}
-    if args.generate_plots:
-        reporting_overrides["generate_plots"] = True
-    config = load_runtime_config(
-        Path(args.config),
+    result = generate_report_workflow(
+        args.config,
+        output_dir=args.output_dir,
         env_path=args.env,
-        overrides={"reporting": reporting_overrides},
+        generate_plots=args.generate_plots,
     )
-    result = BacktestEngine(config).run()
     print(f"generated report artifacts for {result.run_id}")
     for name, path in sorted(result.artifacts.items()):
         print(f"{name}: {path}")

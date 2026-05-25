@@ -6,8 +6,8 @@ from __future__ import annotations
 import argparse
 from collections.abc import Sequence
 
-from qts.core import BrokerError, ConfigurationError, load_runtime_config
-from qts.engines import PaperTradingEngine
+from qts.core import BrokerError, ConfigurationError
+from qts.workflows import run_paper_trading_workflow
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -35,18 +35,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    overrides = {}
-    if args.mock:
-        overrides = {"broker": {"safety": {"mock_mode": True}}}
-
     try:
-        config = load_runtime_config(args.config, overrides=overrides or None)
-        engine = PaperTradingEngine(config)
-        status = engine.start(max_events=args.max_events)
+        result = run_paper_trading_workflow(
+            args.config,
+            mock=args.mock,
+            max_events=args.max_events,
+            stop_after_run=args.dry_run or args.max_events > 0,
+        )
     except (BrokerError, ConfigurationError) as exc:
         print(f"paper trading initialization failed: {exc}")
         return 2
 
+    status = result.status
     reconciliation = status.get("reconciliation") or {}
     print(
         f"paper engine {status['run_id']}: "
@@ -62,8 +62,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"skipped={event_loop.get('skipped_count', 0)} "
             f"duplicates={event_loop.get('duplicate_count', 0)}"
         )
-    if args.dry_run or args.max_events > 0:
-        engine.stop("paper_runner_complete")
     return 0
 
 

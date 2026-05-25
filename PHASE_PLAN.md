@@ -1615,3 +1615,35 @@ runtime data portal implementation.
 - Bar retention is enforced per symbol and invalid retention limits fail fast.
 - Direct unit tests cover runtime portal state behavior.
 - Paper and live regression tests pass.
+
+## Post-Plan Refactor R4 - Package Workflows and Thin Scripts
+
+### Goal
+
+Move reusable script behavior into importable package workflow modules while
+preserving existing script entry points and CLI flags.
+
+### Scope
+
+- Add `qts.workflows`.
+- Provide package workflows for backtest, report generation, paper runtime,
+  guarded live initialization, Alpaca data download, and ML training.
+- Keep `scripts/` files as thin wrappers that parse arguments, call workflows,
+  print concise output, and return process exit codes.
+- Update tests to import reusable behavior from `qts.workflows` instead of
+  script modules.
+
+### Out of Scope
+
+- CLI flag or default changes.
+- Engine, config, downloader, reporter, or ML training behavior changes.
+- New CLI framework adoption.
+- Removing script entry points.
+
+### Acceptance Criteria
+
+- Core command workflow logic lives under `src/qts/workflows/`.
+- Existing scripts remain executable and delegate to workflow functions.
+- Workflow functions are directly unit tested.
+- At least one script wrapper delegation path is tested.
+- Regression tests and Ruff pass.

@@ -69,9 +69,11 @@ src/qts/reporting/
 src/qts/ml/       Offline datasets, labels, splits, training, registry, manifests, inference
 src/qts/monitoring/
                   Health checks, metrics, alerts, recovery, safety gates
-scripts/          Local data download, backtest, report, paper, ML, and live dry-run commands
+src/qts/workflows/
+                  Importable workflows used by local command wrappers
+scripts/          Thin wrappers for data download, backtest, report, paper, ML, and live commands
 docs/             User manual, system handbook, and operational runbooks
-tests/            Smoke, unit, and integration tests through Phase F3 and final review
+tests/            Smoke, unit, integration, workflow, and refactor regression tests
 data/             Local data placeholder, ignored by git
 artifacts/        Runtime output placeholder, ignored by git
 ```

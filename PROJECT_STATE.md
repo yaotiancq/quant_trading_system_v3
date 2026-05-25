@@ -20,14 +20,15 @@ visual backtest diagnostics, Major Architecture Phase F1 ML model manifest
 contracts, Major Architecture Phase F2 ML approval and stage gates, and Major
 Architecture Phase F3 runtime ML metadata and audit diagnostics, followed by
 the final system design and implementation review, the shared runtime decision
-pipeline refactor, the brokerage factory refactor, and the shared runtime data
-portal refactor.
+pipeline refactor, the brokerage factory refactor, the shared runtime data
+portal refactor, and the package workflows/thin scripts refactor.
 
 The Python package now includes stable domain enums and data models, core config
 loading and validation, clocks, common exceptions, logging setup, local
 historical bar providers, config-driven Alpaca SIP historical bar download,
 data normalization, deterministic replay, a default data portal, an in-memory
-runtime data portal, reusable batch indicators, feature schemas, feature pipelines,
+runtime data portal, reusable batch indicators, feature schemas, feature
+pipelines,
 broker-agnostic strategy interfaces, SMA crossover and RSI mean-reversion
 example strategies, normalized signal-to-intent conversion, position sizing, a
 default risk engine, basic risk rules, an execution engine, order request
@@ -36,7 +37,8 @@ events, normalized brokerage interface, simulated `BacktestBrokerage`, internal
 portfolio accounting, trade and cash ledgers, mark-to-market snapshots, a deterministic bar-driven
 `BacktestEngine`, reporting metrics, report artifact export, optional static
 SVG chart diagnostics, configuration
-templates, a small CLI config validation path, runnable backtest scripts, a
+templates, package-level command workflows, thin CLI scripts, a small CLI
+config validation path, runnable backtest scripts, a
 dependency-free Alpaca Trading API client boundary, Alpaca payload mapping,
 Alpaca broker trade-update event normalization, `AlpacaBrokerage`, mock Alpaca
 client support, portfolio reconciliation, `PaperTradingEngine`, a paper runtime
@@ -213,7 +215,12 @@ engines now share bar history, current bar, quote, lookback, feature-frame, and
 per-symbol retention behavior while `BacktestEngine` continues to use the
 replay-bounded `DefaultDataPortal`.
 
-- **Current phase:** Shared runtime data portal refactor complete
+The package workflows/thin scripts refactor moves reusable command behavior to
+`qts.workflows`. The `scripts/` entry points now parse arguments, delegate to
+package workflow functions, print concise command output, and preserve existing
+return-code behavior.
+
+- **Current phase:** Package workflows/thin scripts refactor complete
 - **Completed phases:**
   - Phase 0 - Documentation and repository scaffold initialization
   - Phase 1 - Project Skeleton and Core Domain Models
@@ -245,6 +252,7 @@ replay-bounded `DefaultDataPortal`.
   - Shared runtime decision pipeline refactor
   - Brokerage factory refactor
   - Shared runtime data portal refactor
+  - Package workflows and thin scripts refactor
 - **In-progress phase:** None
 - **Next recommended task:** None. Start a new documented phase only when new
   requirements are defined.
@@ -283,6 +291,7 @@ replay-bounded `DefaultDataPortal`.
 | Shared runtime decision pipeline refactor | Complete | Added `RuntimeDecisionPipeline` and integrated backtest, paper, and guarded live preview paths through the shared feature, strategy, and risk decision sequence while preserving engine-owned fills, broker sync, order submission, and live safety gates. |
 | Brokerage factory refactor | Complete | Added `qts.brokers.factory` and moved backtest, paper, and live broker adapter construction out of engines while preserving connection lifecycle, simulation models, broker sync, and live safety gates. |
 | Shared runtime data portal refactor | Complete | Added `InMemoryRuntimeDataPortal` and moved paper/live runtime bar, quote, lookback, feature-frame, and retention behavior out of private engine portal classes. |
+| Package workflows and thin scripts refactor | Complete | Added `qts.workflows` modules for backtest, reporting, paper, live, data download, and ML training workflows; scripts now delegate to those package functions. |
 
 ## 3. Pending Phases
 
@@ -457,6 +466,16 @@ Monitoring and live-readiness layer implemented:
 - `src/qts/monitoring/recovery.py`
 - `src/qts/monitoring/__init__.py`
 
+Workflow layer implemented:
+
+- `src/qts/workflows/backtest.py`
+- `src/qts/workflows/download_data.py`
+- `src/qts/workflows/live_trading.py`
+- `src/qts/workflows/paper_trading.py`
+- `src/qts/workflows/reporting.py`
+- `src/qts/workflows/training.py`
+- `src/qts/workflows/__init__.py`
+
 Scripts implemented:
 
 - `scripts/run_backtest.py`
@@ -488,6 +507,7 @@ Tests and fixtures implemented:
 - `tests/unit/reporting/`
 - `tests/unit/ml/`
 - `tests/unit/monitoring/`
+- `tests/unit/workflows/`
 - `tests/integration/backtest/`
 - `tests/integration/alpaca/`
 - `tests/integration/ibkr/`

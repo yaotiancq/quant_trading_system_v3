@@ -43,6 +43,7 @@ General conventions:
 | `BacktestEngine` | `engines/` | default backtest engine | scripts, CLI |
 | `LiveEngine` | `engines/` | paper/live engine variants | scripts, CLI |
 | `Reporter` | `reporting/` | report generators | engines, scripts |
+| `Workflow` helpers | `workflows/` | package-level command workflows | scripts, tests, future CLIs |
 
 ## 3. MarketDataProvider
 
@@ -717,6 +718,31 @@ Generate metrics, plots, and exports.
 - Missing snapshots should return clear report error.
 - Plot failures should be captured as warnings and should not corrupt metric,
   ledger, config, equity-curve CSV, or summary exports.
+
+## 21a. Workflow Helpers
+
+### Purpose
+
+Expose reusable package-level workflow functions for script commands and tests.
+
+### Required Helpers
+
+| Helper | Inputs | Output | Notes |
+|---|---|---|---|
+| `run_backtest_workflow` | config path, optional output/env paths | `BacktestResult` | Loads config and runs `BacktestEngine`. |
+| `generate_report_workflow` | config path, output/env paths, plot flag | `BacktestResult` | Runs backtest with reporting overrides. |
+| `run_paper_trading_workflow` | config path, mock flag, max events, stop flag | status result | Initializes or runs `PaperTradingEngine`. |
+| `run_live_trading_workflow` | config path, dry-run flags | health result | Initializes guarded `LiveEngine` without enabling unsafe live submission. |
+| `download_data_workflow` | config path, env path, download overrides | download result | Builds Alpaca download config and runs the downloader. |
+| `train_model_workflow` | config path, optional output dir | training result | Runs local ML training against configured data. |
+
+### Ownership Rules
+
+- Workflow modules own reusable command behavior.
+- `scripts/` wrappers should own only argument parsing, printing, and exit
+  status conversion.
+- Workflow helpers must not depend on script import paths.
+- Workflow helpers should remain importable with `PYTHONPATH=src`.
 
 ## 22. Monitoring and Live Safety
 

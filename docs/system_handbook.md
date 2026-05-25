@@ -39,76 +39,82 @@ Each layer owns a small responsibility:
 
 ### Backtest Flow
 
-1. `scripts/run_backtest.py` loads config.
-2. `BacktestEngine` builds a market data provider.
-3. `DefaultDataPortal` exposes replay-bounded bars to strategies.
-4. `FeaturePipeline` updates features on each bar.
-5. Strategies emit `Signal` or `TradeIntent` objects.
-6. `RiskEngine` sizes and validates the intent.
-7. `ExecutionEngine` builds an `OrderRequest`.
-8. `OrderRouter` sends the request to `BacktestBrokerage`.
-9. `BacktestBrokerage` simulates fills on market events.
-10. Broker order/fill updates can be represented as normalized `BrokerEvent`
+1. `scripts/run_backtest.py` parses CLI arguments.
+2. `qts.workflows.run_backtest_workflow(...)` loads config.
+3. `BacktestEngine` builds a market data provider.
+4. `DefaultDataPortal` exposes replay-bounded bars to strategies.
+5. `FeaturePipeline` updates features on each bar.
+6. Strategies emit `Signal` or `TradeIntent` objects.
+7. `RiskEngine` sizes and validates the intent.
+8. `ExecutionEngine` builds an `OrderRequest`.
+9. `OrderRouter` sends the request to `BacktestBrokerage`.
+10. `BacktestBrokerage` simulates fills on market events.
+11. Broker order/fill updates can be represented as normalized `BrokerEvent`
     lifecycle events.
-11. `DefaultPortfolio` applies fills and records ledgers.
-12. `BacktestReporter` writes metrics and artifacts.
+12. `DefaultPortfolio` applies fills and records ledgers.
+13. `BacktestReporter` writes metrics and artifacts.
 
 ### Data Download Flow
 
-1. `scripts/download_data.py` loads `configs/data/alpaca_sip_bars.yaml`.
-2. `AlpacaBarDownloadConfig` validates symbols, date range, K-line timeframe,
+1. `scripts/download_data.py` parses CLI arguments.
+2. `qts.workflows.download_data_workflow(...)` loads
+   `configs/data/alpaca_sip_bars.yaml`.
+3. `AlpacaBarDownloadConfig` validates symbols, date range, K-line timeframe,
    local session filter, output format, layout, and partition settings.
-3. `AlpacaMarketDataClient` requests paginated Alpaca stock bars.
-4. `download_alpaca_bars` normalizes the full API interval, then uses
+4. `AlpacaMarketDataClient` requests paginated Alpaca stock bars.
+5. `download_alpaca_bars` normalizes the full API interval, then uses
    `MarketSessionService` to apply regular-session filtering, holidays, and
    early closes.
-5. Filtered bars are written as CSV or Parquet rows.
-6. Partitioned output is written below directories such as
+6. Filtered bars are written as CSV or Parquet rows.
+7. Partitioned output is written below directories such as
    `timeframe=1Min/symbol=SPY/date=2024-01-02/`.
-7. The resulting dataset can be consumed by `CSVBarProvider` or
+8. The resulting dataset can be consumed by `CSVBarProvider` or
    `LocalParquetProvider`, both of which read matching files recursively when
    given a directory.
 
 ### Paper Flow
 
-1. `scripts/run_paper_trading.py` loads a paper config.
-2. `PaperTradingEngine` validates `PAPER` mode and an event-driven market-data
+1. `scripts/run_paper_trading.py` parses CLI arguments.
+2. `qts.workflows.run_paper_trading_workflow(...)` loads a paper config.
+3. `PaperTradingEngine` validates `PAPER` mode and an event-driven market-data
    provider: `external_events`, `fake_stream`, or mockable `alpaca_stream`.
-3. The engine asks `qts.brokers.factory.create_brokerage(...)` for the
+4. The engine asks `qts.brokers.factory.create_brokerage(...)` for the
    configured paper broker.
-4. The broker adapter connects to a real or in-memory client.
-5. The portfolio reconciles against broker account and positions.
-6. Externally supplied `Bar`/`Quote` events, finite fake-stream events, or mock
+5. The broker adapter connects to a real or in-memory client.
+6. The portfolio reconciles against broker account and positions.
+7. Externally supplied `Bar`/`Quote` events, finite fake-stream events, or mock
    Alpaca stream payloads normalized by `qts.market_data.streaming` are
    processed through the same feature, strategy, risk, and execution path.
-7. Runtime event-loop status includes disconnect, reconnect,
+8. Runtime event-loop status includes disconnect, reconnect,
    heartbeat/data-gap, source-run, and stopped-reason counters.
-8. Broker order/fill polling is normalized into `BrokerEvent` lifecycle events
+9. Broker order/fill polling is normalized into `BrokerEvent` lifecycle events
    before execution and portfolio state are synchronized.
-9. Alpaca/IBKR push-style broker payloads can be normalized through in-memory
+10. Alpaca/IBKR push-style broker payloads can be normalized through in-memory
    adapter clients for deterministic boundary tests.
-10. `sync_broker_events(...)` can consume any normalized `BrokerEventSource`
+11. `sync_broker_events(...)` can consume any normalized `BrokerEventSource`
    through duplicate, checkpoint, out-of-order, and gap checks, with
    reconciliation before and after the run.
 
 ### Live Flow
 
-1. `scripts/run_live_trading.py` loads live config and dry-run overrides.
-2. `LiveEngine` validates safety gates.
-3. `_DryRunLiveBrokerage` provides account/position scaffolding.
-4. Monitoring, reconciliation, and health checks run.
-5. Direct live bar events can produce guarded decision previews through
+1. `scripts/run_live_trading.py` parses CLI arguments.
+2. `qts.workflows.run_live_trading_workflow(...)` loads live config and
+   dry-run overrides.
+3. `LiveEngine` validates safety gates.
+4. `_DryRunLiveBrokerage` provides account/position scaffolding.
+5. Monitoring, reconciliation, and health checks run.
+6. Direct live bar events can produce guarded decision previews through
    feature, strategy, risk, order-request construction, and live safety
    validation.
-6. Broker-event sync can record lifecycle/reconciliation status.
-7. Manual `submit_live_order(...)` calls can submit only after non-dry-run,
+7. Broker-event sync can record lifecycle/reconciliation status.
+8. Manual `submit_live_order(...)` calls can submit only after non-dry-run,
    confirmation, submission, account, order, session, and reconciliation gates
    pass.
-8. Non-dry-run `LiveEngine` can construct the selected Alpaca live adapter
+9. Non-dry-run `LiveEngine` can construct the selected Alpaca live adapter
    through the brokerage factory only after the same D1 submission gates pass.
-9. Safety-approved previews can submit automatically only when
+10. Safety-approved previews can submit automatically only when
    `enable_automated_submission` is true and the automated kill switch is open.
-10. Automated submission failures stop further automation and report critical
+11. Automated submission failures stop further automation and report critical
     live health.
 
 ## 3. File-by-File Reference
@@ -171,12 +177,12 @@ generated egg-info metadata are not part of the source contract.
 
 | File | Purpose |
 |---|---|
-| `scripts/run_backtest.py` | Loads a runtime config, runs `BacktestEngine`, prints fill count and return. |
-| `scripts/download_data.py` | Downloads Alpaca SIP historical stock bars to normalized CSV or Parquet partitioned datasets. |
-| `scripts/generate_report.py` | Runs a backtest and prints generated report artifact paths, with optional SVG charts. |
-| `scripts/run_paper_trading.py` | Initializes configured paper runtime, supports broker mock mode. |
-| `scripts/run_live_trading.py` | Initializes guarded live dry-run runtime with explicit safety confirmation. |
-| `scripts/train_model.py` | Trains the dependency-free directional ML baseline from an ML config. |
+| `scripts/run_backtest.py` | Thin CLI wrapper for `qts.workflows.run_backtest_workflow`. |
+| `scripts/download_data.py` | Thin CLI wrapper for `qts.workflows.download_data_workflow`. |
+| `scripts/generate_report.py` | Thin CLI wrapper for `qts.workflows.generate_report_workflow`. |
+| `scripts/run_paper_trading.py` | Thin CLI wrapper for `qts.workflows.run_paper_trading_workflow`. |
+| `scripts/run_live_trading.py` | Thin CLI wrapper for `qts.workflows.run_live_trading_workflow`. |
+| `scripts/train_model.py` | Thin CLI wrapper for `qts.workflows.train_model_workflow`. |
 
 ### Package Root
 
@@ -399,6 +405,22 @@ manifest diagnostics for auditability.
 Monitoring is where live safety checks belong. Do not scatter live safety
 policy inside strategies.
 
+### Workflow Layer
+
+| File | Purpose |
+|---|---|
+| `src/qts/workflows/backtest.py` | Reusable backtest command workflow. |
+| `src/qts/workflows/download_data.py` | Reusable Alpaca SIP data download workflow and config-building helpers. |
+| `src/qts/workflows/live_trading.py` | Reusable guarded live initialization workflow and dry-run overrides. |
+| `src/qts/workflows/paper_trading.py` | Reusable paper runtime initialization/event-loop workflow. |
+| `src/qts/workflows/reporting.py` | Reusable report-generation workflow. |
+| `src/qts/workflows/training.py` | Reusable ML training workflow and provider/config helpers. |
+| `src/qts/workflows/__init__.py` | Workflow exports for scripts and tests. |
+
+Workflow modules own reusable command behavior. `scripts/` should stay thin:
+parse arguments, call a workflow, print concise output, and return an exit
+status.
+
 ### Research and Utils
 
 | File | Purpose |
@@ -435,6 +457,7 @@ Keep these empty until there is a clear owner for new behavior.
 | `tests/unit/reporting/` | Metrics tests. |
 | `tests/unit/ml/` | Dataset, registry/inference, split/leakage tests. |
 | `tests/unit/monitoring/` | Health, alerts, safety, recovery, reconciliation tests. |
+| `tests/unit/workflows/` | Package workflow and thin CLI wrapper tests. |
 | `tests/integration/backtest/` | End-to-end backtest tests. |
 | `tests/integration/alpaca/` | Mocked Alpaca paper engine tests. |
 | `tests/integration/ibkr/` | Mocked IBKR paper engine tests. |
@@ -501,6 +524,9 @@ Detailed test file index:
 | `tests/unit/monitoring/test_health_alerts_recovery.py` | Tests health checks, alert manager, metrics, and recovery manager. |
 | `tests/unit/monitoring/test_reconciliation.py` | Tests broker reconciliation health check. |
 | `tests/unit/monitoring/test_safety.py` | Tests live safety config, account allowlist, symbol allowlist, and max order caps. |
+| `tests/unit/workflows/__init__.py` | Workflow test package marker. |
+| `tests/unit/workflows/test_cli_wrappers.py` | Tests that script wrappers delegate to package workflow functions. |
+| `tests/unit/workflows/test_workflows.py` | Tests backtest, paper, live, download, and training workflows. |
 | `tests/unit/engines/__init__.py` | Engine test package marker. |
 | `tests/unit/engines/test_event_loop.py` | Tests fake stream dispatch, duplicate handling, stale checks, ordering checks, and session filtering. |
 | `tests/unit/engines/test_feature_settings.py` | Tests engine feature spec and schema resolution from strategy configs. |
