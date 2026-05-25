@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import datetime, time, timezone
-from typing import Protocol
+from typing import Any, Protocol
 
 from qts.domain import (
     Fill,
@@ -36,6 +36,13 @@ class RiskRule(Protocol):
         risk_config: RiskConfig,
     ) -> RuleResult:
         """Evaluate a trade intent."""
+
+
+class MarketSessionServiceLike(Protocol):
+    """Small session-service surface consumed by the trading-session rule."""
+
+    def is_tradable(self, timestamp: datetime | str) -> bool:
+        """Return whether the timestamp is inside the configured trading session."""
 
 
 class SymbolRestrictionRule:
@@ -235,6 +242,31 @@ class TradingSessionRule:
             return _approve(self.name, "session_rule_not_enabled")
 
         timestamp = normalize_timestamp(market_context.get("timestamp", trade_intent.timestamp))
+        session_service = _market_session_service(market_context)
+        if session_service is not None:
+            try:
+                tradable = session_service.is_tradable(timestamp)
+            except Exception as exc:
+                return _reject(
+                    self.name,
+                    "market_session_service_unavailable",
+                    {"source": "market_session_service", "error": str(exc)},
+                )
+            if not tradable:
+                return _reject(
+                    self.name,
+                    "outside_trading_session",
+                    {
+                        "timestamp": timestamp.isoformat().replace("+00:00", "Z"),
+                        "source": "market_session_service",
+                    },
+                )
+            return _approve(
+                self.name,
+                "inside_trading_session",
+                {"source": "market_session_service"},
+            )
+
         weekdays = set(rules.get("weekdays", [0, 1, 2, 3, 4]))
         if timestamp.weekday() not in weekdays:
             return _reject(self.name, "outside_trading_weekday", {"weekday": timestamp.weekday()})
@@ -390,6 +422,14 @@ def market_price(trade_intent: TradeIntent, market_context: Mapping) -> float | 
     return None
 
 
+def _market_session_service(market_context: Mapping) -> MarketSessionServiceLike | None:
+    for key in ("market_session_service", "session_service"):
+        candidate: Any = market_context.get(key)
+        if candidate is not None and callable(getattr(candidate, "is_tradable", None)):
+            return candidate
+    return None
+
+
 def _intent_delta_quantity(trade_intent: TradeIntent, price: float) -> float | None:
     if trade_intent.quantity is not None:
         quantity = float(trade_intent.quantity)
@@ -473,6 +513,7 @@ __all__ = [
     "BuyingPowerRule",
     "CooldownRule",
     "DailyLossLimitRule",
+    "MarketSessionServiceLike",
     "MaxGrossExposureRule",
     "MaxPositionNotionalRule",
     "MaxSymbolWeightRule",

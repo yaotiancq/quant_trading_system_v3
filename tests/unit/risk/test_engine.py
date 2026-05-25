@@ -22,6 +22,22 @@ UTC = timezone.utc
 NOW = datetime(2026, 1, 5, 14, 30, tzinfo=UTC)
 
 
+class FixedSessionService:
+    def __init__(self, tradable: bool) -> None:
+        self.tradable = tradable
+        self.timestamps: list[datetime] = []
+
+    def is_tradable(self, timestamp: datetime | str) -> bool:
+        if isinstance(timestamp, datetime):
+            self.timestamps.append(timestamp)
+        return self.tradable
+
+
+class FailingSessionService:
+    def is_tradable(self, timestamp: datetime | str) -> bool:
+        raise RuntimeError("calendar unavailable")
+
+
 def snapshot(
     *,
     cash: float = 10000.0,
@@ -255,6 +271,41 @@ class RiskEngineTests(unittest.TestCase):
         self.assertNotEqual(open_decision.status, RiskDecisionStatus.REJECTED)
         self.assertEqual(close_decision.status, RiskDecisionStatus.REJECTED)
         self.assertIn("outside_trading_session", close_decision.reasons)
+
+    def test_trading_session_rule_prefers_shared_market_session_service(self) -> None:
+        engine = RiskEngine(
+            risk_config(
+                session_rules={
+                    "enabled": True,
+                    "market_open": "00:00",
+                    "market_close": "23:59",
+                    "weekdays": [0, 1, 2, 3, 4],
+                }
+            )
+        )
+        session_service = FixedSessionService(tradable=False)
+
+        decision = engine.evaluate(
+            signal(timestamp=NOW),
+            snapshot(),
+            {"timestamp": NOW, "market_session_service": session_service},
+        )
+
+        self.assertEqual(decision.status, RiskDecisionStatus.REJECTED)
+        self.assertIn("outside_trading_session", decision.reasons)
+        self.assertEqual(session_service.timestamps, [NOW])
+
+    def test_trading_session_rule_fails_closed_when_shared_service_fails(self) -> None:
+        engine = RiskEngine(risk_config(session_rules={"enabled": True}))
+
+        decision = engine.evaluate(
+            signal(timestamp=NOW),
+            snapshot(),
+            {"timestamp": NOW, "market_session_service": FailingSessionService()},
+        )
+
+        self.assertEqual(decision.status, RiskDecisionStatus.REJECTED)
+        self.assertIn("market_session_service_unavailable", decision.reasons)
 
     def test_cooldown_rule_rejects_same_strategy_symbol_follow_up(self) -> None:
         engine = RiskEngine(risk_config(cooldown_seconds=60))

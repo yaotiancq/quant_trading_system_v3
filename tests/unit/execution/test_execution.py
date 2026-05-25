@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from qts.core import DataError, ExecutionError
 from qts.brokers.backtest import BacktestBrokerage
@@ -108,6 +109,15 @@ def bar(minutes: int, open_price: float = 100.0) -> Bar:
 
 
 class ExecutionTests(unittest.TestCase):
+    def test_order_router_imports_brokerage_protocol_directly(self) -> None:
+        root = Path(__file__).resolve().parents[3]
+        source = (root / "src" / "qts" / "execution" / "router.py").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("from qts.brokers.interfaces import Brokerage", source)
+        self.assertNotIn("from qts.brokers import Brokerage", source)
+
     def test_build_order_request_from_approved_risk_decision(self) -> None:
         request = build_order_request(approved_decision())
 

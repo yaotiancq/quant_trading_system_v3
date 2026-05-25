@@ -18,7 +18,8 @@ broker-specific live adapter enablement, Major Architecture Phase D3 automated
 live decision submission, and Major Architecture Phase E chart reporting and
 visual backtest diagnostics, Major Architecture Phase F1 ML model manifest
 contracts, Major Architecture Phase F2 ML approval and stage gates, and Major
-Architecture Phase F3 runtime ML metadata and audit diagnostics.
+Architecture Phase F3 runtime ML metadata and audit diagnostics, followed by
+the final system design and implementation review.
 
 The Python package now includes stable domain enums and data models, core config
 loading and validation, clocks, common exceptions, logging setup, local
@@ -184,7 +185,14 @@ contracts. Phase F2 adds opt-in ML approval and stage loading policy. Live
 remains external-event driven. Phase F3 adds runtime ML decision diagnostics.
 Runtime order validation also enforces `execution.allow_fractional`.
 
-- **Current phase:** Major Architecture Phase F3 complete
+The final system design review aligned the remaining implementation details
+with the architecture documents: execution and monitoring import only the
+`Brokerage` protocol instead of the concrete broker package, risk session
+checks prefer the shared `MarketSessionService` when engines provide it,
+paper/live data portals honor requested feature-name filtering, and stale
+project-state/data-model documentation has been corrected.
+
+- **Current phase:** Final system design and implementation review complete
 - **Completed phases:**
   - Phase 0 - Documentation and repository scaffold initialization
   - Phase 1 - Project Skeleton and Core Domain Models
@@ -212,8 +220,10 @@ Runtime order validation also enforces `execution.allow_fractional`.
   - Major Architecture Phase F1 - ML Model Manifests and Schema Hash Contracts
   - Major Architecture Phase F2 - ML Approval and Stage Gates
   - Major Architecture Phase F3 - Runtime ML Metadata and Audit Diagnostics
+  - Final system design and implementation review
 - **In-progress phase:** None
-- **Next recommended task:** Final system design and implementation review.
+- **Next recommended task:** None. Start a new documented phase only when new
+  requirements are defined.
 
 ## 2. Completed Phases
 
@@ -245,6 +255,7 @@ Runtime order validation also enforces `execution.allow_fractional`.
 | Major Architecture Phase F1 | Complete | Implemented ML model manifest artifacts, deterministic feature-schema hashes, and registry/inference contract validation. |
 | Major Architecture Phase F2 | Complete | Implemented ML approval metadata, manifest stage transitions, and opt-in runtime stage loading policy. |
 | Major Architecture Phase F3 | Complete | Implemented runtime ML manifest metadata propagation, health diagnostics, and report-summary hooks. |
+| Final system design and implementation review | Complete | Reviewed actual implementation against system design, interfaces, data models, and ADRs; fixed protocol import boundaries, shared session-service use in risk checks, runtime data-portal feature filtering, and stale state/model documentation. |
 
 ## 3. Pending Phases
 
@@ -474,7 +485,8 @@ Future functionality outside the current phase plan remains missing:
 
 - research workflows,
 - production deployment automation,
-- automated live broker order submission,
+- real vendor live market-data stream ownership,
+- persistent broker-event checkpoint storage,
 - production dashboarding and notification integrations.
 
 ## 6. Known Issues
@@ -509,8 +521,8 @@ Future functionality outside the current phase plan remains missing:
   validate workflow boundaries. Advanced model libraries, feature stores,
   online learning, optimization, and production model monitoring remain future
   work.
-- Plot generation is not implemented; Phase 5 exports Markdown, JSON, and CSV
-  report artifacts.
+- Optional static SVG plot generation is implemented for backtest equity and
+  drawdown diagnostics; interactive dashboarding remains future work.
 - `pytest` is listed as an optional test dependency and is available in the
   current local virtual environment; the test suite also runs with
   standard-library `unittest`.
@@ -542,31 +554,12 @@ Future functionality outside the current phase plan remains missing:
 
 ## 7. Next Recommended Task
 
-Perform the final system design and implementation review only.
+No implementation phase is currently pending.
 
-The next AI coding agent should:
-
-1. Read:
-   - `PROJECT_STATE.md`
-   - `PHASE_PLAN.md`
-   - `DECISIONS.md`
-   - `INTERFACES.md`
-   - `DATA_MODELS.md`
-   - `CHANGELOG.md`
-2. Reuse the existing Phase 1 domain/core infrastructure, Phase 2
-   market-data/feature layer, Phase 3 strategy/risk layer, Phase 4
-   execution/brokerage layer, Phase 5 backtest/reporting layer, Phase 6
-   Alpaca paper integration, Phase 7 ML workflow, Phase 8 monitoring/live
-   readiness layer, Phase 9 IBKR paper brokerage foundation, Phase 10 Alpaca
-   SIP historical data download, Phase E report chart diagnostics, Phase F1 ML
-   model manifest contracts, Phase F2 ML approval and stage gates, and Phase F3
-   runtime ML metadata diagnostics.
-3. Review the implementation against `SYSTEM_DESIGN.md`, `INTERFACES.md`,
-   `DATA_MODELS.md`, and `DECISIONS.md` before proposing any further work.
-4. Preserve the Phase 8 live-safety guardrails unless a future phase explicitly
-   changes them and documents the reason.
-5. Run tests.
-6. Update this file and `CHANGELOG.md`.
+The next AI coding agent should start from a new documented requirement or
+phase proposal, then read the source-of-truth documents before editing. Preserve
+the live-safety guardrails unless a future phase explicitly changes them and
+documents the reason.
 
 ## 8. Rules for Future AI Coding Agent Sessions
 

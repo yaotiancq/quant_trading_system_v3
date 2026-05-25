@@ -5,7 +5,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import datetime, timezone
 
-from qts.brokers import AlpacaBrokerage, Brokerage
+from qts.brokers.alpaca import AlpacaBrokerage
+from qts.brokers.interfaces import Brokerage
 from qts.calendar import MarketSessionService, build_market_session_service, default_market_session_service
 from qts.core import ConfigurationError, ExecutionError, LiveSafetyError, RealClock, ReconciliationError
 from qts.domain import (
@@ -434,6 +435,7 @@ class LiveEngine:
                         "timestamp": event.timestamp,
                         "bar": event,
                         "current_bar": event,
+                        "market_session_service": self.session_service,
                         "price": event.close,
                         "prices": dict(self._latest_prices),
                     },
@@ -648,7 +650,8 @@ class _LiveDataPortal:
         bars = [bar for bar in self._bars if bar.symbol in {symbol.upper() for symbol in symbols}]
         if lookback is not None:
             bars = bars[-lookback:]
-        return self.feature_pipeline.transform_batch(bars)
+        frame = self.feature_pipeline.transform_batch(bars)
+        return _filter_feature_frame(frame, feature_names)
 
     def advance(self, event: Bar | Quote) -> None:
         if isinstance(event, Bar):
@@ -662,6 +665,31 @@ def _event_price(event: Bar | Quote) -> float:
     if isinstance(event, Quote):
         return (event.bid_price + event.ask_price) / 2.0
     return event.close
+
+
+def _filter_feature_frame(
+    frame: FeatureFrame,
+    feature_names: Sequence[str] | None,
+) -> FeatureFrame:
+    if feature_names is None:
+        return frame
+    allowed = set(feature_names)
+    rows = [
+        {
+            key: value
+            for key, value in row.items()
+            if key in allowed or key in {"symbol", "timestamp"}
+        }
+        for row in frame.features
+    ]
+    return FeatureFrame(
+        symbols=frame.symbols,
+        timestamps=frame.timestamps,
+        features=rows,
+        schema_version=frame.schema_version,
+        generated_at=frame.generated_at,
+        source=frame.source,
+    )
 
 
 def _truthy(value: object) -> bool:

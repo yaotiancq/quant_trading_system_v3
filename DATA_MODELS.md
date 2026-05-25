@@ -913,6 +913,17 @@ Runtime output from an ML model before strategy interpretation.
 | `feature_schema_version` | string | yes | must match model metadata |
 | `metadata` | dict | no | serializable |
 
+### Runtime ML Metadata
+
+For registered runtime models, `metadata` should include:
+
+- `manifest_id`,
+- `manifest_version`,
+- `manifest_stage`,
+- `manifest_model_id`,
+- `manifest_feature_schema_hash`,
+- `model_manifest` with the serializable loaded manifest diagnostic payload.
+
 ### Example
 
 ```json

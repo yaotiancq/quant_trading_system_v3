@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from qts.brokers.backtest import BacktestBrokerage
+from qts.calendar import MarketSessionService, build_market_session_service
 from qts.core import ConfigurationError
 from qts.domain import (
     BacktestResult,
@@ -50,6 +51,7 @@ class BacktestEngine:
         self.risk_engine: RiskEngine | None = None
         self.brokerage: BacktestBrokerage | None = None
         self.execution_engine: ExecutionEngine | None = None
+        self.session_service: MarketSessionService | None = None
         self._latest_prices: dict[str, float] = {}
         self._snapshots = []
         self._initialized = False
@@ -58,6 +60,7 @@ class BacktestEngine:
     def initialize(self, runtime_config: RuntimeConfig | None = None) -> None:
         if runtime_config is not None:
             self.config = runtime_config
+        self.session_service = build_market_session_service(self.config)
         self.provider = self.provider or _provider_from_config(self.config)
         if self.feature_pipeline is None:
             feature_specs, schema_version = feature_pipeline_settings_from_strategies(
@@ -169,6 +172,7 @@ class BacktestEngine:
                         "timestamp": market_event.timestamp,
                         "bar": market_event,
                         "current_bar": market_event,
+                        "market_session_service": self.session_service,
                         "price": market_event.close,
                         "prices": dict(self._latest_prices),
                     },

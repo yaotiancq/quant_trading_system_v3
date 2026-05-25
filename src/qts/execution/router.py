@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from qts.brokers import Brokerage
+from qts.brokers.interfaces import Brokerage
 from qts.domain import BrokerEvent, Fill, Order, OrderRequest
 
 from .events import broker_events_from_poll

@@ -8,6 +8,38 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Final System Design Review] - 2026-05-24
+
+### Added
+
+- Added final-review regression coverage for the execution-to-broker protocol
+  import boundary and shared session-service use in risk checks.
+- Added explicit `ModelPrediction.metadata` runtime manifest fields to
+  `DATA_MODELS.md`.
+
+### Changed
+
+- Risk trading-session checks now prefer the shared `MarketSessionService`
+  supplied by runtime engines, while keeping the legacy UTC window behavior as
+  a fallback for backward compatibility.
+- Paper and live runtime data portals now honor requested feature-name filters.
+- `PROJECT_STATE.md` and `README.md` now reflect that the final system design
+  review is complete.
+
+### Fixed
+
+- Fixed execution and monitoring imports so protocol consumers depend on
+  `qts.brokers.interfaces.Brokerage` instead of importing the concrete broker
+  package.
+- Removed stale project-state notes that still described implemented charting
+  and gated automated live decision submission as missing.
+
+### Removed
+
+- None.
+
+---
+
 ## [Major Architecture Phase F3] - 2026-05-24
 
 ### Added

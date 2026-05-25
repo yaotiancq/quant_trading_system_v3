@@ -40,7 +40,8 @@ tests.
 
 Live order submission remains disabled by default and requires explicit
 non-dry-run production gates. The documented implementation phases are complete;
-the next recommended task is a final system design and implementation review.
+the final system design and implementation review is complete. Future work
+should start from a new documented phase or requirement.
 
 ## Layout
 
@@ -70,7 +71,7 @@ src/qts/monitoring/
                   Health checks, metrics, alerts, recovery, safety gates
 scripts/          Local data download, backtest, report, paper, ML, and live dry-run commands
 docs/             User manual, system handbook, and operational runbooks
-tests/            Smoke, unit, and integration tests through Phase F1
+tests/            Smoke, unit, and integration tests through Phase F3 and final review
 data/             Local data placeholder, ignored by git
 artifacts/        Runtime output placeholder, ignored by git
 ```

@@ -5,7 +5,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import datetime
 
-from qts.brokers import AlpacaBrokerage, Brokerage, IBKRBrokerage
+from qts.brokers.alpaca import AlpacaBrokerage
+from qts.brokers.ibkr import IBKRBrokerage
+from qts.brokers.interfaces import Brokerage
 from qts.calendar import MarketSessionService, build_market_session_service
 from qts.core import Clock, ConfigurationError, RealClock
 from qts.domain import (
@@ -222,6 +224,7 @@ class PaperTradingEngine:
                         "timestamp": market_event.timestamp,
                         "bar": market_event,
                         "current_bar": market_event,
+                        "market_session_service": self.session_service,
                         "price": market_event.close,
                         "prices": dict(self._latest_prices),
                     },
@@ -387,7 +390,8 @@ class _PaperDataPortal:
         bars = [bar for bar in self._bars if bar.symbol in {symbol.upper() for symbol in symbols}]
         if lookback is not None:
             bars = bars[-lookback:]
-        return self.feature_pipeline.transform_batch(bars)
+        frame = self.feature_pipeline.transform_batch(bars)
+        return _filter_feature_frame(frame, feature_names)
 
     def advance(self, market_event: Bar | Quote) -> None:
         symbol = market_event.symbol
@@ -402,6 +406,31 @@ def _event_price(market_event: Bar | Quote) -> float:
     if isinstance(market_event, Quote):
         return (market_event.bid_price + market_event.ask_price) / 2.0
     return market_event.close
+
+
+def _filter_feature_frame(
+    frame: FeatureFrame,
+    feature_names: Sequence[str] | None,
+) -> FeatureFrame:
+    if feature_names is None:
+        return frame
+    allowed = set(feature_names)
+    rows = [
+        {
+            key: value
+            for key, value in row.items()
+            if key in allowed or key in {"symbol", "timestamp"}
+        }
+        for row in frame.features
+    ]
+    return FeatureFrame(
+        symbols=frame.symbols,
+        timestamps=frame.timestamps,
+        features=rows,
+        schema_version=frame.schema_version,
+        generated_at=frame.generated_at,
+        source=frame.source,
+    )
 
 
 def _paper_brokerage_from_config(config: RuntimeConfig) -> Brokerage:

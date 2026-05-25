@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from qts.brokers import Brokerage
+from qts.brokers.interfaces import Brokerage
 from qts.domain import Account, Position
 
 from .types import HealthCheckResult, HealthStatus

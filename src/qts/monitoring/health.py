@@ -6,7 +6,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Protocol
 
-from qts.brokers import Brokerage
+from qts.brokers.interfaces import Brokerage
 from qts.calendar import MarketSessionService
 from qts.core import Clock, QTSError
 
