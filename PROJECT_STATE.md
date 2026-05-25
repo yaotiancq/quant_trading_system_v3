@@ -17,7 +17,8 @@ D1 manual live order submission safety envelope, Major Architecture Phase D2
 broker-specific live adapter enablement, Major Architecture Phase D3 automated
 live decision submission, and Major Architecture Phase E chart reporting and
 visual backtest diagnostics, Major Architecture Phase F1 ML model manifest
-contracts, and Major Architecture Phase F2 ML approval and stage gates.
+contracts, Major Architecture Phase F2 ML approval and stage gates, and Major
+Architecture Phase F3 runtime ML metadata and audit diagnostics.
 
 The Python package now includes stable domain enums and data models, core config
 loading and validation, clocks, common exceptions, logging setup, local
@@ -40,8 +41,9 @@ initialization script, offline ML dataset construction, forward-return labels,
 chronological and walk-forward splitting,
 leakage checks, a dependency-free directional training pipeline, filesystem
 model registry, runtime model inference, an ML strategy adapter, fixture ML
-configs, model manifest/schema-hash contracts, model approval stage gates, a
-training script, monitoring health checks, runtime metrics logging,
+configs, model manifest/schema-hash contracts, model approval stage gates,
+runtime ML diagnostics, a training script, monitoring health checks, runtime
+metrics logging,
 alert hooks, recovery behavior, broker reconciliation checks, live safety
 gates, guarded dry-run `LiveEngine` scaffolding, a manual live order submission
 safety envelope, Alpaca live adapter construction behind explicit D1 gates,
@@ -157,6 +159,12 @@ approved, and archived stages with approval metadata and transition history.
 Runtime inference and ML strategy configs can require approved models or limit
 loading to specific manifest stages.
 
+Major Architecture Phase F3 has added runtime ML metadata and audit
+diagnostics. Predictions and ML strategy signals now carry manifest identity,
+stage, and feature-schema hash metadata. Backtest metrics/report summaries and
+paper/live health checks can expose loaded ML model contracts without adding
+persistent audit storage.
+
 Post-Phase 8 design review fixes have been applied for replay-bounded backtest
 data portal reads, broker/execution dependency direction, and explicit ML
 runtime feature schema wiring. ADR-007 follow-up fixes made the original
@@ -173,10 +181,10 @@ safety-approved live decision previews to submit through that path only behind
 a separate automated-submission gate and kill switch. Phase E adds optional
 static report chart diagnostics. Phase F1 adds model manifest and schema-hash
 contracts. Phase F2 adds opt-in ML approval and stage loading policy. Live
-remains external-event driven. Runtime order validation also enforces
-`execution.allow_fractional`.
+remains external-event driven. Phase F3 adds runtime ML decision diagnostics.
+Runtime order validation also enforces `execution.allow_fractional`.
 
-- **Current phase:** Major Architecture Phase F2 complete
+- **Current phase:** Major Architecture Phase F3 complete
 - **Completed phases:**
   - Phase 0 - Documentation and repository scaffold initialization
   - Phase 1 - Project Skeleton and Core Domain Models
@@ -203,9 +211,9 @@ remains external-event driven. Runtime order validation also enforces
   - Major Architecture Phase E - Chart Reporting and Visual Backtest Diagnostics
   - Major Architecture Phase F1 - ML Model Manifests and Schema Hash Contracts
   - Major Architecture Phase F2 - ML Approval and Stage Gates
+  - Major Architecture Phase F3 - Runtime ML Metadata and Audit Diagnostics
 - **In-progress phase:** None
-- **Next recommended task:** Major Architecture Phase F3 - Runtime ML Metadata
-  and Audit Diagnostics.
+- **Next recommended task:** Final system design and implementation review.
 
 ## 2. Completed Phases
 
@@ -236,12 +244,13 @@ remains external-event driven. Runtime order validation also enforces
 | Major Architecture Phase E | Complete | Implemented optional dependency-free SVG equity and drawdown chart artifacts for backtest reports. |
 | Major Architecture Phase F1 | Complete | Implemented ML model manifest artifacts, deterministic feature-schema hashes, and registry/inference contract validation. |
 | Major Architecture Phase F2 | Complete | Implemented ML approval metadata, manifest stage transitions, and opt-in runtime stage loading policy. |
+| Major Architecture Phase F3 | Complete | Implemented runtime ML manifest metadata propagation, health diagnostics, and report-summary hooks. |
 
 ## 3. Pending Phases
 
 | Phase | Status |
 |---|---|
-| Major Architecture Phase F3 - Runtime ML Metadata and Audit Diagnostics | Planned |
+| None | Complete |
 
 ## 4. Implemented Modules
 
@@ -533,8 +542,7 @@ Future functionality outside the current phase plan remains missing:
 
 ## 7. Next Recommended Task
 
-Implement Major Architecture Phase F3 - Runtime ML Metadata and Audit
-Diagnostics only.
+Perform the final system design and implementation review only.
 
 The next AI coding agent should:
 
@@ -551,9 +559,10 @@ The next AI coding agent should:
    Alpaca paper integration, Phase 7 ML workflow, Phase 8 monitoring/live
    readiness layer, Phase 9 IBKR paper brokerage foundation, Phase 10 Alpaca
    SIP historical data download, Phase E report chart diagnostics, Phase F1 ML
-   model manifest contracts, and Phase F2 ML approval and stage gates.
-3. Follow the Phase F3 scope in `PHASE_PLAN.md`; do not implement later runtime
-   audit or dashboard work unless the plan is explicitly updated first.
+   model manifest contracts, Phase F2 ML approval and stage gates, and Phase F3
+   runtime ML metadata diagnostics.
+3. Review the implementation against `SYSTEM_DESIGN.md`, `INTERFACES.md`,
+   `DATA_MODELS.md`, and `DECISIONS.md` before proposing any further work.
 4. Preserve the Phase 8 live-safety guardrails unless a future phase explicitly
    changes them and documents the reason.
 5. Run tests.

@@ -135,6 +135,19 @@ class RegistryInferenceTests(unittest.TestCase):
                 inference.get_model_manifest().feature_schema_hash,
                 prediction.metadata["feature_schema_hash"],
             )
+            diagnostics = inference.get_model_diagnostics()
+            self.assertEqual(diagnostics["model_id"], "unit-model")
+            self.assertEqual(diagnostics["stage"], "candidate")
+            self.assertEqual(prediction.metadata["manifest_id"], diagnostics["manifest_id"])
+            self.assertEqual(prediction.metadata["manifest_stage"], "candidate")
+            self.assertEqual(
+                prediction.metadata["manifest_feature_schema_hash"],
+                build_feature_schema_hash("ml_features_v1", ["ret_1"]),
+            )
+            self.assertEqual(
+                prediction.metadata["model_manifest"]["manifest_id"],
+                diagnostics["manifest_id"],
+            )
 
             with self.assertRaises(MLWorkflowError):
                 inference.predict(

@@ -8,6 +8,7 @@ from typing import Any
 from qts.domain import FeatureFrame, FeatureRecord, ModelPrediction
 from qts.features import FeatureSchema
 
+from .diagnostics import model_manifest_diagnostics
 from .models import DirectionalModel
 from .registry import FileModelRegistry
 from .types import MLModelManifest, MLWorkflowError, normalize_model_stage
@@ -47,8 +48,9 @@ class DefaultMLModelInference:
         feature_data: FeatureRecord | FeatureFrame,
     ) -> ModelPrediction | list[ModelPrediction]:
         model = self._require_model()
+        manifest = self._require_manifest()
         if isinstance(feature_data, FeatureRecord):
-            return model.predict_record(feature_data)
+            return _with_manifest_metadata(model.predict_record(feature_data), manifest)
         if isinstance(feature_data, FeatureFrame):
             if feature_data.schema_version != model.feature_schema_version:
                 raise MLWorkflowError(
@@ -63,7 +65,7 @@ class DefaultMLModelInference:
                     values={name: row.get(name) for name in model.feature_names},
                     schema_version=feature_data.schema_version,
                 )
-                predictions.append(model.predict_record(record))
+                predictions.append(_with_manifest_metadata(model.predict_record(record), manifest))
             return predictions
         raise MLWorkflowError(f"unsupported feature data type: {type(feature_data).__name__}")
 
@@ -79,6 +81,12 @@ class DefaultMLModelInference:
 
     def get_model_manifest(self) -> MLModelManifest:
         self._require_model()
+        return self._require_manifest()
+
+    def get_model_diagnostics(self) -> dict[str, Any]:
+        return model_manifest_diagnostics(self.get_model_manifest())
+
+    def _require_manifest(self) -> MLModelManifest:
         if self.manifest is None:
             raise MLWorkflowError("model manifest must be loaded before inference")
         return self.manifest
@@ -117,6 +125,34 @@ def _normalize_allowed_stages(
     if require_approved_model and "approved" not in stages:
         raise MLWorkflowError("require_approved_model requires approved in allowed_model_stages")
     return stages
+
+
+def _with_manifest_metadata(
+    prediction: ModelPrediction,
+    manifest: MLModelManifest,
+) -> ModelPrediction:
+    diagnostics = model_manifest_diagnostics(manifest)
+    metadata = {
+        **dict(prediction.metadata),
+        "manifest_id": diagnostics["manifest_id"],
+        "manifest_version": diagnostics["manifest_version"],
+        "manifest_stage": diagnostics["stage"],
+        "manifest_model_id": diagnostics["model_id"],
+        "manifest_feature_schema_hash": diagnostics["feature_schema_hash"],
+        "model_manifest": diagnostics,
+    }
+    return ModelPrediction(
+        prediction_id=prediction.prediction_id,
+        model_id=prediction.model_id,
+        symbol=prediction.symbol,
+        timestamp=prediction.timestamp,
+        prediction_value=prediction.prediction_value,
+        feature_schema_version=prediction.feature_schema_version,
+        prediction_label=prediction.prediction_label,
+        probability=prediction.probability,
+        horizon=prediction.horizon,
+        metadata=metadata,
+    )
 
 
 __all__ = ["DefaultMLModelInference"]

@@ -131,6 +131,40 @@ class ReportingMetricTests(unittest.TestCase):
 
         self.assertEqual(exported_metrics["number_of_trades"], 1)
 
+    def test_reporter_summarizes_ml_model_diagnostics(self) -> None:
+        config = load_runtime_config(ROOT / "configs" / "backtest_fixture.yaml", env_path=None)
+        snapshots = [snapshot(0, 100000), snapshot(1, 100100, gross=1000)]
+        result = BacktestResult(
+            run_id="ml-report-test",
+            config=config,
+            start_time=snapshots[0].timestamp,
+            end_time=snapshots[-1].timestamp,
+            symbols=["SPY"],
+            portfolio_snapshots=snapshots,
+            orders=[],
+            fills=[],
+            trade_ledger=[],
+            cash_ledger=[],
+            metrics={
+                **calculate_metrics(snapshots, []),
+                "ml_models": [
+                    {
+                        "strategy_id": "ml_test",
+                        "model_id": "model-v1",
+                        "stage": "approved",
+                        "feature_schema_hash": "abc123",
+                        "manifest_id": "model-v1:abc123",
+                    }
+                ],
+            },
+        )
+
+        summary = BacktestReporter().summarize(result)
+
+        self.assertIn("## ML Model Diagnostics", summary)
+        self.assertIn("model=model-v1", summary)
+        self.assertIn("schema_hash=abc123", summary)
+
     def test_reporter_generates_static_svg_charts_when_enabled(self) -> None:
         config = load_runtime_config(
             ROOT / "configs" / "backtest_fixture.yaml",

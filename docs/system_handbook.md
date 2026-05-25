@@ -367,15 +367,18 @@ Reporting consumes results. It should not change runtime state.
 | `src/qts/ml/splits.py` | Chronological and walk-forward splitting. |
 | `src/qts/ml/leakage.py` | Temporal leakage validation helpers. |
 | `src/qts/ml/models.py` | Dependency-free directional model training and evaluation. |
+| `src/qts/ml/diagnostics.py` | Serializable manifest diagnostics and strategy diagnostic collection helpers. |
 | `src/qts/ml/registry.py` | Filesystem model registry with `model.json`, `manifest.json`, stage transitions, and approval helpers. |
-| `src/qts/ml/inference.py` | Runtime model loading, manifest validation, stage policy checks, and prediction interface. |
+| `src/qts/ml/inference.py` | Runtime model loading, manifest validation, stage policy checks, prediction interface, and prediction metadata enrichment. |
 | `src/qts/ml/training.py` | End-to-end directional training pipeline. |
 | `src/qts/ml/__init__.py` | ML exports. |
 
 ML training is offline. Runtime trading integration happens through
 `strategies/ml_strategy.py`. Newly saved model registry entries include a
 portable manifest and feature-schema hash. Runtime configs can require
-approved manifests or restrict loading to specific model stages.
+approved manifests or restrict loading to specific model stages. Predictions,
+ML signals, backtest reports, and runtime health payloads carry compact
+manifest diagnostics for auditability.
 
 ### Monitoring Layer
 
@@ -572,7 +575,8 @@ Do not let execution or strategies import vendor clients.
 3. Preserve feature schema metadata and manifest/schema-hash validation.
 4. Add inference support under `src/qts/ml/inference.py` or a parallel adapter.
 5. Keep runtime strategy interpretation in `src/qts/strategies/ml_strategy.py` or a new strategy.
-6. Add tests for registry compatibility and schema validation.
+6. Add compact diagnostics through `src/qts/ml/diagnostics.py`.
+7. Add tests for registry compatibility, schema validation, and diagnostic propagation.
 
 ## 5. Debugging Guide
 

@@ -5,12 +5,32 @@ import unittest
 from pathlib import Path
 
 from qts.core import ConfigurationError, load_runtime_config
+from qts.domain import Bar, PortfolioSnapshot, Signal
 from qts.engines import BacktestEngine
-from qts.strategies import create_strategy
+from qts.strategies import BaseStrategy, create_strategy
 
 
 ROOT = Path(__file__).resolve().parents[3]
 CONFIG = ROOT / "configs" / "backtest_fixture.yaml"
+
+
+class DiagnosticStrategy(BaseStrategy):
+    def on_data(
+        self,
+        market_event: Bar,
+        features,
+        portfolio_snapshot: PortfolioSnapshot | None = None,
+    ) -> list[Signal]:  # type: ignore[no-untyped-def]
+        return []
+
+    def get_model_diagnostics(self) -> dict[str, object]:
+        return {
+            "strategy_id": self.name,
+            "model_id": "backtest-model",
+            "stage": "approved",
+            "feature_schema_hash": "backtest-hash",
+            "manifest_id": "backtest-model:backtest-hash",
+        }
 
 
 def load_config(
@@ -63,6 +83,19 @@ class BacktestEngineIntegrationTests(unittest.TestCase):
             self.assertEqual(result.fills, [])
             self.assertEqual(result.trade_ledger, [])
             self.assertEqual(result.metrics["total_return"], 0.0)
+
+    def test_backtest_engine_exposes_ml_model_diagnostics_in_metrics(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = BacktestEngine(
+                load_config(tmp),
+                strategies=[DiagnosticStrategy()],
+            ).run()
+
+            self.assertEqual(result.metrics["ml_models"][0]["model_id"], "backtest-model")
+            self.assertEqual(
+                result.metrics["ml_models"][0]["feature_schema_hash"],
+                "backtest-hash",
+            )
 
     def test_backtest_data_portal_is_replay_bounded(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

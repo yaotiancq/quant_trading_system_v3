@@ -1492,3 +1492,51 @@ usable unless a runtime explicitly requires approval.
 - Require every runtime model to be approved immediately.
 - Store approvals in a separate database or remote registry.
 - Treat validation metrics alone as approval.
+
+---
+
+## ADR-038: Carry ML Manifest Diagnostics Through Runtime Decisions
+
+### Context
+
+Phase F1 added manifest contracts, and Phase F2 added local approval and stage
+gates. Runtime decisions still needed a compact way to show which model
+contract produced a prediction without adding persistent audit storage or a
+dashboard.
+
+### Decision
+
+Runtime inference enriches each `ModelPrediction.metadata` payload with:
+
+- a local `manifest_id`,
+- manifest version and stage,
+- manifest model id,
+- manifest feature-schema hash,
+- a compact `model_manifest` diagnostic dictionary.
+
+ML strategies copy the loaded model diagnostics into signal metadata.
+Backtest metrics/report summaries and paper/live health checks expose loaded ML
+model diagnostics by asking strategies that provide `get_model_diagnostics()`.
+
+### Rationale
+
+Keeping diagnostics in existing prediction, signal, metric, and health payloads
+makes runtime ML decisions traceable without introducing a database, event log,
+or dashboard. The approach also keeps rule-based strategies unaffected.
+
+### Consequences
+
+- Prediction and signal payloads can be traced back to a manifest and schema
+  hash.
+- Backtest reports can show model identity and stage when an ML strategy is
+  loaded.
+- Paper/live health output can expose the loaded ML contract for operator
+  checks.
+- Persistent prediction audit logs remain a future extension, not part of this
+  phase.
+
+### Alternatives Considered
+
+- Add a persistent prediction audit log immediately.
+- Store diagnostics only in report artifacts.
+- Require every strategy type to implement ML diagnostics.

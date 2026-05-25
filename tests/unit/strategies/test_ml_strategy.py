@@ -77,6 +77,16 @@ class MLSignalStrategyTests(unittest.TestCase):
         self.assertEqual(sell[0].direction, SignalDirection.SELL)
         self.assertEqual(buy[0].reason, "ml_directional_prediction")
         self.assertIn("prediction", buy[0].metadata)
+        self.assertEqual(buy[0].metadata["model_manifest"]["model_id"], "strategy-model")
+        self.assertEqual(buy[0].metadata["manifest_stage"], "candidate")
+        self.assertEqual(
+            buy[0].metadata["prediction"]["metadata"]["manifest_id"],
+            buy[0].metadata["manifest_id"],
+        )
+        self.assertEqual(
+            strategy.get_model_diagnostics()["feature_schema_hash"],
+            buy[0].metadata["manifest_feature_schema_hash"],
+        )
 
     def test_initialize_rejects_runtime_feature_schema_mismatch(self) -> None:
         class Portal:

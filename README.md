@@ -14,7 +14,7 @@ The architecture documents in the project root are the source of truth:
 
 ## Current Status
 
-Major Architecture Phase F2 is complete. The repository now includes the package
+Major Architecture Phase F3 is complete. The repository now includes the package
 layout, validated domain models and enums, core configuration loading, clocks,
 common exceptions, logging setup, local market data providers, a config-driven
 Alpaca SIP historical bar downloader, a shared US equity calendar/session
@@ -29,7 +29,8 @@ static SVG chart diagnostics, a
 dependency-free Alpaca paper brokerage adapter, a paper trading engine
 initialization path, configuration templates, an offline ML workflow, a
 filesystem model registry with manifest/schema-hash contracts, runtime ML
-inference with opt-in approval/stage policy, an ML signal strategy adapter,
+inference with opt-in approval/stage policy and runtime diagnostics, an ML
+signal strategy adapter,
 monitoring and alert helpers, reconciliation health checks, guarded live safety
 gates, dry-run `LiveEngine` scaffolding, a manual live order submission safety
 envelope, gated Alpaca live adapter construction, optional automated live
@@ -38,8 +39,8 @@ dependency-free IBKR paper brokerage foundation, operational runbooks, and
 tests.
 
 Live order submission remains disabled by default and requires explicit
-non-dry-run production gates. The next planned work is Major Architecture Phase
-F3 for runtime ML metadata and audit diagnostics.
+non-dry-run production gates. The documented implementation phases are complete;
+the next recommended task is a final system design and implementation review.
 
 ## Layout
 

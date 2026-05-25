@@ -232,6 +232,16 @@ Strategy-level directional view before sizing and risk approval.
 | `reason` | string | no | human-readable reason |
 | `metadata` | dict | no | serializable |
 
+### Runtime ML Metadata
+
+For registered runtime models, `metadata` should include:
+
+- `manifest_id`,
+- `manifest_stage`,
+- `manifest_model_id`,
+- `manifest_feature_schema_hash`,
+- `model_manifest` with the serializable loaded manifest diagnostic payload.
+
 ### Example
 
 ```json

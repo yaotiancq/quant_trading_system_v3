@@ -33,6 +33,7 @@ from qts.execution import (
 from qts.execution.events import broker_event_from_fill, broker_event_from_order
 from qts.features import FeaturePipeline
 from qts.market_data import AlpacaStreamClient, alpaca_stream_event_source_from_config
+from qts.ml import collect_strategy_ml_diagnostics
 from qts.portfolio import DefaultPortfolio
 from qts.risk import RiskEngine
 from qts.strategies import BaseStrategy, create_strategy
@@ -320,6 +321,7 @@ class PaperTradingEngine:
             "broker_event_sync": self._last_broker_event_sync,
             "mock_mode": bool(self.config.broker.safety.get("mock_mode")),
             "market_data_provider": self.market_data_provider_name,
+            "ml_models": collect_strategy_ml_diagnostics(self.strategies),
         }
 
     def _apply_fill(self, fill: Fill) -> None:

@@ -108,6 +108,19 @@ class BacktestReporter:
         ]
         if _enabled(result.config.reporting.get("generate_plots")):
             lines.append("Static SVG equity and drawdown charts are exported when plot generation succeeds.")
+        ml_models = list(metrics.get("ml_models") or [])
+        if ml_models:
+            lines.extend(["", "## ML Model Diagnostics", ""])
+            for model in ml_models:
+                strategy_id = model.get("strategy_id", "unknown_strategy")
+                model_id = model.get("model_id", "unknown_model")
+                stage = model.get("stage", "unknown")
+                schema_hash = model.get("feature_schema_hash", "unknown")
+                manifest_id = model.get("manifest_id", "unknown")
+                lines.append(
+                    f"- {strategy_id}: model={model_id}, stage={stage}, "
+                    f"schema_hash={schema_hash}, manifest={manifest_id}"
+                )
         if result.warnings:
             lines.extend(["", "## Warnings", ""])
             lines.extend(f"- {warning}" for warning in result.warnings)

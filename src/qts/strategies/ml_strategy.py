@@ -81,6 +81,7 @@ class MLSignalStrategy(BaseStrategy):
 
         confidence = max(probability, 1.0 - probability)
         strength = min(abs(probability - 0.5) * 2.0, 1.0)
+        model_diagnostics = inference.get_model_diagnostics()
         return [
             Signal(
                 signal_id=_signal_id(self.name, market_event, selected),
@@ -91,9 +92,25 @@ class MLSignalStrategy(BaseStrategy):
                 strength=strength,
                 confidence=confidence,
                 reason="ml_directional_prediction",
-                metadata={"prediction": selected.to_dict()},
+                metadata={
+                    "prediction": selected.to_dict(),
+                    "model_manifest": model_diagnostics,
+                    "manifest_id": model_diagnostics["manifest_id"],
+                    "manifest_stage": model_diagnostics["stage"],
+                    "manifest_feature_schema_hash": model_diagnostics[
+                        "feature_schema_hash"
+                    ],
+                },
             )
         ]
+
+    def get_model_diagnostics(self) -> dict[str, Any]:
+        inference = self._require_inference()
+        return {
+            "strategy_id": self.name,
+            "strategy_type": self.config.strategy_type if self.config else "ml_directional",
+            **inference.get_model_diagnostics(),
+        }
 
     def _require_inference(self) -> DefaultMLModelInference:
         if self.inference is None:

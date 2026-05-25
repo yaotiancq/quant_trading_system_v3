@@ -553,6 +553,11 @@ manifest is present. Set `require_approved_model: true` and
 unless the registry manifest is approved. Development configs can instead use
 `allowed_model_stages: [candidate, validated, approved]`.
 
+Runtime predictions and ML strategy signals include the loaded manifest id,
+stage, and feature-schema hash in their metadata. Backtest reports include an
+ML Model Diagnostics section when an ML strategy is loaded, and paper/live
+health checks expose the same loaded model contract details.
+
 Promote a local model from Python:
 
 ```bash

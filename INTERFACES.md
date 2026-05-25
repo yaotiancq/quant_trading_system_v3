@@ -224,6 +224,7 @@ Provide runtime inference for trained ML models.
 | `get_expected_schema` | none | feature schema | Used before prediction. |
 | `get_model_metadata` | none | metadata | Model version, training range, metrics. |
 | `get_model_manifest` | none | `MLModelManifest` | Loaded model contract with feature-schema hash. |
+| `get_model_diagnostics` | none | dict | Serializable loaded model contract summary for health/report diagnostics. |
 
 ### Ownership Rules
 
@@ -235,6 +236,8 @@ Provide runtime inference for trained ML models.
 - It may be configured with `require_approved_model=true` or an
   `allowed_model_stages` list. When configured, model loading fails closed if
   the manifest stage does not satisfy policy.
+- Runtime predictions must include manifest identity, manifest stage, and
+  feature-schema hash metadata so downstream signals and reports are traceable.
 
 ## 8a. ModelRegistry
 

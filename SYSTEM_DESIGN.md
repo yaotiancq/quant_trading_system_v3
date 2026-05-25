@@ -266,6 +266,7 @@ Owns offline ML workflows:
 - model registry,
 - model manifests and schema hashes,
 - model approval stage transitions,
+- runtime model diagnostics,
 - inference pipeline utilities.
 
 Rules:
@@ -277,6 +278,9 @@ Rules:
   inference can verify feature-schema compatibility before prediction.
 - Runtime ML inference can be configured to require approved models or a
   specific set of allowed manifest stages.
+- Runtime predictions, ML strategy signals, backtest reports, and runtime
+  health diagnostics carry enough model contract metadata to trace which
+  manifest and feature schema produced a decision.
 
 ### `risk/`
 

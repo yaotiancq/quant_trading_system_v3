@@ -18,6 +18,7 @@ from qts.execution import ExecutionEngine, OrderRouter
 from qts.features import FeaturePipeline
 from qts.market_data import CSVBarProvider, LocalParquetProvider, MarketDataProvider
 from qts.market_data.portal import DefaultDataPortal
+from qts.ml import collect_strategy_ml_diagnostics
 from qts.portfolio import DefaultPortfolio
 from qts.reporting import BacktestReporter
 from qts.risk import RiskEngine
@@ -187,6 +188,9 @@ class BacktestEngine:
             self.portfolio.get_trade_ledger(),
             self.config,
         )
+        ml_models = collect_strategy_ml_diagnostics(self.strategies)
+        if ml_models:
+            metrics["ml_models"] = ml_models
         result = BacktestResult(
             run_id=self.config.run_id,
             config=self.config,

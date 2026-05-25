@@ -60,6 +60,25 @@ class BuyOnceStrategy(BaseStrategy):
         self.fills_seen += 1
 
 
+class DiagnosticStrategy(BaseStrategy):
+    def on_data(
+        self,
+        market_event: Bar,
+        features: Any,
+        portfolio_snapshot: PortfolioSnapshot | None = None,
+    ) -> list[Signal]:
+        return []
+
+    def get_model_diagnostics(self) -> dict[str, object]:
+        return {
+            "strategy_id": self.name,
+            "model_id": "paper-model",
+            "stage": "approved",
+            "feature_schema_hash": "paper-hash",
+            "manifest_id": "paper-model:paper-hash",
+        }
+
+
 class FillOnPollClient:
     def __init__(self) -> None:
         self.submitted_payloads: list[dict[str, object]] = []
@@ -164,6 +183,14 @@ class PaperTradingEngineIntegrationTests(unittest.TestCase):
         self.assertTrue(status["mock_mode"])
         self.assertEqual(status["market_data_provider"], "external_events")
         self.assertEqual(status["reconciliation"]["status"], "matched")
+
+    def test_paper_health_exposes_ml_model_diagnostics(self) -> None:
+        config = load_paper_config()
+
+        status = PaperTradingEngine(config, strategies=[DiagnosticStrategy()]).start(max_events=0)
+
+        self.assertEqual(status["ml_models"][0]["model_id"], "paper-model")
+        self.assertEqual(status["ml_models"][0]["feature_schema_hash"], "paper-hash")
 
     def test_paper_engine_rejects_unimplemented_market_data_provider(self) -> None:
         with self.assertRaises(ConfigurationError):

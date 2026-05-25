@@ -8,6 +8,35 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Major Architecture Phase F3] - 2026-05-24
+
+### Added
+
+- Added runtime ML manifest diagnostics helpers.
+- Added manifest identity, manifest stage, and schema-hash metadata to runtime
+  model predictions.
+- Added ML model manifest diagnostics to ML strategy signal metadata.
+- Added backtest metrics and report-summary hooks for loaded ML model
+  contracts.
+- Added paper and live health diagnostics for loaded ML model contracts.
+- Added focused tests for prediction metadata, signal metadata, backtest
+  diagnostics, paper health diagnostics, and report summaries.
+
+### Changed
+
+- Runtime ML inference now enriches predictions with the loaded manifest
+  contract metadata after manifest validation and stage policy checks.
+
+### Fixed
+
+- None.
+
+### Removed
+
+- None.
+
+---
+
 ## [Major Architecture Phase F2] - 2026-05-24
 
 ### Added

@@ -38,6 +38,7 @@ from qts.execution import (
     build_order_request,
 )
 from qts.features import FeaturePipeline
+from qts.ml import collect_strategy_ml_diagnostics
 from qts.monitoring import (
     AlertManager,
     AlertSeverity,
@@ -388,6 +389,7 @@ class LiveEngine:
                 "last_market_event_symbol": (
                     self._last_market_event.symbol if self._last_market_event is not None else None
                 ),
+                "ml_models": collect_strategy_ml_diagnostics(self.strategies),
                 "decision_preview_count": len(self._decision_previews),
                 "last_decision_preview": (
                     self._decision_previews[-1] if self._decision_previews else None
