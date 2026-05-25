@@ -34,10 +34,15 @@ class MLSignalStrategy(BaseStrategy):
         if not model_uri:
             raise StrategyError("ML strategy requires model_uri or model_id")
         registry_dir = params.get("registry_dir", "artifacts/models")
-        self.inference = DefaultMLModelInference(
-            str(model_uri),
-            registry=FileModelRegistry(str(registry_dir)),
-        )
+        try:
+            self.inference = DefaultMLModelInference(
+                str(model_uri),
+                registry=FileModelRegistry(str(registry_dir)),
+                require_approved_model=bool(params.get("require_approved_model", False)),
+                allowed_model_stages=params.get("allowed_model_stages"),
+            )
+        except MLWorkflowError as exc:
+            raise StrategyError(str(exc)) from exc
         self._validate_runtime_feature_schema(data_portal)
 
     def on_data(

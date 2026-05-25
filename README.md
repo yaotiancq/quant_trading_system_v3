@@ -14,7 +14,7 @@ The architecture documents in the project root are the source of truth:
 
 ## Current Status
 
-Major Architecture Phase F1 is complete. The repository now includes the package
+Major Architecture Phase F2 is complete. The repository now includes the package
 layout, validated domain models and enums, core configuration loading, clocks,
 common exceptions, logging setup, local market data providers, a config-driven
 Alpaca SIP historical bar downloader, a shared US equity calendar/session
@@ -29,7 +29,7 @@ static SVG chart diagnostics, a
 dependency-free Alpaca paper brokerage adapter, a paper trading engine
 initialization path, configuration templates, an offline ML workflow, a
 filesystem model registry with manifest/schema-hash contracts, runtime ML
-inference, an ML signal strategy adapter,
+inference with opt-in approval/stage policy, an ML signal strategy adapter,
 monitoring and alert helpers, reconciliation health checks, guarded live safety
 gates, dry-run `LiveEngine` scaffolding, a manual live order submission safety
 envelope, gated Alpaca live adapter construction, optional automated live
@@ -39,7 +39,7 @@ tests.
 
 Live order submission remains disabled by default and requires explicit
 non-dry-run production gates. The next planned work is Major Architecture Phase
-F2 for ML approval and stage gates.
+F3 for runtime ML metadata and audit diagnostics.
 
 ## Layout
 
@@ -304,7 +304,8 @@ PYTHONPATH=src .venv/bin/python scripts/train_model.py --config configs/ml/direc
 
 The training command writes both `model.json` and `manifest.json`; the manifest
 captures the model stage, feature schema version, ordered feature names, and
-feature-schema hash.
+feature-schema hash. Use `FileModelRegistry.approve_model(...)` to promote a
+validated model before running configs that set `require_approved_model: true`.
 
 Initialize the guarded live engine in dry-run mode:
 

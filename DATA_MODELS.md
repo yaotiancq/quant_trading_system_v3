@@ -951,7 +951,18 @@ registry.
 | `stage` | string | yes | `candidate`, `validated`, `approved`, `archived`, or `legacy` |
 | `metrics` | dict | no | serializable training/evaluation metrics |
 | `metadata` | dict | no | serializable training and model metadata |
+| `approved_by` | string | no | required when `stage` is `approved` |
+| `approved_at` | datetime | no | UTC approval timestamp required when `stage` is `approved` |
+| `approval_reason` | string | no | optional approval note |
+| `stage_history` | list[dict] | no | append-only local transition history |
 | `created_at` | datetime | yes | timezone-aware UTC |
+
+### Validation Rules
+
+- `approved` manifests require `approved_by` and `approved_at`.
+- `approved_at` cannot be present without `approved_by`.
+- Runtime approval policy may reject any stage outside the configured
+  `allowed_model_stages`.
 
 ### Producers
 

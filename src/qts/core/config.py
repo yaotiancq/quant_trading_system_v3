@@ -631,14 +631,56 @@ def _validate_strategies(strategies: list[Any]) -> None:
         elif strategy_type in {"ml_signal", "ml_directional", "ml_direction"}:
             _reject_unknown_keys(
                 parameters,
-                {"model_id", "registry_dir", "buy_probability_threshold", "sell_probability_threshold"},
+                {
+                    "model_id",
+                    "model_uri",
+                    "registry_dir",
+                    "buy_probability_threshold",
+                    "sell_probability_threshold",
+                    "emit_hold",
+                    "require_approved_model",
+                    "allowed_model_stages",
+                },
                 f"strategies[{index}].parameters",
             )
+            _validate_ml_stage_policy(parameters, index)
         else:
             raise ConfigurationError(f"unsupported strategy_type: {item.get('strategy_type')}")
         _validate_feature_config(
             _mapping(item.get("feature_config"), f"strategies[{index}].feature_config", required=False),
             index,
+        )
+
+
+def _validate_ml_stage_policy(parameters: Mapping[str, Any], strategy_index: int) -> None:
+    if "require_approved_model" in parameters and not isinstance(
+        parameters["require_approved_model"],
+        bool,
+    ):
+        raise ConfigurationError(
+            f"strategies[{strategy_index}].parameters.require_approved_model "
+            "must be true or false"
+        )
+    if "allowed_model_stages" not in parameters:
+        return
+    stages = parameters["allowed_model_stages"]
+    if not isinstance(stages, Sequence) or isinstance(stages, (str, bytes, bytearray)):
+        raise ConfigurationError(
+            f"strategies[{strategy_index}].parameters.allowed_model_stages must be a list"
+        )
+    allowed = {"candidate", "validated", "approved", "archived", "legacy"}
+    normalized = [str(stage).lower() for stage in stages]
+    unknown = sorted(stage for stage in normalized if stage not in allowed)
+    if unknown:
+        raise ConfigurationError(
+            "unsupported ML model stage(s) in "
+            f"strategies[{strategy_index}].parameters.allowed_model_stages: "
+            + ", ".join(unknown)
+        )
+    if bool(parameters.get("require_approved_model")) and "approved" not in normalized:
+        raise ConfigurationError(
+            f"strategies[{strategy_index}].parameters.require_approved_model "
+            "requires approved in allowed_model_stages"
         )
 
 

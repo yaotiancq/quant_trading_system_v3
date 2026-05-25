@@ -100,6 +100,45 @@ class MLSignalStrategyTests(unittest.TestCase):
                     data_portal=Portal(),
                 )
 
+    def test_initialize_enforces_approved_model_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            registry = FileModelRegistry(tmp)
+            registry.save_model(make_model())
+            strategy = MLSignalStrategy()
+
+            with self.assertRaisesRegex(StrategyError, "requires approved"):
+                strategy.initialize(
+                    StrategyConfig(
+                        strategy_id="ml_test",
+                        strategy_type="ml_directional",
+                        symbols=["SPY"],
+                        parameters={
+                            "model_id": "strategy-model",
+                            "registry_dir": tmp,
+                            "require_approved_model": True,
+                        },
+                    ),
+                    data_portal=None,
+                )
+
+            registry.approve_model("strategy-model", approved_by="risk", reason="checked")
+            approved_strategy = MLSignalStrategy()
+            approved_strategy.initialize(
+                StrategyConfig(
+                    strategy_id="ml_test",
+                    strategy_type="ml_directional",
+                    symbols=["SPY"],
+                    parameters={
+                        "model_id": "strategy-model",
+                        "registry_dir": tmp,
+                        "require_approved_model": True,
+                    },
+                ),
+                data_portal=None,
+            )
+
+        self.assertIsNotNone(approved_strategy.inference)
+
     def test_strategy_factory_supports_ml_directional_strategy(self) -> None:
         strategy = create_strategy(
             StrategyConfig(

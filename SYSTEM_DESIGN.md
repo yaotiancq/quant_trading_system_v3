@@ -265,6 +265,7 @@ Owns offline ML workflows:
 - model evaluation,
 - model registry,
 - model manifests and schema hashes,
+- model approval stage transitions,
 - inference pipeline utilities.
 
 Rules:
@@ -274,6 +275,8 @@ Rules:
 - Runtime ML strategy lives in `strategies/` and uses registered models from `ml/`.
 - Newly saved model artifacts include a local manifest contract so runtime
   inference can verify feature-schema compatibility before prediction.
+- Runtime ML inference can be configured to require approved models or a
+  specific set of allowed manifest stages.
 
 ### `risk/`
 

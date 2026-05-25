@@ -10,9 +10,14 @@ model:
   # Directory where the trained model artifact is written.
   registry_dir: artifacts/models
   # Governance stage recorded in manifest.json.
-  # Options in Phase F1: candidate, validated, approved, archived.
-  # Runtime approval enforcement is reserved for Phase F2.
+  # Options: candidate, validated, approved, archived.
+  # Training normally writes candidate or validated. If you set approved here,
+  # also set approved_by so manifest approval validation can pass.
   stage: candidate
+  # Optional approver identity used only when stage is approved, for example:
+  # approved_by: user
+  # Optional approval note used only when stage is approved, for example:
+  # approval_reason: paper validation
   # Probability threshold used by the trained model wrapper for positive decisions.
   decision_threshold: 0.55
 

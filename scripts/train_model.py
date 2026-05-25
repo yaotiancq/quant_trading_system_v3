@@ -95,6 +95,8 @@ def train_from_mapping(
         embargo_bars=int(split_config.get("embargo_bars", 1)),
         decision_threshold=float(model_config.get("decision_threshold", 0.55)),
         model_stage=str(model_config.get("stage", "candidate")),
+        model_approved_by=model_config.get("approved_by"),
+        model_approval_reason=model_config.get("approval_reason"),
         registry=FileModelRegistry(registry_dir),
         metadata={"training_config": dict(raw)},
     )

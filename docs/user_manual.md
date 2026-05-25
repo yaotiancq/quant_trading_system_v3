@@ -534,7 +534,8 @@ The fixture ML config uses:
 - chronological train/validation/test split,
 - filesystem registry under `artifacts/models/`,
 - `manifest.json` beside `model.json` with the model stage, feature schema
-  version, ordered feature names, and feature-schema hash.
+  version, ordered feature names, feature-schema hash, approval metadata, and
+  stage history.
 
 Override the model registry output directory:
 
@@ -547,8 +548,16 @@ PYTHONPATH=src .venv/bin/python scripts/train_model.py \
 The runtime ML strategy adapter lives in `qts.strategies.ml_strategy` and loads
 registered models through `qts.ml.inference`.
 Runtime inference validates saved manifests against model artifacts when a
-manifest is present. Phase F1 records stages such as `candidate`; approved-only
-runtime loading is reserved for Phase F2.
+manifest is present. Set `require_approved_model: true` and
+`allowed_model_stages: [approved]` in the ML strategy parameters to fail closed
+unless the registry manifest is approved. Development configs can instead use
+`allowed_model_stages: [candidate, validated, approved]`.
+
+Promote a local model from Python:
+
+```bash
+PYTHONPATH=src .venv/bin/python -c "from qts.ml import FileModelRegistry; FileModelRegistry('artifacts/models').approve_model('directional_fixture_v1', approved_by='user', reason='paper validation')"
+```
 
 ## 12. Live Dry-Run Runtime
 

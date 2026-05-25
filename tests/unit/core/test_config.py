@@ -336,6 +336,89 @@ execution:
             with self.assertRaisesRegex(ConfigurationError, "execution"):
                 load_runtime_config(path, env_path=None)
 
+    def test_ml_strategy_stage_policy_config_is_validated(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "ml.yaml"
+            path.write_text(
+                """
+runtime:
+  mode: BACKTEST
+symbols: [SPY]
+timeframe: MINUTE
+date_range:
+  start: 2024-01-02T14:30:00Z
+  end: 2024-01-02T14:35:00Z
+market_data:
+  provider: local_csv
+  path: data/bars.csv
+broker:
+  broker_type: backtest
+strategies:
+  - strategy_id: ml
+    strategy_type: ml_directional
+    symbols: [SPY]
+    parameters:
+      model_id: unit-model
+      registry_dir: artifacts/models
+      require_approved_model: true
+      allowed_model_stages: [approved]
+risk:
+  sizing_method: fixed_quantity
+  sizing_parameters:
+    quantity: 1
+portfolio:
+  starting_cash: 100000
+execution:
+  allow_fractional: false
+""",
+                encoding="utf-8",
+            )
+
+            config = load_runtime_config(path, env_path=None)
+
+        self.assertTrue(config.strategies[0].parameters["require_approved_model"])
+        self.assertEqual(config.strategies[0].parameters["allowed_model_stages"], ["approved"])
+
+    def test_invalid_ml_stage_policy_config_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad_ml.yaml"
+            path.write_text(
+                """
+runtime:
+  mode: BACKTEST
+symbols: [SPY]
+timeframe: MINUTE
+date_range:
+  start: 2024-01-02T14:30:00Z
+  end: 2024-01-02T14:35:00Z
+market_data:
+  provider: local_csv
+  path: data/bars.csv
+broker:
+  broker_type: backtest
+strategies:
+  - strategy_id: ml
+    strategy_type: ml_directional
+    symbols: [SPY]
+    parameters:
+      model_id: unit-model
+      require_approved_model: true
+      allowed_model_stages: [candidate]
+risk:
+  sizing_method: fixed_quantity
+  sizing_parameters:
+    quantity: 1
+portfolio:
+  starting_cash: 100000
+execution:
+  allow_fractional: false
+""",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ConfigurationError, "requires approved"):
+                load_runtime_config(path, env_path=None)
+
     def test_runtime_mode_must_be_explicit_in_active_config(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bad.yaml"

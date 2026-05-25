@@ -219,7 +219,7 @@ Provide runtime inference for trained ML models.
 
 | Method | Inputs | Output | Notes |
 |---|---|---|---|
-| `load_model` | model URI or registry ID | loaded model handle | Reads registered model. |
+| `load_model` | model URI or registry ID | loaded model handle | Reads registered model and applies configured stage policy. |
 | `predict` | `FeatureRecord` or `FeatureFrame` | `ModelPrediction` or list | Runtime prediction. |
 | `get_expected_schema` | none | feature schema | Used before prediction. |
 | `get_model_metadata` | none | metadata | Model version, training range, metrics. |
@@ -232,6 +232,9 @@ Provide runtime inference for trained ML models.
 - It does not decide final position size unless the strategy explicitly interprets prediction that way and risk approves it.
 - It must fail closed when a saved model manifest contradicts the model
   artifact contract.
+- It may be configured with `require_approved_model=true` or an
+  `allowed_model_stages` list. When configured, model loading fails closed if
+  the manifest stage does not satisfy policy.
 
 ## 8a. ModelRegistry
 
@@ -248,11 +251,14 @@ strategies to filesystem details.
 | `load_model` | model id or URI | model handle | Validates manifest contract when present. |
 | `load_manifest` | model id or URI | `MLModelManifest` | Reads and validates manifest structure. |
 | `manifest_for_model` | model id or URI | `MLModelManifest` | Returns saved manifest or synthesized legacy manifest. |
+| `transition_model_stage` | model id or URI, target stage, actor/reason | `MLModelManifest` | Persists stage changes and transition history. |
+| `mark_validated` / `approve_model` / `archive_model` | model id or URI, approval metadata | `MLModelManifest` | Convenience helpers for common stage changes. |
 
 ### Stability Notes
 
-Stage approval enforcement is a future Phase F2 policy. Phase F1 records stage
-and schema-hash contracts but does not require approved-only model loading.
+The filesystem registry is the local source of truth for model manifests.
+Approved manifests require approver metadata. Runtime approved-only loading is
+an opt-in policy so research and fixture workflows remain backward compatible.
 
 ## 9. RiskRule
 

@@ -1439,10 +1439,56 @@ checks more precise than a version string alone.
 - New local model directories contain both `model.json` and `manifest.json`.
 - Model loads fail closed when a saved manifest contradicts the artifact.
 - Runtime inference can report the model contract it loaded.
-- Approval and stage enforcement are intentionally deferred to Phase F2.
+- Approval and stage enforcement builds on this manifest contract in Phase F2.
 
 ### Alternatives Considered
 
 - Store all governance fields only inside `model.json`.
 - Require a database-backed model registry.
 - Enforce approved-only runtime loading before manifest contracts are stable.
+
+---
+
+## ADR-037: Enforce ML Model Approval Through Local Manifest Stage Policy
+
+### Context
+
+Phase F1 made local model artifacts self-describing with manifests and schema
+hashes. Runtime workflows still needed an explicit way to distinguish research
+artifacts from models approved for production-style use.
+
+### Decision
+
+The filesystem model registry owns local stage transitions for `candidate`,
+`validated`, `approved`, and `archived` manifests. Approved manifests require
+approver metadata and an approval timestamp. Runtime inference accepts an
+optional stage policy:
+
+- `require_approved_model=true` requires the loaded manifest stage to be
+  `approved`,
+- `allowed_model_stages` restricts loading to a configured stage set.
+
+The ML strategy passes these runtime policy options through to inference.
+
+### Rationale
+
+Keeping approval state in the manifest preserves the project's local,
+dependency-free registry while making production-style loading fail closed when
+configured. The policy is opt-in so research, tests, and legacy artifacts remain
+usable unless a runtime explicitly requires approval.
+
+### Consequences
+
+- Model stage changes are persisted with local transition history.
+- Approved-only runtime configs reject candidate, validated, archived, and
+  legacy artifacts.
+- Archived or legacy artifacts can still be loaded only when a runtime policy
+  explicitly permits them.
+- A future diagnostics phase can report manifest stage and approval metadata
+  without changing registry storage.
+
+### Alternatives Considered
+
+- Require every runtime model to be approved immediately.
+- Store approvals in a separate database or remote registry.
+- Treat validation metrics alone as approval.

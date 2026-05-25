@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .models import DirectionalModel
-from .types import MLModelManifest, MLWorkflowError, build_feature_schema_hash
+from .types import MLModelManifest, MLWorkflowError, build_feature_schema_hash, normalize_model_stage
 
 
 class FileModelRegistry:
@@ -22,17 +22,24 @@ class FileModelRegistry:
         *,
         stage: str = "candidate",
         manifest_metadata: dict[str, Any] | None = None,
+        approved_by: str | None = None,
+        approval_reason: str | None = None,
     ) -> Path:
         model_dir = self.root_dir / model.model_id
         model_dir.mkdir(parents=True, exist_ok=True)
         path = model_dir / "model.json"
         path.write_text(json.dumps(model.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
-        manifest = MLModelManifest.from_model(
-            model,
-            model_artifact=path.name,
-            stage=stage,
-            metadata=manifest_metadata,
-        )
+        try:
+            manifest = MLModelManifest.from_model(
+                model,
+                model_artifact=path.name,
+                stage=stage,
+                metadata=manifest_metadata,
+                approved_by=approved_by,
+                approval_reason=approval_reason,
+            )
+        except ValueError as exc:
+            raise MLWorkflowError(f"invalid model manifest contract: {exc}") from exc
         self.save_manifest(manifest)
         return path
 
@@ -56,9 +63,7 @@ class FileModelRegistry:
     def save_manifest(self, manifest: MLModelManifest) -> Path:
         model_dir = self.root_dir / manifest.model_id
         model_dir.mkdir(parents=True, exist_ok=True)
-        path = self._manifest_path(model_dir)
-        path.write_text(json.dumps(manifest.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
-        return path
+        return self._write_manifest(manifest, model_dir)
 
     def load_manifest(self, model_id_or_uri: str | Path) -> MLModelManifest:
         model_dir = self._resolve_model_dir(model_id_or_uri)
@@ -88,6 +93,93 @@ class FileModelRegistry:
             model_artifact=path.name,
             stage="legacy",
             metadata={"legacy_manifest": True},
+        )
+
+    def transition_model_stage(
+        self,
+        model_id_or_uri: str | Path,
+        stage: str,
+        *,
+        actor: str | None = None,
+        reason: str | None = None,
+        approved_by: str | None = None,
+        approval_reason: str | None = None,
+    ) -> MLModelManifest:
+        """Transition a model manifest to a governance stage and persist it."""
+        target_stage = normalize_model_stage(stage, allow_legacy=False)
+        path = self._resolve_model_path(model_id_or_uri)
+        model = self.load_model(path)
+        manifest = self.manifest_for_model(path)
+        self.validate_model_contract(model, manifest)
+        try:
+            updated = manifest.with_stage(
+                target_stage,
+                actor=actor,
+                reason=reason,
+                approved_by=approved_by,
+                approval_reason=approval_reason,
+            )
+        except ValueError as exc:
+            raise MLWorkflowError(f"invalid model stage transition: {exc}") from exc
+        self._write_manifest(updated, path.parent)
+        return updated
+
+    def mark_candidate(
+        self,
+        model_id_or_uri: str | Path,
+        *,
+        actor: str | None = None,
+        reason: str | None = None,
+    ) -> MLModelManifest:
+        return self.transition_model_stage(
+            model_id_or_uri,
+            "candidate",
+            actor=actor,
+            reason=reason,
+        )
+
+    def mark_validated(
+        self,
+        model_id_or_uri: str | Path,
+        *,
+        actor: str | None = None,
+        reason: str | None = None,
+    ) -> MLModelManifest:
+        return self.transition_model_stage(
+            model_id_or_uri,
+            "validated",
+            actor=actor,
+            reason=reason,
+        )
+
+    def approve_model(
+        self,
+        model_id_or_uri: str | Path,
+        *,
+        approved_by: str,
+        reason: str | None = None,
+    ) -> MLModelManifest:
+        return self.transition_model_stage(
+            model_id_or_uri,
+            "approved",
+            actor=approved_by,
+            reason=reason,
+            approved_by=approved_by,
+            approval_reason=reason,
+        )
+
+    def archive_model(
+        self,
+        model_id_or_uri: str | Path,
+        *,
+        actor: str | None = None,
+        reason: str | None = None,
+    ) -> MLModelManifest:
+        return self.transition_model_stage(
+            model_id_or_uri,
+            "archived",
+            actor=actor,
+            reason=reason,
         )
 
     def validate_model_contract(
@@ -138,6 +230,12 @@ class FileModelRegistry:
 
     def _manifest_path(self, model_dir: Path) -> Path:
         return model_dir / "manifest.json"
+
+    def _write_manifest(self, manifest: MLModelManifest, model_dir: Path) -> Path:
+        model_dir.mkdir(parents=True, exist_ok=True)
+        path = self._manifest_path(model_dir)
+        path.write_text(json.dumps(manifest.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
+        return path
 
 
 __all__ = ["FileModelRegistry"]

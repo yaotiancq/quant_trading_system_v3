@@ -1013,7 +1013,7 @@ time after Phase A is stable:
 | Phase D3 - Automated Live Decision Submission | Complete | Converts approved live previews into optional broker submissions through D1 gates, kill-switch checks, post-submit reconciliation, and fail-stop controls. |
 | Phase E - Chart Reporting and Visual Backtest Diagnostics | Complete | Added optional static SVG chart artifacts for backtest reports. |
 | Phase F1 - ML Model Manifests and Schema Hash Contracts | Complete | Added manifest artifacts, feature-schema hashes, and registry/inference contract validation. |
-| Phase F2 - ML Approval and Stage Gates | Planned | Add model approval rules, stage transitions, and runtime loading policy. |
+| Phase F2 - ML Approval and Stage Gates | Complete | Added model approval metadata, stage transitions, and runtime loading policy. |
 | Phase F3 - Runtime ML Metadata and Audit Diagnostics | Planned | Add runtime ML metadata capture, prediction diagnostics, and governance report hooks. |
 
 ## Major Architecture Phase B1 - Deterministic Runtime Event Loop and Fake Stream

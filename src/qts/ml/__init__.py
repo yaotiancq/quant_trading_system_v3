@@ -17,6 +17,7 @@ from .types import (
     MLSample,
     MLWorkflowError,
     build_feature_schema_hash,
+    normalize_model_stage,
 )
 
 __all__ = [
@@ -39,4 +40,5 @@ __all__ = [
     "validate_no_temporal_leakage",
     "validate_split_no_leakage",
     "walk_forward_splits",
+    "normalize_model_stage",
 ]

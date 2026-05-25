@@ -8,6 +8,37 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Major Architecture Phase F2] - 2026-05-24
+
+### Added
+
+- Added ML model stage transition helpers for candidate, validated, approved,
+  and archived manifests.
+- Added manifest approval metadata fields and persisted stage transition
+  history.
+- Added runtime inference policy for `require_approved_model` and
+  `allowed_model_stages`.
+- Added ML strategy/config pass-through for model stage loading policy.
+- Added tests for registry transitions, approved-only inference, archived
+  rejection under approval policy, strategy enforcement, and config validation.
+
+### Changed
+
+- Approved manifests now require approver metadata and approval timestamp.
+- The sample ML strategy config now blocks archived and legacy artifacts by
+  default while still allowing development-stage models.
+
+### Fixed
+
+- ML strategy initialization now converts ML loading policy failures into
+  strategy-layer errors.
+
+### Removed
+
+- None.
+
+---
+
 ## [Major Architecture Phase F1] - 2026-05-24
 
 ### Added

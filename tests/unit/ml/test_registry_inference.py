@@ -83,6 +83,35 @@ class RegistryInferenceTests(unittest.TestCase):
             with self.assertRaisesRegex(MLWorkflowError, "feature_schema_hash"):
                 registry.load_model("unit-model")
 
+    def test_registry_transitions_model_stage_with_approval_history(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            registry = FileModelRegistry(tmp)
+            registry.save_model(make_model())
+
+            validated = registry.mark_validated("unit-model", actor="research", reason="metrics reviewed")
+            approved = registry.approve_model("unit-model", approved_by="risk", reason="paper validation")
+            archived = registry.archive_model("unit-model", actor="risk", reason="superseded")
+            reloaded = registry.load_manifest("unit-model")
+
+        self.assertEqual(validated.stage, "validated")
+        self.assertEqual(approved.stage, "approved")
+        self.assertEqual(approved.approved_by, "risk")
+        self.assertIsNotNone(approved.approved_at)
+        self.assertEqual(approved.approval_reason, "paper validation")
+        self.assertEqual(archived.stage, "archived")
+        self.assertEqual(reloaded.stage, "archived")
+        self.assertEqual(len(reloaded.stage_history), 3)
+        self.assertEqual(reloaded.stage_history[-1]["from_stage"], "approved")
+        self.assertEqual(reloaded.stage_history[-1]["to_stage"], "archived")
+
+    def test_registry_rejects_approval_without_approver(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            registry = FileModelRegistry(tmp)
+            registry.save_model(make_model())
+
+            with self.assertRaisesRegex(MLWorkflowError, "approved_by"):
+                registry.transition_model_stage("unit-model", "approved")
+
     def test_inference_returns_model_prediction_and_enforces_schema(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             registry = FileModelRegistry(tmp)
@@ -115,6 +144,53 @@ class RegistryInferenceTests(unittest.TestCase):
                         values={"ret_1": 0.02},
                         schema_version="wrong_schema",
                     )
+                )
+
+    def test_inference_enforces_approved_model_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            registry = FileModelRegistry(tmp)
+            registry.save_model(make_model())
+
+            with self.assertRaisesRegex(MLWorkflowError, "requires approved"):
+                DefaultMLModelInference(
+                    "unit-model",
+                    registry=registry,
+                    require_approved_model=True,
+                )
+
+            registry.approve_model("unit-model", approved_by="risk", reason="accepted")
+            approved = DefaultMLModelInference(
+                "unit-model",
+                registry=registry,
+                require_approved_model=True,
+            )
+            self.assertEqual(approved.get_model_manifest().stage, "approved")
+
+            registry.archive_model("unit-model", actor="risk", reason="retired")
+            with self.assertRaisesRegex(MLWorkflowError, "requires approved"):
+                DefaultMLModelInference(
+                    "unit-model",
+                    registry=registry,
+                    require_approved_model=True,
+                )
+
+    def test_inference_enforces_allowed_model_stages_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            registry = FileModelRegistry(tmp)
+            registry.save_model(make_model())
+
+            candidate = DefaultMLModelInference(
+                "unit-model",
+                registry=registry,
+                allowed_model_stages=["candidate", "validated"],
+            )
+            self.assertEqual(candidate.get_model_manifest().stage, "candidate")
+
+            with self.assertRaisesRegex(MLWorkflowError, "not allowed"):
+                DefaultMLModelInference(
+                    "unit-model",
+                    registry=registry,
+                    allowed_model_stages=["approved"],
                 )
 
 

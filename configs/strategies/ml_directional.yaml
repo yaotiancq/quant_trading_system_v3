@@ -27,6 +27,13 @@ parameters:
   buy_probability_threshold: 0.55
   # Probability at or below this value emits SELL/EXIT.
   sell_probability_threshold: 0.45
+  # true requires the registry manifest stage to be approved before loading.
+  require_approved_model: false
+  # Allowed manifest stages for this runtime strategy.
+  # Options: candidate, validated, approved, archived, legacy.
+  # The default blocks archived/legacy artifacts while allowing development
+  # models; set to [approved] with require_approved_model: true for production.
+  allowed_model_stages: [candidate, validated, approved]
 
 # Feature schema expected by the model. These specs should match training config.
 feature_config:
