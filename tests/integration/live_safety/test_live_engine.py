@@ -354,7 +354,7 @@ class LiveEngineSafetyIntegrationTests(unittest.TestCase):
             }
         )
 
-        with patch("qts.engines.live_engine.AlpacaBrokerage", RecordingAlpacaLiveBrokerage):
+        with patch("qts.brokers.factory.AlpacaBrokerage", RecordingAlpacaLiveBrokerage):
             engine = LiveEngine(config)
             engine.initialize()
 
@@ -371,7 +371,7 @@ class LiveEngineSafetyIntegrationTests(unittest.TestCase):
             }
         )
 
-        with patch("qts.engines.live_engine.AlpacaBrokerage") as factory:
+        with patch("qts.brokers.factory.AlpacaBrokerage") as factory:
             engine = LiveEngine(config)
             with self.assertRaisesRegex(LiveSafetyError, "enable_order_submission"):
                 engine.initialize()

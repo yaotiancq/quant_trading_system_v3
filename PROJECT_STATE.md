@@ -19,8 +19,8 @@ live decision submission, and Major Architecture Phase E chart reporting and
 visual backtest diagnostics, Major Architecture Phase F1 ML model manifest
 contracts, Major Architecture Phase F2 ML approval and stage gates, and Major
 Architecture Phase F3 runtime ML metadata and audit diagnostics, followed by
-the final system design and implementation review and the shared runtime
-decision pipeline refactor.
+the final system design and implementation review, the shared runtime decision
+pipeline refactor, and the brokerage factory refactor.
 
 The Python package now includes stable domain enums and data models, core config
 loading and validation, clocks, common exceptions, logging setup, local
@@ -201,7 +201,12 @@ guarded `LiveEngine` decision previews now reuse that common path while keeping
 fills, broker synchronization, order submission, reporting, monitoring, and
 live safety gates in the owning engines.
 
-- **Current phase:** Shared runtime decision pipeline refactor complete
+The brokerage factory refactor centralizes adapter selection in
+`qts.brokers.factory`. Backtest, paper, and live engines now request brokerages
+from the factory while retaining connection lifecycle, simulated fills,
+paper/live synchronization, and live safety policy in the engines.
+
+- **Current phase:** Brokerage factory refactor complete
 - **Completed phases:**
   - Phase 0 - Documentation and repository scaffold initialization
   - Phase 1 - Project Skeleton and Core Domain Models
@@ -231,6 +236,7 @@ live safety gates in the owning engines.
   - Major Architecture Phase F3 - Runtime ML Metadata and Audit Diagnostics
   - Final system design and implementation review
   - Shared runtime decision pipeline refactor
+  - Brokerage factory refactor
 - **In-progress phase:** None
 - **Next recommended task:** None. Start a new documented phase only when new
   requirements are defined.
@@ -267,6 +273,7 @@ live safety gates in the owning engines.
 | Major Architecture Phase F3 | Complete | Implemented runtime ML manifest metadata propagation, health diagnostics, and report-summary hooks. |
 | Final system design and implementation review | Complete | Reviewed actual implementation against system design, interfaces, data models, and ADRs; fixed protocol import boundaries, shared session-service use in risk checks, runtime data-portal feature filtering, and stale state/model documentation. |
 | Shared runtime decision pipeline refactor | Complete | Added `RuntimeDecisionPipeline` and integrated backtest, paper, and guarded live preview paths through the shared feature, strategy, and risk decision sequence while preserving engine-owned fills, broker sync, order submission, and live safety gates. |
+| Brokerage factory refactor | Complete | Added `qts.brokers.factory` and moved backtest, paper, and live broker adapter construction out of engines while preserving connection lifecycle, simulation models, broker sync, and live safety gates. |
 
 ## 3. Pending Phases
 
@@ -374,6 +381,7 @@ Execution layer implemented:
 Brokerage layer implemented:
 
 - `src/qts/brokers/interfaces.py`
+- `src/qts/brokers/factory.py`
 - `src/qts/brokers/__init__.py`
 - `src/qts/brokers/backtest/brokerage.py`
 - `src/qts/brokers/backtest/__init__.py`
@@ -461,6 +469,7 @@ Tests and fixtures implemented:
 - `tests/unit/risk/`
 - `tests/unit/execution/`
 - `tests/unit/engines/`
+- `tests/unit/brokers/test_factory.py`
 - `tests/unit/brokers/backtest/`
 - `tests/unit/brokers/alpaca/`
 - `tests/unit/brokers/ibkr/`

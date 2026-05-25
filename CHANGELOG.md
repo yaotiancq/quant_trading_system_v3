@@ -8,6 +8,34 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Brokerage Factory Refactor] - 2026-05-25
+
+### Added
+
+- Added `qts.brokers.factory` with `create_brokerage(...)` and
+  `create_backtest_brokerage(...)` for centralized broker adapter selection.
+- Added brokerage factory unit tests for Alpaca, IBKR, backtest simulation
+  settings, unsupported broker errors, and construction without connection.
+
+### Changed
+
+- `BacktestEngine`, `PaperTradingEngine`, and `LiveEngine` now construct
+  broker adapters through the brokerage factory instead of importing concrete
+  broker classes.
+- Updated system documentation to make brokerage factory ownership explicit.
+
+### Fixed
+
+- Centralized broker type error handling so unsupported broker configs fail
+  fast with supported broker type details and runtime-mode context.
+
+### Removed
+
+- Removed engine-local broker selection helpers for paper and live runtime
+  modes.
+
+---
+
 ## [Shared Runtime Decision Pipeline Refactor] - 2026-05-25
 
 ### Added

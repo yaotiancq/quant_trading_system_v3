@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import datetime, timezone
 
-from qts.brokers.alpaca import AlpacaBrokerage
+from qts.brokers.factory import create_brokerage
 from qts.brokers.interfaces import Brokerage
 from qts.calendar import MarketSessionService, build_market_session_service, default_market_session_service
 from qts.core import ConfigurationError, ExecutionError, LiveSafetyError, RealClock, ReconciliationError
@@ -132,7 +132,10 @@ class LiveEngine:
                 self.brokerage = _DryRunLiveBrokerage(self.config.broker)
             else:
                 validate_live_order_submission_config(self.config)
-                self.brokerage = _live_brokerage_from_config(self.config)
+                self.brokerage = create_brokerage(
+                    self.config.broker,
+                    runtime_mode=self.config.runtime_mode,
+                )
 
         self.brokerage.connect(self.config.broker)
         account = self.brokerage.get_account()
@@ -683,15 +686,6 @@ def _truthy(value: object) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in {"1", "true", "yes", "y", "on"}
     return bool(value)
-
-
-def _live_brokerage_from_config(config: RuntimeConfig) -> Brokerage:
-    broker_type = config.broker.broker_type.lower()
-    if broker_type == "alpaca_live":
-        return AlpacaBrokerage(config.broker)
-    raise ConfigurationError(
-        "LiveEngine currently supports broker.broker_type=alpaca_live for non-dry-run live brokerage"
-    )
 
 
 class _DryRunLiveBrokerage:

@@ -74,7 +74,8 @@ Each layer owns a small responsibility:
 1. `scripts/run_paper_trading.py` loads a paper config.
 2. `PaperTradingEngine` validates `PAPER` mode and an event-driven market-data
    provider: `external_events`, `fake_stream`, or mockable `alpaca_stream`.
-3. The engine selects `AlpacaBrokerage` or `IBKRBrokerage`.
+3. The engine asks `qts.brokers.factory.create_brokerage(...)` for the
+   configured paper broker.
 4. The broker adapter connects to a real or in-memory client.
 5. The portfolio reconciles against broker account and positions.
 6. Externally supplied `Bar`/`Quote` events, finite fake-stream events, or mock
@@ -103,8 +104,8 @@ Each layer owns a small responsibility:
 7. Manual `submit_live_order(...)` calls can submit only after non-dry-run,
    confirmation, submission, account, order, session, and reconciliation gates
    pass.
-8. Non-dry-run `LiveEngine` can construct the selected Alpaca live adapter only
-   after the same D1 submission gates pass.
+8. Non-dry-run `LiveEngine` can construct the selected Alpaca live adapter
+   through the brokerage factory only after the same D1 submission gates pass.
 9. Safety-approved previews can submit automatically only when
    `enable_automated_submission` is true and the automated kill switch is open.
 10. Automated submission failures stop further automation and report critical
@@ -289,6 +290,7 @@ broker or integration metadata.
 | File | Purpose |
 |---|---|
 | `src/qts/brokers/interfaces.py` | Normalized `Brokerage` protocol. |
+| `src/qts/brokers/factory.py` | Central brokerage factory for backtest, Alpaca, and IBKR adapter construction. Engines use this instead of importing concrete adapters. |
 | `src/qts/brokers/backtest/brokerage.py` | Simulated broker with order lifecycle, fill policies, cash, positions, slippage, and commission. |
 | `src/qts/brokers/backtest/__init__.py` | Backtest broker exports. |
 | `src/qts/brokers/alpaca/brokerage.py` | Alpaca paper and explicitly gated live brokerage adapter implementing `Brokerage`. |
@@ -341,7 +343,7 @@ but should not be confused with broker-owned account state.
 | `src/qts/engines/market_data.py` | Validates event-driven market data provider settings for paper/live. |
 | `src/qts/engines/backtest_engine.py` | Deterministic local backtest orchestration. |
 | `src/qts/engines/paper_trading_engine.py` | Paper runtime initialization, externally supplied event handling, and finite fake-stream execution. |
-| `src/qts/engines/live_engine.py` | Guarded live orchestration, manual live order submission envelope, selected Alpaca live brokerage construction, automated preview submission, and `_DryRunLiveBrokerage`. |
+| `src/qts/engines/live_engine.py` | Guarded live orchestration, manual live order submission envelope, factory-created Alpaca live brokerage construction, automated preview submission, and `_DryRunLiveBrokerage`. |
 | `src/qts/engines/__init__.py` | Engine exports. |
 
 Engines wire modules together. Keep detailed business behavior in the owning
@@ -423,6 +425,7 @@ Keep these empty until there is a clear owner for new behavior.
 | `tests/unit/strategies/` | Rule-based and ML strategy tests. |
 | `tests/unit/risk/` | Sizing and risk engine tests. |
 | `tests/unit/execution/` | Order building, routing, and execution tests. |
+| `tests/unit/brokers/` | Brokerage factory and broker package tests. |
 | `tests/unit/brokers/backtest/` | Backtest broker lifecycle and fill tests. |
 | `tests/unit/brokers/alpaca/` | Alpaca brokerage tests with fake clients. |
 | `tests/unit/brokers/ibkr/` | IBKR brokerage tests with in-memory client. |
@@ -469,6 +472,7 @@ Detailed test file index:
 | `tests/unit/execution/__init__.py` | Execution test package marker. |
 | `tests/unit/execution/test_execution.py` | Tests order request building, fractional validation, routing, order manager, and backtest broker integration. |
 | `tests/unit/brokers/__init__.py` | Broker test package marker. |
+| `tests/unit/brokers/test_factory.py` | Tests centralized broker adapter selection, runtime-mode errors, backtest model preservation, and construction without connection. |
 | `tests/unit/brokers/backtest/__init__.py` | Backtest broker test package marker. |
 | `tests/unit/brokers/backtest/test_backtest_brokerage.py` | Tests fill policies, lifecycle, cash/position checks, and rejections. |
 | `tests/unit/brokers/alpaca/__init__.py` | Alpaca broker test package marker. |
@@ -554,7 +558,7 @@ Do not call brokers from the strategy.
 3. Convert all vendor payloads to domain models at the boundary.
 4. Add an in-memory mock client for tests.
 5. Add config template under `configs/`.
-6. Wire selection in the appropriate engine factory.
+6. Add broker type selection to `src/qts/brokers/factory.py`.
 7. Add unit tests for mapping and brokerage behavior.
 8. Add integration tests for mock initialization.
 9. Update `DECISIONS.md`, `INTERFACES.md`, `PROJECT_STATE.md`, and `CHANGELOG.md`.

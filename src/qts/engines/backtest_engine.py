@@ -5,7 +5,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from qts.brokers.backtest import BacktestBrokerage
+from qts.brokers.factory import create_backtest_brokerage
+from qts.brokers.interfaces import Brokerage
 from qts.calendar import MarketSessionService, build_market_session_service
 from qts.core import ConfigurationError
 from qts.domain import (
@@ -50,7 +51,7 @@ class BacktestEngine:
         self.data_portal: DefaultDataPortal | None = None
         self.portfolio: DefaultPortfolio | None = None
         self.risk_engine: RiskEngine | None = None
-        self.brokerage: BacktestBrokerage | None = None
+        self.brokerage: Brokerage | None = None
         self.execution_engine: ExecutionEngine | None = None
         self.session_service: MarketSessionService | None = None
         self.decision_pipeline: RuntimeDecisionPipeline | None = None
@@ -90,14 +91,11 @@ class BacktestEngine:
             timestamp=self.config.start,
         )
         self.risk_engine = RiskEngine(self.config.risk)
-        self.brokerage = BacktestBrokerage(
+        self.brokerage = create_backtest_brokerage(
             self.config.broker,
             starting_cash=float(self.config.portfolio.get("starting_cash", 100000.0)),
             currency=str(self.config.portfolio.get("currency", "USD")),
             account_id=self.config.broker.account_id or "backtest",
-            fill_policy=self.config.broker.fill_policy,
-            commission_model=self.config.broker.commission_model,
-            slippage_model=self.config.broker.slippage_model,
         )
         self.brokerage.connect()
         self.execution_engine = ExecutionEngine(

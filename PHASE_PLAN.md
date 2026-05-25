@@ -1550,3 +1550,37 @@ while preserving existing backtest, paper, and guarded live behavior.
   orders.
 - Backtest, paper, and live preview tests remain compatible.
 - Focused unit tests cover pipeline outputs and risk context.
+
+## Post-Plan Refactor R2 - Brokerage Factory
+
+### Goal
+
+Centralize broker adapter construction so engines depend on a brokerage factory
+and the normalized `Brokerage` protocol instead of concrete adapter classes.
+
+### Scope
+
+- Add `qts.brokers.factory`.
+- Support the existing backtest, Alpaca paper/live, and IBKR paper broker
+  types.
+- Preserve backtest fill policy, commission model, and slippage model
+  constructor settings.
+- Update backtest, paper, and live engines to call the factory while keeping
+  connection lifecycle, broker synchronization, fills, and live safety policy
+  in the engines.
+
+### Out of Scope
+
+- New broker integrations.
+- `Brokerage` protocol changes.
+- Order lifecycle, fill model, or live safety policy changes.
+- YAML schema changes.
+
+### Acceptance Criteria
+
+- Engines no longer import concrete broker adapter classes for broker
+  selection.
+- Unsupported broker types fail fast with supported broker type details and
+  runtime-mode context when available.
+- The factory constructs but does not connect brokerages.
+- Unit and engine regression tests pass.

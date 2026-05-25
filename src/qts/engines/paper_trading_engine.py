@@ -5,8 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import datetime
 
-from qts.brokers.alpaca import AlpacaBrokerage
-from qts.brokers.ibkr import IBKRBrokerage
+from qts.brokers.factory import create_brokerage
 from qts.brokers.interfaces import Brokerage
 from qts.calendar import MarketSessionService, build_market_session_service
 from qts.core import Clock, ConfigurationError, RealClock
@@ -120,7 +119,10 @@ class PaperTradingEngine:
                 schema_version=schema_version,
             )
         self.data_portal.feature_pipeline = self.feature_pipeline
-        self.brokerage = self.brokerage or _paper_brokerage_from_config(self.config)
+        self.brokerage = self.brokerage or create_brokerage(
+            self.config.broker,
+            runtime_mode=self.config.runtime_mode,
+        )
         self.brokerage.connect(self.config.broker)
 
         broker_account = self.brokerage.get_account()
@@ -412,19 +414,6 @@ def _filter_feature_frame(
         schema_version=frame.schema_version,
         generated_at=frame.generated_at,
         source=frame.source,
-    )
-
-
-def _paper_brokerage_from_config(config: RuntimeConfig) -> Brokerage:
-    broker_type = config.broker.broker_type.lower()
-    if config.broker.paper is False:
-        raise ConfigurationError("PaperTradingEngine requires a paper broker configuration")
-    if broker_type == "alpaca_paper":
-        return AlpacaBrokerage(config.broker)
-    if broker_type == "ibkr_paper":
-        return IBKRBrokerage(config.broker)
-    raise ConfigurationError(
-        "PaperTradingEngine currently supports broker.broker_type=alpaca_paper or ibkr_paper"
     )
 
 

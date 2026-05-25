@@ -35,6 +35,7 @@ General conventions:
 | `BrokerEvent` helpers | `execution/` | polling/event adapters | execution engine, paper/live engines |
 | `BrokerEventSource` | `execution/` / `integrations/` | Alpaca/IBKR event adapters | future engine synchronization |
 | `BrokerEventSyncLoop` | `execution/` | default sync loop | paper/live engines |
+| `BrokerageFactory` | `brokers/` | `create_brokerage`, `create_backtest_brokerage` | engines |
 | `Brokerage` | `brokers/` | backtest, Alpaca, IBKR | order router, engines |
 | `BacktestBrokerage` | `brokers/backtest/` | backtest implementation | backtest engine |
 | `Portfolio` | `portfolio/` | default portfolio | engines, risk, reporting |
@@ -400,6 +401,29 @@ Route normalized order requests to the configured brokerage implementation.
 
 - Router only depends on `Brokerage` interface.
 - Router must not know Alpaca-, IBKR-, or other vendor-specific details.
+
+## 14a. BrokerageFactory
+
+### Purpose
+
+Centralize broker adapter selection for runtime engines.
+
+### Required Functions
+
+| Function | Inputs | Output | Notes |
+|---|---|---|---|
+| `create_brokerage` | `BrokerConfig`, optional `RuntimeMode`, adapter kwargs | `Brokerage` | Creates Alpaca, IBKR, or backtest adapters for supported broker types without connecting them. |
+| `create_backtest_brokerage` | `BrokerConfig`, starting cash, currency, optional account ID | `Brokerage` | Creates the simulated backtest broker while preserving fill policy, commission model, and slippage model settings. |
+
+### Ownership Rules
+
+- The factory may import concrete broker classes.
+- Engines should depend on the factory and `Brokerage` protocol instead of
+  concrete broker adapter classes.
+- The factory must not connect brokerages, read YAML files, mutate
+  `BrokerConfig`, or submit orders.
+- Unsupported broker types must raise `ConfigurationError` with the requested
+  broker type, runtime mode when available, and supported broker type list.
 
 ## 15. Brokerage
 

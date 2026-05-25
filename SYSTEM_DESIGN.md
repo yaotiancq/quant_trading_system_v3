@@ -327,12 +327,17 @@ Rules:
 Owns normalized brokerage interface and broker implementations:
 
 - `Brokerage` interface,
+- `brokers/factory.py`,
 - `brokers/backtest/BacktestBrokerage`,
 - `brokers/alpaca/AlpacaBrokerage`,
 - `brokers/ibkr/IBKRBrokerage`.
 
 Rules:
 
+- Broker selection belongs in `brokers.factory`; engines should request a
+  brokerage through the factory and should not import concrete adapter classes.
+- The factory constructs broker adapters but does not connect them, read
+  configuration files, mutate `BrokerConfig`, or submit orders.
 - Concrete broker behavior is isolated here.
 - Backtest brokerage is a first-class broker implementation.
 - Broker adapters may use low-level clients from `integrations/`.
