@@ -19,7 +19,8 @@ live decision submission, and Major Architecture Phase E chart reporting and
 visual backtest diagnostics, Major Architecture Phase F1 ML model manifest
 contracts, Major Architecture Phase F2 ML approval and stage gates, and Major
 Architecture Phase F3 runtime ML metadata and audit diagnostics, followed by
-the final system design and implementation review.
+the final system design and implementation review and the shared runtime
+decision pipeline refactor.
 
 The Python package now includes stable domain enums and data models, core config
 loading and validation, clocks, common exceptions, logging setup, local
@@ -192,7 +193,15 @@ checks prefer the shared `MarketSessionService` when engines provide it,
 paper/live data portals honor requested feature-name filtering, and stale
 project-state/data-model documentation has been corrected.
 
-- **Current phase:** Final system design and implementation review complete
+The shared runtime decision pipeline refactor centralizes the data-portal
+advance, latest-price update, portfolio mark-to-market, feature update,
+strategy evaluation, risk-context construction, and risk evaluation sequence in
+`RuntimeDecisionPipeline`. `BacktestEngine`, `PaperTradingEngine`, and
+guarded `LiveEngine` decision previews now reuse that common path while keeping
+fills, broker synchronization, order submission, reporting, monitoring, and
+live safety gates in the owning engines.
+
+- **Current phase:** Shared runtime decision pipeline refactor complete
 - **Completed phases:**
   - Phase 0 - Documentation and repository scaffold initialization
   - Phase 1 - Project Skeleton and Core Domain Models
@@ -221,6 +230,7 @@ project-state/data-model documentation has been corrected.
   - Major Architecture Phase F2 - ML Approval and Stage Gates
   - Major Architecture Phase F3 - Runtime ML Metadata and Audit Diagnostics
   - Final system design and implementation review
+  - Shared runtime decision pipeline refactor
 - **In-progress phase:** None
 - **Next recommended task:** None. Start a new documented phase only when new
   requirements are defined.
@@ -256,6 +266,7 @@ project-state/data-model documentation has been corrected.
 | Major Architecture Phase F2 | Complete | Implemented ML approval metadata, manifest stage transitions, and opt-in runtime stage loading policy. |
 | Major Architecture Phase F3 | Complete | Implemented runtime ML manifest metadata propagation, health diagnostics, and report-summary hooks. |
 | Final system design and implementation review | Complete | Reviewed actual implementation against system design, interfaces, data models, and ADRs; fixed protocol import boundaries, shared session-service use in risk checks, runtime data-portal feature filtering, and stale state/model documentation. |
+| Shared runtime decision pipeline refactor | Complete | Added `RuntimeDecisionPipeline` and integrated backtest, paper, and guarded live preview paths through the shared feature, strategy, and risk decision sequence while preserving engine-owned fills, broker sync, order submission, and live safety gates. |
 
 ## 3. Pending Phases
 

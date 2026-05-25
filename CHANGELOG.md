@@ -8,6 +8,35 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Shared Runtime Decision Pipeline Refactor] - 2026-05-25
+
+### Added
+
+- Added `RuntimeDecisionPipeline` and `RuntimeDecisionResult` for the shared
+  market-event to risk-decision path.
+- Added unit coverage for bar handling, quote handling, symbol filtering,
+  rejected decisions, risk context fields, and latest-price state.
+
+### Changed
+
+- `BacktestEngine`, `PaperTradingEngine`, and guarded `LiveEngine` decision
+  previews now reuse the shared data portal, mark-to-market, feature,
+  strategy, and risk evaluation sequence.
+- Updated system documentation to record the pipeline ownership boundary.
+
+### Fixed
+
+- Reduced duplicated feature/strategy/risk orchestration across runtime
+  engines while keeping fills, broker synchronization, order submission, and
+  live safety gates engine-owned.
+
+### Removed
+
+- Removed duplicated runtime decision-path code from backtest, paper, and live
+  engine event handling.
+
+---
+
 ## [Final System Design Review] - 2026-05-24
 
 ### Added

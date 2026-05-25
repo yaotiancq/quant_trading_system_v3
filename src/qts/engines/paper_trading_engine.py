@@ -18,7 +18,6 @@ from qts.domain import (
     Fill,
     Order,
     Quote,
-    RiskDecisionStatus,
     RuntimeConfig,
     RuntimeMode,
     normalize_symbol,
@@ -48,6 +47,7 @@ from .event_loop import (
     heartbeat_policy_from_market_data_config,
     reconnect_policy_from_market_data_config,
 )
+from .decision_pipeline import RuntimeDecisionPipeline
 from .features import feature_pipeline_settings_from_strategies
 from .market_data import resolve_event_market_data_provider
 
@@ -82,6 +82,7 @@ class PaperTradingEngine:
         self.portfolio: DefaultPortfolio | None = None
         self.risk_engine: RiskEngine | None = None
         self.execution_engine: ExecutionEngine | None = None
+        self.decision_pipeline: RuntimeDecisionPipeline | None = None
         self._latest_prices: dict[str, float] = {}
         self._processed_fill_ids: set[str] = set()
         self._last_reconciliation: dict[str, object] | None = None
@@ -152,6 +153,17 @@ class PaperTradingEngine:
             strict=True,
         ):
             strategy.initialize(strategy_config, self.data_portal, {"runtime_config": self.config})
+        self._latest_prices.clear()
+        self.decision_pipeline = RuntimeDecisionPipeline(
+            runtime_config=self.config,
+            data_portal=self.data_portal,
+            portfolio=self.portfolio,
+            feature_pipeline=self.feature_pipeline,
+            risk_engine=self.risk_engine,
+            strategies=self.strategies,
+            session_service=self.session_service,
+            latest_prices=self._latest_prices,
+        )
         self._initialized = True
 
     def start(self, *, max_events: int = 0) -> dict[str, object]:
@@ -198,39 +210,15 @@ class PaperTradingEngine:
     def on_market_event(self, market_event: Bar | Quote) -> list[Order]:
         """Handle one externally supplied paper market event."""
         self._require_initialized()
-        assert self.portfolio is not None
-        assert self.risk_engine is not None
         assert self.execution_engine is not None
-        assert self.feature_pipeline is not None
+        assert self.decision_pipeline is not None
 
-        self.data_portal.advance(market_event)
-        current_price = _event_price(market_event)
-        self._latest_prices[market_event.symbol] = current_price
-        snapshot = self.portfolio.mark_to_market(self._latest_prices, market_event.timestamp)
-        if isinstance(market_event, Quote):
-            return []
-
-        features = self.feature_pipeline.update_online(market_event)
+        result = self.decision_pipeline.on_market_event(market_event)
         submitted_orders: list[Order] = []
-        for strategy in self.strategies:
-            if market_event.symbol not in strategy.symbols:
-                continue
-            outputs = strategy.on_data(market_event, features, snapshot)
-            for output in outputs:
-                decision = self.risk_engine.evaluate(
-                    output,
-                    snapshot,
-                    {
-                        "timestamp": market_event.timestamp,
-                        "bar": market_event,
-                        "current_bar": market_event,
-                        "market_session_service": self.session_service,
-                        "price": market_event.close,
-                        "prices": dict(self._latest_prices),
-                    },
-                )
-                if decision.status != RiskDecisionStatus.REJECTED:
-                    submitted_orders.append(self.execution_engine.submit(decision))
+        for decision in result.accepted_decisions:
+            submitted_orders.append(self.execution_engine.submit(decision))
+        if isinstance(market_event, Quote):
+            return submitted_orders
         self.poll_broker_updates()
         return submitted_orders
 
@@ -400,12 +388,6 @@ class _PaperDataPortal:
             self._current_bars[symbol] = market_event
         else:
             self._quotes[symbol] = market_event
-
-
-def _event_price(market_event: Bar | Quote) -> float:
-    if isinstance(market_event, Quote):
-        return (market_event.bid_price + market_event.ask_price) / 2.0
-    return market_event.close
 
 
 def _filter_feature_frame(

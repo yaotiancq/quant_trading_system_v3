@@ -12,7 +12,7 @@ from qts.domain import (
     BacktestResult,
     Bar,
     Fill,
-    RiskDecisionStatus,
+    Quote,
     RuntimeConfig,
 )
 from qts.execution import ExecutionEngine, OrderRouter
@@ -25,6 +25,7 @@ from qts.reporting import BacktestReporter
 from qts.risk import RiskEngine
 from qts.strategies import BaseStrategy, create_strategy
 
+from .decision_pipeline import RuntimeDecisionPipeline
 from .features import feature_pipeline_settings_from_strategies
 
 
@@ -52,6 +53,7 @@ class BacktestEngine:
         self.brokerage: BacktestBrokerage | None = None
         self.execution_engine: ExecutionEngine | None = None
         self.session_service: MarketSessionService | None = None
+        self.decision_pipeline: RuntimeDecisionPipeline | None = None
         self._latest_prices: dict[str, float] = {}
         self._snapshots = []
         self._initialized = False
@@ -119,6 +121,16 @@ class BacktestEngine:
         ):
             strategy.initialize(strategy_config, self.data_portal, {"runtime_config": self.config})
         self._latest_prices.clear()
+        self.decision_pipeline = RuntimeDecisionPipeline(
+            runtime_config=self.config,
+            data_portal=self.data_portal,
+            portfolio=self.portfolio,
+            feature_pipeline=self.feature_pipeline,
+            risk_engine=self.risk_engine,
+            strategies=self.strategies,
+            session_service=self.session_service,
+            latest_prices=self._latest_prices,
+        )
         self._snapshots = [self.portfolio.get_account_snapshot()]
         self._initialized = True
 
@@ -148,38 +160,17 @@ class BacktestEngine:
         assert self.data_portal is not None
         assert self.feature_pipeline is not None
         assert self.portfolio is not None
-        assert self.risk_engine is not None
         assert self.brokerage is not None
         assert self.execution_engine is not None
+        assert self.decision_pipeline is not None
 
-        self.data_portal.advance(market_event)
-        fills = self.brokerage.on_market_event(market_event)
-        self._apply_fills(fills)
-
-        self._latest_prices[market_event.symbol] = market_event.close
-        snapshot = self.portfolio.mark_to_market(self._latest_prices, market_event.timestamp)
-        features = self.feature_pipeline.update_online(market_event)
-
-        for strategy in self.strategies:
-            if market_event.symbol not in strategy.symbols:
-                continue
-            outputs = strategy.on_data(market_event, features, snapshot)
-            for output in outputs:
-                decision = self.risk_engine.evaluate(
-                    output,
-                    snapshot,
-                    {
-                        "timestamp": market_event.timestamp,
-                        "bar": market_event,
-                        "current_bar": market_event,
-                        "market_session_service": self.session_service,
-                        "price": market_event.close,
-                        "prices": dict(self._latest_prices),
-                    },
-                )
-                if decision.status != RiskDecisionStatus.REJECTED:
-                    self.execution_engine.submit(decision)
-        self._snapshots.append(self.portfolio.mark_to_market(self._latest_prices, market_event.timestamp))
+        result = self.decision_pipeline.on_market_event(
+            market_event,
+            before_mark_to_market=self._apply_backtest_market_event_fills,
+        )
+        for decision in result.accepted_decisions:
+            self.execution_engine.submit(decision)
+        self._snapshots.append(result.portfolio_snapshot)
 
     def finalize(self) -> BacktestResult:
         self._require_initialized()
@@ -226,6 +217,11 @@ class BacktestEngine:
                 if fill.symbol in strategy.symbols:
                     strategy.on_fill(fill)
             self.risk_engine.update_after_fill(fill, snapshot)
+
+    def _apply_backtest_market_event_fills(self, market_event: Bar | Quote) -> None:
+        assert self.brokerage is not None
+        if isinstance(market_event, Bar):
+            self._apply_fills(self.brokerage.on_market_event(market_event))
 
     def _require_initialized(self) -> None:
         if not self._initialized:

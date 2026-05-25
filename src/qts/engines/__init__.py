@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .backtest_engine import BacktestEngine
+from .decision_pipeline import RuntimeDecisionPipeline, RuntimeDecisionResult
 from .event_loop import (
     InMemoryMarketEventSource,
     RuntimeEventLoop,
@@ -19,6 +20,8 @@ __all__ = [
     "InMemoryMarketEventSource",
     "LiveEngine",
     "PaperTradingEngine",
+    "RuntimeDecisionPipeline",
+    "RuntimeDecisionResult",
     "RuntimeHeartbeatPolicy",
     "RuntimeEventLoop",
     "RuntimeEventLoopResult",

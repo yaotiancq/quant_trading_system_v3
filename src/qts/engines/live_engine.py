@@ -59,6 +59,7 @@ from qts.portfolio import DefaultPortfolio
 from qts.risk import RiskEngine
 from qts.strategies import BaseStrategy, create_strategy
 
+from .decision_pipeline import RuntimeDecisionPipeline, RuntimeDecisionResult
 from .features import feature_pipeline_settings_from_strategies
 from .market_data import resolve_event_market_data_provider
 
@@ -97,6 +98,7 @@ class LiveEngine:
         self.session_service: MarketSessionService | None = None
         self.data_portal = _LiveDataPortal()
         self.risk_engine: RiskEngine | None = None
+        self.decision_pipeline: RuntimeDecisionPipeline | None = None
         self._running = False
         self._initialized = False
         self.market_data_provider_name: str | None = None
@@ -166,6 +168,17 @@ class LiveEngine:
             strict=True,
         ):
             strategy.initialize(strategy_config, self.data_portal, {"runtime_config": self.config})
+        self._latest_prices.clear()
+        self.decision_pipeline = RuntimeDecisionPipeline(
+            runtime_config=self.config,
+            data_portal=self.data_portal,
+            portfolio=self.portfolio,
+            feature_pipeline=self.feature_pipeline,
+            risk_engine=self.risk_engine,
+            strategies=self.strategies,
+            session_service=self.session_service,
+            latest_prices=self._latest_prices,
+        )
         reconciliation_check = BrokerReconciliationCheck(self.portfolio, self.brokerage)
         reconciliation = reconciliation_check.run()
         self._last_reconciliation = dict(reconciliation.details)
@@ -216,13 +229,11 @@ class LiveEngine:
 
     def on_market_event(self, event: Bar | Quote) -> dict[str, object]:
         self._require_initialized()
-        assert self.portfolio is not None
+        assert self.decision_pipeline is not None
         self._last_market_event = event
-        self.data_portal.advance(event)
-        self._latest_prices[event.symbol] = _event_price(event)
-        self.portfolio.mark_to_market(self._latest_prices, event.timestamp)
         self.metrics_logger.increment("live_market_events_total", tags={"symbol": event.symbol})
-        previews = [] if isinstance(event, Quote) else self._preview_bar_decisions(event)
+        result = self.decision_pipeline.on_market_event(event)
+        previews = [] if isinstance(event, Quote) else self._preview_bar_decisions(result)
         status = self.health_check()
         status["decision_previews"] = previews
         return status
@@ -416,42 +427,24 @@ class LiveEngine:
         if not self._initialized:
             raise ConfigurationError("live engine must be initialized first")
 
-    def _preview_bar_decisions(self, event: Bar) -> list[dict[str, object]]:
-        assert self.portfolio is not None
-        assert self.feature_pipeline is not None
-        assert self.risk_engine is not None
-        snapshot = self.portfolio.mark_to_market(self._latest_prices, event.timestamp)
-        features = self.feature_pipeline.update_online(event)
+    def _preview_bar_decisions(self, result: RuntimeDecisionResult) -> list[dict[str, object]]:
+        event = result.market_event
+        if not isinstance(event, Bar):
+            return []
         previews: list[dict[str, object]] = []
-        for strategy in self.strategies:
-            if event.symbol not in strategy.symbols:
-                continue
-            outputs = strategy.on_data(event, features, snapshot)
-            for output in outputs:
-                decision = self.risk_engine.evaluate(
-                    output,
-                    snapshot,
-                    {
-                        "timestamp": event.timestamp,
-                        "bar": event,
-                        "current_bar": event,
-                        "market_session_service": self.session_service,
-                        "price": event.close,
-                        "prices": dict(self._latest_prices),
-                    },
-                )
-                preview, order_request = self._decision_preview(event, decision)
-                if order_request is not None:
-                    self._maybe_submit_automated_preview(event, preview, order_request)
-                previews.append(preview)
-                self._decision_previews.append(preview)
-                self.metrics_logger.increment(
-                    "live_decision_previews_total",
-                    tags={
-                        "symbol": event.symbol,
-                        "preview_status": str(preview["preview_status"]),
-                    },
-                )
+        for decision in result.risk_decisions:
+            preview, order_request = self._decision_preview(event, decision)
+            if order_request is not None:
+                self._maybe_submit_automated_preview(event, preview, order_request)
+            previews.append(preview)
+            self._decision_previews.append(preview)
+            self.metrics_logger.increment(
+                "live_decision_previews_total",
+                tags={
+                    "symbol": event.symbol,
+                    "preview_status": str(preview["preview_status"]),
+                },
+            )
         return previews
 
     def _decision_preview(
@@ -659,12 +652,6 @@ class _LiveDataPortal:
             self._current_bars[event.symbol] = event
             return
         self._quotes[event.symbol] = event
-
-
-def _event_price(event: Bar | Quote) -> float:
-    if isinstance(event, Quote):
-        return (event.bid_price + event.ask_price) / 2.0
-    return event.close
 
 
 def _filter_feature_frame(

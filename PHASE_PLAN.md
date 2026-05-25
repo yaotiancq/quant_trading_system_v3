@@ -1517,3 +1517,36 @@ predictions, strategy signals, and report/health diagnostics.
   schema hash used for prediction.
 - Backtest/paper diagnostics can expose the loaded model contract.
 - Tests remain deterministic and network-free.
+
+## Post-Plan Refactor R1 - Shared Runtime Decision Pipeline
+
+### Goal
+
+Remove duplicated feature, strategy, and risk orchestration from runtime engines
+while preserving existing backtest, paper, and guarded live behavior.
+
+### Scope
+
+- Add a shared `RuntimeDecisionPipeline` under `qts.engines`.
+- Centralize data portal advancement, latest-price state, portfolio
+  mark-to-market, risk-context construction, bar feature updates, strategy
+  evaluation, and risk evaluation.
+- Integrate `BacktestEngine`, `PaperTradingEngine`, and guarded `LiveEngine`
+  decision previews through the shared pipeline.
+- Keep fills, broker synchronization, order submission, reporting, monitoring,
+  and live safety gates owned by the engines.
+
+### Out of Scope
+
+- Continuous paper/live market data loop changes.
+- Production live trading enablement.
+- Strategy, risk, order, fill, or YAML config semantics changes.
+
+### Acceptance Criteria
+
+- Quote events update data/price state without triggering bar-based strategy
+  evaluation.
+- The shared pipeline has no concrete broker dependency and does not submit
+  orders.
+- Backtest, paper, and live preview tests remain compatible.
+- Focused unit tests cover pipeline outputs and risk context.

@@ -38,6 +38,7 @@ General conventions:
 | `Brokerage` | `brokers/` | backtest, Alpaca, IBKR | order router, engines |
 | `BacktestBrokerage` | `brokers/backtest/` | backtest implementation | backtest engine |
 | `Portfolio` | `portfolio/` | default portfolio | engines, risk, reporting |
+| `RuntimeDecisionPipeline` | `engines/` | shared runtime decision pipeline | backtest, paper, live engines |
 | `BacktestEngine` | `engines/` | default backtest engine | scripts, CLI |
 | `LiveEngine` | `engines/` | paper/live engine variants | scripts, CLI |
 | `Reporter` | `reporting/` | report generators | engines, scripts |
@@ -561,6 +562,36 @@ Run an end-to-end backtest.
 8. simulate fills,
 9. update portfolio,
 10. record metrics and report.
+
+## 18a. RuntimeDecisionPipeline
+
+### Purpose
+
+Centralize the deterministic runtime decision sequence shared by backtest,
+paper, and guarded live preview modes.
+
+### Required Methods
+
+| Method | Inputs | Output | Notes |
+|---|---|---|---|
+| `on_market_event` | `Bar` or `Quote`, optional pre-mark callback | `RuntimeDecisionResult` | Advances the data portal, updates latest prices, marks portfolio to market, builds risk context, and for bars runs features, strategies, and risk. |
+
+### Result Contract
+
+`RuntimeDecisionResult` includes the market event, portfolio snapshot, optional
+features, strategy outputs, all risk decisions, accepted decisions, rejected
+decisions, latest prices snapshot, and risk context.
+
+### Ownership Rules
+
+- The pipeline must not import concrete broker adapters.
+- The pipeline must not submit orders or poll brokers.
+- The pipeline must not read YAML files, connect external services, or mutate
+  runtime configuration.
+- Quote events update data and price state but do not trigger bar-based
+  strategy evaluation.
+- Engines remain responsible for fills, broker synchronization, execution
+  submission, reporting, monitoring, and live safety gates.
 
 ## 19. Runtime Market Event Loop
 

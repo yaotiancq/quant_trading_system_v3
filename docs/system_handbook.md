@@ -336,6 +336,7 @@ but should not be confused with broker-owned account state.
 | File | Purpose |
 |---|---|
 | `src/qts/engines/event_loop.py` | Runtime market-event source protocol, fake stream, validation loop, reconnect/heartbeat policy, and loop result counters. |
+| `src/qts/engines/decision_pipeline.py` | Shared market-event decision pipeline for data portal advance, price tracking, mark-to-market, feature updates, strategy outputs, and risk decisions. It stops before execution or broker submission. |
 | `src/qts/engines/features.py` | Resolves feature specs/schema from strategy configs. |
 | `src/qts/engines/market_data.py` | Validates event-driven market data provider settings for paper/live. |
 | `src/qts/engines/backtest_engine.py` | Deterministic local backtest orchestration. |

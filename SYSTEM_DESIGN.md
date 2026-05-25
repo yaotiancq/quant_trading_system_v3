@@ -386,6 +386,7 @@ Owns runtime orchestration:
 - `BacktestEngine`,
 - `PaperTradingEngine`,
 - `LiveEngine`,
+- `RuntimeDecisionPipeline`,
 - runtime market-event loop primitives and event-source contracts.
 
 Rules:
@@ -393,6 +394,12 @@ Rules:
 - Engines wire modules together.
 - Engines select clock, data provider, broker implementation, strategy, risk, execution, portfolio, and reporter based on configuration.
 - Engines do not contain detailed strategy, broker, or risk logic.
+- Shared feature, strategy, and risk evaluation should run through
+  `RuntimeDecisionPipeline` so backtest, paper, and guarded live preview paths
+  use the same market-event decision sequence.
+- `RuntimeDecisionPipeline` stops at risk decisions. It does not import
+  concrete broker adapters, submit orders, read configuration files, or connect
+  to external services.
 - Runtime market-event loops must validate duplicate, stale, out-of-order, and
   out-of-session events before dispatching to engine callbacks.
 - Runtime market-event loops expose controlled stream disconnect, reconnect,
