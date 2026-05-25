@@ -40,7 +40,7 @@ from .normalization import (
     rows_to_bars,
     validate_bar_columns,
 )
-from .portal import DefaultDataPortal
+from .portal import DefaultDataPortal, InMemoryRuntimeDataPortal
 from .providers import (
     BaseHistoricalBarProvider,
     CSVBarProvider,
@@ -79,6 +79,7 @@ __all__ = [
     "DEFAULT_SESSION_TIMEZONE",
     "DataPortal",
     "DefaultDataPortal",
+    "InMemoryRuntimeDataPortal",
     "LocalParquetProvider",
     "MarketDataProvider",
     "OPTIONAL_BAR_COLUMNS",

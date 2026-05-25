@@ -20,7 +20,7 @@ General conventions:
 |---|---|---|---|
 | `MarketCalendar` / `MarketSessionService` | `calendar/` | built-in US equity provider | market data, engines, monitoring, brokers |
 | `MarketDataProvider` | `market_data/` | local, replay, live providers | engines, data portal |
-| `DataPortal` | `market_data/` | default data portal | strategies, features, engines |
+| `DataPortal` | `market_data/` | default and in-memory runtime portals | strategies, features, engines |
 | `Indicator` | `features/` | indicator classes/functions | feature pipeline |
 | `FeaturePipeline` | `features/` | concrete pipelines | strategies, ML, engines |
 | `Strategy` | `strategies/` | rule-based and ML strategies | engines |
@@ -134,6 +134,10 @@ Provide a unified read interface to market data and features for strategies and 
 ### Ownership Rules
 
 - `DataPortal` may compose one or more `MarketDataProvider` instances.
+- Runtime `DataPortal` implementations may hold in-memory bars and quotes for
+  externally supplied paper/live events.
+- Runtime bar retention may be unlimited or bounded per symbol, but invalid
+  non-positive retention limits must fail fast.
 - It must not submit orders.
 - It must not own portfolio state.
 

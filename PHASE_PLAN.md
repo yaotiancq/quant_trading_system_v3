@@ -1584,3 +1584,34 @@ and the normalized `Brokerage` protocol instead of concrete adapter classes.
   runtime-mode context when available.
 - The factory constructs but does not connect brokerages.
 - Unit and engine regression tests pass.
+
+## Post-Plan Refactor R3 - Shared Runtime Data Portal
+
+### Goal
+
+Replace duplicated paper/live in-memory data portal behavior with one reusable
+runtime data portal implementation.
+
+### Scope
+
+- Add `InMemoryRuntimeDataPortal` under `qts.market_data`.
+- Store latest bars, latest quotes, per-symbol historical bar windows, and
+  feature-frame access for externally supplied runtime events.
+- Add optional per-symbol bar retention limits.
+- Update paper and live engines to use the shared runtime portal.
+- Keep backtests on the replay-bounded `DefaultDataPortal`.
+
+### Out of Scope
+
+- Persistent market data storage.
+- Database or websocket infrastructure.
+- Strategy public API changes.
+- Historical replay portal replacement.
+
+### Acceptance Criteria
+
+- Paper and live engines use the same runtime data portal implementation.
+- Quote events do not overwrite current bar state.
+- Bar retention is enforced per symbol and invalid retention limits fail fast.
+- Direct unit tests cover runtime portal state behavior.
+- Paper and live regression tests pass.

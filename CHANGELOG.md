@@ -8,6 +8,32 @@ The format follows a simplified Keep a Changelog style.
 
 ---
 
+## [Shared Runtime Data Portal Refactor] - 2026-05-25
+
+### Added
+
+- Added `InMemoryRuntimeDataPortal` for paper/live runtime market-event state.
+- Added runtime data-portal unit tests for current bars, quotes, lookback
+  windows, retention limits, multiple symbols, symbol normalization, and
+  invalid retention configuration.
+
+### Changed
+
+- `PaperTradingEngine` and `LiveEngine` now use the shared runtime data portal
+  instead of private duplicate in-memory portal implementations.
+- Updated system documentation to describe runtime data-portal ownership.
+
+### Fixed
+
+- Centralized paper/live runtime data state handling for latest bars, quotes,
+  history windows, and feature-frame access.
+
+### Removed
+
+- Removed duplicated private paper/live runtime data portal classes.
+
+---
+
 ## [Brokerage Factory Refactor] - 2026-05-25
 
 ### Added

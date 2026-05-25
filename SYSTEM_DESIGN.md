@@ -204,6 +204,7 @@ Owns market data interfaces and implementations:
 - `DataPortal`,
 - local Parquet/CSV providers,
 - Alpaca SIP historical bar downloader,
+- in-memory runtime data portal for paper/live market-event state,
 - Alpaca stream adapter boundary,
 - historical data loaders,
 - replay data provider,
@@ -219,6 +220,8 @@ Rules:
 - Does not call execution directly.
 - Vendor stream payloads must be normalized to internal `Bar`/`Quote` models
   before leaving this layer.
+- Paper/live runtime data state should use the shared
+  `InMemoryRuntimeDataPortal` instead of engine-local portal implementations.
 
 ### `features/`
 

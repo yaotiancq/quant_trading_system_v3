@@ -229,7 +229,7 @@ local-clock checks directly.
 | `src/qts/market_data/alpaca.py` | Config-driven Alpaca SIP historical stock bar downloader and client. |
 | `src/qts/market_data/normalization.py` | CSV reading, bar schema validation, timestamp/symbol normalization, filtering. |
 | `src/qts/market_data/providers.py` | CSV provider, optional Parquet provider, partitioned directory loading, replay provider. |
-| `src/qts/market_data/portal.py` | Default data portal with replay-bounded reads. |
+| `src/qts/market_data/portal.py` | Default replay-bounded data portal and shared in-memory runtime portal for paper/live bars, quotes, windows, and feature frames. |
 | `src/qts/market_data/streaming.py` | Alpaca stream adapter boundary, in-memory stream client, and payload normalization. |
 | `src/qts/market_data/__init__.py` | Public market data exports. |
 
@@ -420,7 +420,7 @@ Keep these empty until there is a clear owner for new behavior.
 | `tests/fixtures/market_data/ml_directional.csv` | Fixture for ML workflow tests. |
 | `tests/unit/domain/` | Domain model and enum tests. |
 | `tests/unit/core/` | Config, clocks, and logging tests. |
-| `tests/unit/market_data/` | CSV provider, data portal, downloader, and streaming adapter tests. |
+| `tests/unit/market_data/` | CSV provider, data portals, downloader, and streaming adapter tests. |
 | `tests/unit/features/` | Indicator and feature pipeline tests. |
 | `tests/unit/strategies/` | Rule-based and ML strategy tests. |
 | `tests/unit/risk/` | Sizing and risk engine tests. |
@@ -459,6 +459,7 @@ Detailed test file index:
 | `tests/unit/market_data/__init__.py` | Market data test package marker. |
 | `tests/unit/market_data/test_alpaca_downloader.py` | Tests Alpaca SIP timeframe normalization, pagination, CSV/Parquet writing, partitioned datasets, and config loading. |
 | `tests/unit/market_data/test_csv_provider.py` | Tests CSV provider, normalization errors, replay ordering, and data portal behavior. |
+| `tests/unit/market_data/test_runtime_data_portal.py` | Tests in-memory runtime portal bars, quotes, lookbacks, retention, symbol normalization, and invalid retention settings. |
 | `tests/unit/market_data/test_streaming.py` | Tests Alpaca stream payload normalization, filtering, config factory, and fail-closed errors. |
 | `tests/unit/features/__init__.py` | Feature test package marker. |
 | `tests/unit/features/test_indicators.py` | Known-value tests for indicators. |

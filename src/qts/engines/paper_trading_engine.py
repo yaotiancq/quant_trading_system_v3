@@ -13,14 +13,11 @@ from qts.domain import (
     Bar,
     BrokerEvent,
     BrokerEventType,
-    FeatureFrame,
     Fill,
     Order,
     Quote,
     RuntimeConfig,
     RuntimeMode,
-    normalize_symbol,
-    normalize_timestamp,
 )
 from qts.execution import (
     BrokerEventSource,
@@ -32,7 +29,11 @@ from qts.execution import (
 )
 from qts.execution.events import broker_event_from_fill, broker_event_from_order
 from qts.features import FeaturePipeline
-from qts.market_data import AlpacaStreamClient, alpaca_stream_event_source_from_config
+from qts.market_data import (
+    AlpacaStreamClient,
+    InMemoryRuntimeDataPortal,
+    alpaca_stream_event_source_from_config,
+)
 from qts.ml import collect_strategy_ml_diagnostics
 from qts.portfolio import DefaultPortfolio
 from qts.risk import RiskEngine
@@ -76,7 +77,7 @@ class PaperTradingEngine:
         self.market_stream_client = market_stream_client
         self.clock = clock or RealClock()
         self.session_service: MarketSessionService | None = None
-        self.data_portal = _PaperDataPortal()
+        self.data_portal = InMemoryRuntimeDataPortal()
         self.market_data_provider_name: str | None = None
         self.portfolio: DefaultPortfolio | None = None
         self.risk_engine: RiskEngine | None = None
@@ -340,81 +341,6 @@ class PaperTradingEngine:
             self.config,
             client=self.market_stream_client,
         )
-
-
-class _PaperDataPortal:
-    """Minimal live data portal for externally supplied paper events."""
-
-    def __init__(self) -> None:
-        self._bars: list[Bar] = []
-        self._current_bars: dict[str, Bar] = {}
-        self._quotes: dict[str, Quote] = {}
-        self.feature_pipeline: FeaturePipeline | None = None
-
-    def get_bars(
-        self,
-        symbol: str,
-        lookback: int | None = None,
-        end: datetime | str | None = None,
-    ) -> list[Bar]:
-        normalized_symbol = normalize_symbol(symbol)
-        rows = [bar for bar in self._bars if bar.symbol == normalized_symbol]
-        if end is not None:
-            rows = [bar for bar in rows if bar.timestamp <= normalize_timestamp(end)]
-        return rows[-lookback:] if lookback is not None else rows
-
-    def get_current_bar(self, symbol: str) -> Bar | None:
-        return self._current_bars.get(normalize_symbol(symbol))
-
-    def get_quote(self, symbol: str) -> Quote | None:
-        return self._quotes.get(normalize_symbol(symbol))
-
-    def get_feature_frame(
-        self,
-        symbols: Sequence[str],
-        feature_names: Sequence[str] | None = None,
-        lookback: int | None = None,
-    ) -> FeatureFrame:
-        if self.feature_pipeline is None:
-            raise ConfigurationError("paper data portal has no feature pipeline")
-        bars = [bar for bar in self._bars if bar.symbol in {symbol.upper() for symbol in symbols}]
-        if lookback is not None:
-            bars = bars[-lookback:]
-        frame = self.feature_pipeline.transform_batch(bars)
-        return _filter_feature_frame(frame, feature_names)
-
-    def advance(self, market_event: Bar | Quote) -> None:
-        symbol = market_event.symbol
-        if isinstance(market_event, Bar):
-            self._bars.append(market_event)
-            self._current_bars[symbol] = market_event
-        else:
-            self._quotes[symbol] = market_event
-
-
-def _filter_feature_frame(
-    frame: FeatureFrame,
-    feature_names: Sequence[str] | None,
-) -> FeatureFrame:
-    if feature_names is None:
-        return frame
-    allowed = set(feature_names)
-    rows = [
-        {
-            key: value
-            for key, value in row.items()
-            if key in allowed or key in {"symbol", "timestamp"}
-        }
-        for row in frame.features
-    ]
-    return FeatureFrame(
-        symbols=frame.symbols,
-        timestamps=frame.timestamps,
-        features=rows,
-        schema_version=frame.schema_version,
-        generated_at=frame.generated_at,
-        source=frame.source,
-    )
 
 
 __all__ = ["PaperTradingEngine"]

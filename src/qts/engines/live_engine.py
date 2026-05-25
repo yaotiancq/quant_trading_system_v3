@@ -14,7 +14,6 @@ from qts.domain import (
     Bar,
     BrokerEvent,
     BrokerConfig,
-    FeatureFrame,
     Fill,
     Order,
     OrderRequest,
@@ -24,8 +23,6 @@ from qts.domain import (
     RiskDecisionStatus,
     RuntimeConfig,
     RuntimeMode,
-    normalize_symbol,
-    normalize_timestamp,
 )
 from qts.execution import (
     BrokerEventSource,
@@ -39,6 +36,7 @@ from qts.execution import (
     build_order_request,
 )
 from qts.features import FeaturePipeline
+from qts.market_data import InMemoryRuntimeDataPortal
 from qts.ml import collect_strategy_ml_diagnostics
 from qts.monitoring import (
     AlertManager,
@@ -96,7 +94,7 @@ class LiveEngine:
         self.metrics_logger = metrics_logger or RuntimeMetricsLogger()
         self.clock = clock or RealClock()
         self.session_service: MarketSessionService | None = None
-        self.data_portal = _LiveDataPortal()
+        self.data_portal = InMemoryRuntimeDataPortal()
         self.risk_engine: RiskEngine | None = None
         self.decision_pipeline: RuntimeDecisionPipeline | None = None
         self._running = False
@@ -606,80 +604,6 @@ class LiveEngine:
             "automated live submission stopped",
             details={"reason": reason, "preview_id": preview.get("preview_id")},
         )
-
-
-class _LiveDataPortal:
-    """Minimal data portal for live decision preview."""
-
-    def __init__(self) -> None:
-        self._bars: list[Bar] = []
-        self._current_bars: dict[str, Bar] = {}
-        self._quotes: dict[str, Quote] = {}
-        self.feature_pipeline: FeaturePipeline | None = None
-
-    def get_bars(
-        self,
-        symbol: str,
-        lookback: int | None = None,
-        end: datetime | str | None = None,
-    ) -> list[Bar]:
-        normalized_symbol = normalize_symbol(symbol)
-        rows = [bar for bar in self._bars if bar.symbol == normalized_symbol]
-        if end is not None:
-            rows = [bar for bar in rows if bar.timestamp <= normalize_timestamp(end)]
-        return rows[-lookback:] if lookback is not None else rows
-
-    def get_current_bar(self, symbol: str) -> Bar | None:
-        return self._current_bars.get(normalize_symbol(symbol))
-
-    def get_quote(self, symbol: str) -> Quote | None:
-        return self._quotes.get(normalize_symbol(symbol))
-
-    def get_feature_frame(
-        self,
-        symbols: Sequence[str],
-        feature_names: Sequence[str] | None = None,
-        lookback: int | None = None,
-    ) -> FeatureFrame:
-        if self.feature_pipeline is None:
-            raise ConfigurationError("live data portal has no feature pipeline")
-        bars = [bar for bar in self._bars if bar.symbol in {symbol.upper() for symbol in symbols}]
-        if lookback is not None:
-            bars = bars[-lookback:]
-        frame = self.feature_pipeline.transform_batch(bars)
-        return _filter_feature_frame(frame, feature_names)
-
-    def advance(self, event: Bar | Quote) -> None:
-        if isinstance(event, Bar):
-            self._bars.append(event)
-            self._current_bars[event.symbol] = event
-            return
-        self._quotes[event.symbol] = event
-
-
-def _filter_feature_frame(
-    frame: FeatureFrame,
-    feature_names: Sequence[str] | None,
-) -> FeatureFrame:
-    if feature_names is None:
-        return frame
-    allowed = set(feature_names)
-    rows = [
-        {
-            key: value
-            for key, value in row.items()
-            if key in allowed or key in {"symbol", "timestamp"}
-        }
-        for row in frame.features
-    ]
-    return FeatureFrame(
-        symbols=frame.symbols,
-        timestamps=frame.timestamps,
-        features=rows,
-        schema_version=frame.schema_version,
-        generated_at=frame.generated_at,
-        source=frame.source,
-    )
 
 
 def _truthy(value: object) -> bool:

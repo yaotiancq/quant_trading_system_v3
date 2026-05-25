@@ -20,13 +20,14 @@ visual backtest diagnostics, Major Architecture Phase F1 ML model manifest
 contracts, Major Architecture Phase F2 ML approval and stage gates, and Major
 Architecture Phase F3 runtime ML metadata and audit diagnostics, followed by
 the final system design and implementation review, the shared runtime decision
-pipeline refactor, and the brokerage factory refactor.
+pipeline refactor, the brokerage factory refactor, and the shared runtime data
+portal refactor.
 
 The Python package now includes stable domain enums and data models, core config
 loading and validation, clocks, common exceptions, logging setup, local
 historical bar providers, config-driven Alpaca SIP historical bar download,
-data normalization, deterministic replay, a default data portal, reusable batch
-indicators, feature schemas, feature pipelines,
+data normalization, deterministic replay, a default data portal, an in-memory
+runtime data portal, reusable batch indicators, feature schemas, feature pipelines,
 broker-agnostic strategy interfaces, SMA crossover and RSI mean-reversion
 example strategies, normalized signal-to-intent conversion, position sizing, a
 default risk engine, basic risk rules, an execution engine, order request
@@ -206,7 +207,13 @@ The brokerage factory refactor centralizes adapter selection in
 from the factory while retaining connection lifecycle, simulated fills,
 paper/live synchronization, and live safety policy in the engines.
 
-- **Current phase:** Brokerage factory refactor complete
+The shared runtime data portal refactor centralizes externally supplied
+paper/live market-event state in `InMemoryRuntimeDataPortal`. Paper and live
+engines now share bar history, current bar, quote, lookback, feature-frame, and
+per-symbol retention behavior while `BacktestEngine` continues to use the
+replay-bounded `DefaultDataPortal`.
+
+- **Current phase:** Shared runtime data portal refactor complete
 - **Completed phases:**
   - Phase 0 - Documentation and repository scaffold initialization
   - Phase 1 - Project Skeleton and Core Domain Models
@@ -237,6 +244,7 @@ paper/live synchronization, and live safety policy in the engines.
   - Final system design and implementation review
   - Shared runtime decision pipeline refactor
   - Brokerage factory refactor
+  - Shared runtime data portal refactor
 - **In-progress phase:** None
 - **Next recommended task:** None. Start a new documented phase only when new
   requirements are defined.
@@ -274,6 +282,7 @@ paper/live synchronization, and live safety policy in the engines.
 | Final system design and implementation review | Complete | Reviewed actual implementation against system design, interfaces, data models, and ADRs; fixed protocol import boundaries, shared session-service use in risk checks, runtime data-portal feature filtering, and stale state/model documentation. |
 | Shared runtime decision pipeline refactor | Complete | Added `RuntimeDecisionPipeline` and integrated backtest, paper, and guarded live preview paths through the shared feature, strategy, and risk decision sequence while preserving engine-owned fills, broker sync, order submission, and live safety gates. |
 | Brokerage factory refactor | Complete | Added `qts.brokers.factory` and moved backtest, paper, and live broker adapter construction out of engines while preserving connection lifecycle, simulation models, broker sync, and live safety gates. |
+| Shared runtime data portal refactor | Complete | Added `InMemoryRuntimeDataPortal` and moved paper/live runtime bar, quote, lookback, feature-frame, and retention behavior out of private engine portal classes. |
 
 ## 3. Pending Phases
 
